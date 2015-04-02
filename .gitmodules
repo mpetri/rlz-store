@@ -1,6 +1,3 @@
-[submodule "external/sdsl-lite"]
-	path = external/sdsl-lite
-	url = git@github.com:simongog/sdsl-lite.git
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://git.chromium.org/git/external/googletest.git
@@ -10,3 +7,6 @@
 [submodule "external/FastPFor"]
 	path = external/FastPFor
 	url = https://github.com/lemire/FastPFor.git
+[submodule "external/sdsl-lite"]
+	path = external/sdsl-lite
+	url = git@github.com:mpetri/sdsl-lite.git
