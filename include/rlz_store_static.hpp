@@ -39,16 +39,18 @@ public:
         LOG(INFO) << "Create/Load dictionary (" << dictionary_creation_strategy::type() << ")";
         dictionary_creation_strategy::create(col);
         LOG(INFO) << "Dictionary hash before pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
+
         // (2) prune the dictionary if necessary
         LOG(INFO) << "Prune dictionary with " << dictionary_pruning_strategy::type();
         dictionary_pruning_strategy::template prune<factorization_strategy>(col);
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
+
         // (3) create factorized text using the dict
         LOG(INFO) << "Factorize text with (" << factorization_strategy::type() << ")";
         factorization_strategy::template encode<factor_encoder>(col);
 
         // (4) encode document start pos
-        LOG(INFO) << "Create document map (" << factorization_strategy::type() << ")";
+        LOG(INFO) << "Create block map (" << factorization_strategy::type() << ")";
         auto blockmap_file = col.path+"/index/"+KEY_BLOCKMAP+"-"+factorization_strategy::type()+"-"+
             col.param_map[PARAM_DICT_HASH]+".sdsl";
         if(!utils::file_exists(blockmap_file)) {

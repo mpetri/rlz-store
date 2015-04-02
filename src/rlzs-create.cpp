@@ -76,6 +76,7 @@ int main(int argc,const char* argv[])
             LOG(INFO) << "Verify that factorization is correct.";
             sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
             auto num_blocks = text.size() / factorization_block_size;
+
             bool error = false;
             for(size_t i=0;i<num_blocks;i++) {
                 auto block_content = rlz_store.block(i);
@@ -85,6 +86,22 @@ int main(int argc,const char* argv[])
                     error = true;
                     LOG_N_TIMES(10,ERROR) << "BLOCK " << i << " NOT EQUAL";
                     for(size_t j=0;j<factorization_block_size;j++) {
+                        if(text[block_start+j] != block_content[j]) {
+                            LOG_N_TIMES(100,ERROR) << "Error at pos " << j << " should be '" 
+                                       << (int) text[block_start+j] << "' is '" << (int) block_content[j] << "'";
+                        }
+                    }
+                }
+            }
+            auto left = text.size() % factorization_block_size;
+            if(left) {
+                auto block_content = rlz_store.block(num_blocks);
+                auto block_start = num_blocks*factorization_block_size;
+                auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
+                if(!eq) {
+                    error = true;
+                    LOG(ERROR) << "LAST BLOCK IS NOT EQUAL";
+                    for(size_t j=0;j<left;j++) {
                         if(text[block_start+j] != block_content[j]) {
                             LOG_N_TIMES(100,ERROR) << "Error at pos " << j << " should be '" 
                                        << (int) text[block_start+j] << "' is '" << (int) block_content[j] << "'";

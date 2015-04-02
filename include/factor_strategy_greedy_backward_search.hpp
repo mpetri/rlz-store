@@ -26,24 +26,23 @@ struct factor_strategy_greedy_backward_search {
 	static uint32_t encode_block(t_ostream& ofs,const t_suffix_array& sa,
 		t_itr itr,t_itr end,std::vector<factor_data>& factors) 
 	{
-		using clock = std::chrono::high_resolution_clock;
-		auto block_time_start = clock::now();
 		size_t num_factors = 0;
 		size_t sp=0;
 		size_t ep=sa.size()-1;
 		auto factor_start = itr;
-		std::chrono::nanoseconds bs_total = std::chrono::nanoseconds(0);
-		std::chrono::nanoseconds pick_total = std::chrono::nanoseconds(0); 
 		while(itr != end) {
     		auto sym = *itr;
-			bool sym_exists_in_dict = sa.char2comp[sym] != 0;
+    		auto mapped_sym = sa.char2comp[sym];
+			bool sym_exists_in_dict = mapped_sym != 0;
 			size_t res_sp,res_ep;
-			{
-				auto bs_start = clock::now();
-				sdsl::backward_search(sa,sp,ep,sym,res_sp,res_ep);
-				auto bs_stop = clock::now();
-
-				bs_total += bs_stop-bs_start;
+			if(sym_exists_in_dict) {
+				if(sp == 0 && ep == sa.size()-1) {
+					// small optimization
+					res_sp = sa.C[mapped_sym];
+					res_ep = sa.C[mapped_sym+1]-1;
+				} else {
+					sdsl::backward_search(sa,sp,ep,sym,res_sp,res_ep);
+				}
 			}
 			if( !sym_exists_in_dict || res_ep < res_sp ) { // not found
 				auto factor_len = std::distance(factor_start,itr);
@@ -53,10 +52,7 @@ struct factor_strategy_greedy_backward_search {
 					++itr;
 				} else {
 					// substring not found
-					auto pick_start = clock::now();
 					factors[num_factors].offset = factor_select_first::pick_offset<>(sa,sp,ep,(size_t)factor_len,true);
-					auto pick_stop = clock::now();
-					pick_total += (pick_stop-pick_start);
 					factors[num_factors].len = factor_len;
 					sp = 0; ep = sa.size()-1;
 					// don't increment itr as we still have to 
@@ -72,29 +68,13 @@ struct factor_strategy_greedy_backward_search {
 		/* are we in a substring? encode the rest */
 		if(factor_start != itr) {
 			auto factor_len = std::distance(factor_start,itr);
-			auto pick_start = clock::now();
 			factors[num_factors].offset = factor_select_first::pick_offset<>(sa,sp,ep,(size_t)factor_len,true);
-			auto pick_stop = clock::now();
-			pick_total += (pick_stop-pick_start);
 			factors[num_factors].len = (uint32_t) factor_len;
 			num_factors++;
 		}
 
-
 		/* write the factors to the output stream */
-		auto encode_start = clock::now();
 		t_coder::template encode_block<t_ostream>(ofs,factors,num_factors);
-		auto encode_stop = clock::now();
-		auto encode_total = encode_stop-encode_start;
-
-		auto block_time_stop = clock::now();
-		auto block_encode_total = block_time_stop - block_time_start;
-
-		LOG(TRACE) << std::chrono::duration_cast<std::chrono::nanoseconds>(bs_total).count() / 1000.0f << ";"
-				   << std::chrono::duration_cast<std::chrono::nanoseconds>(pick_total).count() / 1000.0f << ";"
-				   << std::chrono::duration_cast<std::chrono::nanoseconds>(encode_total).count() / 1000.0f << ";"
-				   << std::chrono::duration_cast<std::chrono::nanoseconds>(block_encode_total).count() / 1000.0f;
-
 		return num_factors;
 	}
 
@@ -133,13 +113,17 @@ struct factor_strategy_greedy_backward_search {
         sdsl::int_vector<> factors_in_block(num_blocks + (left != 0));
         auto block_itr = text.begin();
         auto block_end = block_itr + block_size;
+        
         auto time_last = clock::now();
         auto blocks_per_10mib = (10*1024*1024) / t_block_size;
         for(size_t i=0;i<num_blocks;i++) {
+
         	block_offsets[i] = ofs.tellp();
         	factors_in_block[i] = encode_block<bit_ofs,t_coder>(ofs,sa,block_itr,block_end,block_factors);
         	block_itr = block_end;
         	block_end += block_size;
+
+
             if( (i+1) % blocks_per_10mib == 0) { // output stats
                 auto time_for_one_mib = clock::now() - time_last;
                 time_last = clock::now();
@@ -150,10 +134,10 @@ struct factor_strategy_greedy_backward_search {
                           << std::setprecision(3) << percent_complete << "% done)";
             }
         }
-   //      if(left != 0) { /* is there a non-full block? */
-   //      	block_offsets[num_blocks] = ofs.tellp();
-			// factors_in_block[num_blocks] = encode_block<bit_ofs,t_coder>(ofs,sa,block_itr,block_itr+left+1,block_factors);
-   //      }
+        if(left != 0) { /* is there a non-full block? */
+        	block_offsets[num_blocks] = ofs.tellp();
+			factors_in_block[num_blocks] = encode_block<bit_ofs,t_coder>(ofs,sa,block_itr,block_itr+left+1,block_factors);
+        }
 
         // store block offsets
         LOG(INFO) << "\tStore block offsets";
