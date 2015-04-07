@@ -57,8 +57,8 @@ struct collection {
         return std::to_string(crc32);
     }
 
-    void clear() {
-
+    std::string temp_file_name(const std::string& key,size_t offset) {
+        return col.path+"/tmp/"+key+"-"+std::to_string(offset)+".sdsl";
     }
 };
 

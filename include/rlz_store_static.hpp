@@ -14,7 +14,8 @@
 template <
 class t_dictionary_creation_strategy = dict_random_sample_budget<1024,1024>,
 class t_dictionary_pruning_strategy = dict_prune_none,
-class t_factorization_strategy = factor_strategy_greedy_backward_search<2048,sdsl::csa_bitcompressed<>,factor_select_first>,
+class t_dictionary_index = dict_index_csa<>,
+class t_factorization_strategy = factor_strategy_greedy_backward_search<2048,factor_select_first>,
 class t_factor_coder = factor_coder<coder::vbyte,coder::vbyte>,
 class t_block_map = block_map_uncompressed
 >
@@ -22,6 +23,7 @@ class rlz_store_static {
 public:
     using dictionary_creation_strategy = t_dictionary_creation_strategy;
     using dictionary_pruning_strategy = t_dictionary_pruning_strategy;
+    using dictionary_index = t_dictionary_index;
     using factorization_strategy = t_factorization_strategy;
     using factor_encoder = t_factor_coder;
     using block_map = t_block_map;
@@ -36,7 +38,7 @@ public:
         auto start = clock::now();
         // (1) create dictionary based on parametrized
         // dictionary creation strategy if necessary
-        LOG(INFO) << "Create/Load dictionary (" << dictionary_creation_strategy::type() << ")";
+        LOG(INFO) << "Create dictionary (" << dictionary_creation_strategy::type() << ")";
         dictionary_creation_strategy::create(col);
         LOG(INFO) << "Dictionary hash before pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
@@ -46,11 +48,19 @@ public:
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (3) create factorized text using the dict
-        LOG(INFO) << "Factorize text with (" << factorization_strategy::type() << ")";
-        factorization_strategy::template encode<factor_encoder>(col);
+        {
+            LOG(INFO) << "Create/Load dictionary index";
+            dictionary_index idx(col);
+
+            LOG(INFO) << "Factorize text";
+            const sdsl::int_vector_mapper<8,std::ios_base::in> text(col.file_map[KEY_TEXT]);
+            auto encoding = factorizor::template encode<factor_encoder>(col,text.begin(),text.end());
+
+            LOG(INFO) << "Merge factorized text blocks";
+        }
 
         // (4) encode document start pos
-        LOG(INFO) << "Create block map (" << factorization_strategy::type() << ")";
+        LOG(INFO) << "Create block map (" << block_map::type() << ")";
         auto blockmap_file = col.path+"/index/"+KEY_BLOCKMAP+"-"+factorization_strategy::type()+"-"+
             col.param_map[PARAM_DICT_HASH]+".sdsl";
         if(!utils::file_exists(blockmap_file)) {
