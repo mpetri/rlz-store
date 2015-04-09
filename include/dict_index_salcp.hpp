@@ -63,16 +63,20 @@ struct dict_index_salcp {
 	        cfg.dir = col.path + "/tmp/";
 	        cfg.id = dict_hash;
 	        cfg.file_map[sdsl::conf::KEY_TEXT] = col.file_map[KEY_DICT];
+	        LOG(INFO) << "\tConstruct SA";
 	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_SA, cfg)) {
 	            sdsl::construct_sa<8>(cfg);
 	        }
+	        LOG(INFO) << "\tConstruct BWT";
 	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_BWT, cfg)) {
 	            sdsl::construct_bwt<8>(cfg);
 	        }
+	        LOG(INFO) << "\tConstruct LCP";
 	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_LCP, cfg)) {
 	        	sdsl::construct_lcp_semi_extern_PHI(cfg);
 	        }
 
+	        LOG(INFO) << "\tLoad SA/LCP/DICT";
 	        sdsl::load_from_cache(sa,sdsl::conf::KEY_SA,cfg);
 	        sdsl::load_from_cache(lcp,sdsl::conf::KEY_LCP,cfg);
 	        sdsl::load_from_cache(dict,sdsl::conf::KEY_TEXT,cfg);

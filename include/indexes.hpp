@@ -27,3 +27,14 @@ using rlz_type_standard = rlz_store_static<
 	                        factor_selection_strategy,
 	                        factor_encoder,
 	                        block_map>;
+
+
+/* use an uncompressed SA + LCP for factoriation instead */
+using rlz_type_salcp = rlz_store_static<
+	                        dict_creation_strategy,
+	                        dict_pruning_strategy,
+	                        dict_index_salcp,
+	                        factorization_block_size,
+	                        factor_selection_strategy,
+	                        factor_encoder,
+	                        block_map>;
