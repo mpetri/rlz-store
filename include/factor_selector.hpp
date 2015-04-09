@@ -8,14 +8,13 @@ struct factor_select_first {
 		return "factor_select_first";
 	}
 
-	template<class t_sa>
-	static uint32_t pick_offset(const t_sa& sa,size_t sp,size_t,size_t factor_len,bool reverse_dict)
+	template<class t_index>
+	static uint32_t pick_offset(const t_index& idx,size_t sp,size_t,size_t factor_len)
 	{
-		auto sa_val = sa[sp];
-		if(reverse_dict) {
-			return sa.size() - (sa_val+factor_len) - 1;
+		if(idx.is_reverse()) {
+			return idx.sa.size() - (idx.sa[sp]+factor_len) - 1;
 		} 
-		return sa_val;
+		return idx.sa[sp];
 	}
 };
 
@@ -24,12 +23,12 @@ struct factor_select_last {
 		return "factor_select_last";
 	}
 
-	template<class t_sa>
-	static uint32_t pick_offset(const t_sa& sa,size_t,size_t ep,size_t factor_len,bool reverse_dict)
+	template<class t_index>
+	static uint32_t pick_offset(const t_index& idx,size_t,size_t ep,size_t factor_len)
 	{
-		if(reverse_dict) {
-			return sa.size() - (sa[ep]+factor_len) - 1;
+		if(idx.is_reverse()) {
+			return idx.sa.size() - (idx.sa[ep]+factor_len) - 1;
 		} 
-		return sa[ep];
+		return idx.sa[ep];
 	}
 };

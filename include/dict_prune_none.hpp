@@ -11,7 +11,7 @@ struct dict_prune_none {
 	}
 
 	template<class t_factorization_strategy>
-	static void prune(collection&) {
+	static void prune(collection&,bool) {
 		LOG(INFO) << "\t" << "No dictionary pruning performed.";
 	}
 };
