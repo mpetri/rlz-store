@@ -15,13 +15,13 @@ public:
 				+std::to_string(t_block_size_bytes);
 	}
 public:
-	static void create(collection& col) {
+	static void create(collection& col,bool rebuild) {
 		const uint32_t block_size = t_block_size_bytes;
 		const uint32_t budget_bytes = t_budget_mb*(1024*1024);
 		// check if we store it already and load it
 		auto file_name = col.path+"/index/"+type()+".sdsl";
 		col.file_map[KEY_DICT] = file_name;
-		if (! utils::file_exists(file_name) || col.rebuild ) {  // construct
+		if (! utils::file_exists(file_name) || rebuild ) {  // construct
 			LOG(INFO) << "\t" << "Create dictionary with budget " << t_budget_mb << " MiB";
 			// memory map the text and iterate over it
 			auto dict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);

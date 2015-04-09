@@ -9,12 +9,15 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cstdio>
+#include <chrono>
 
 #include <zlib.h>
-
+#include <dirent.h>
 
 #include "easylogging++.h"
 
+using hrclock = std::chrono::high_resolution_clock;
 
 namespace utils
 {
@@ -64,11 +67,43 @@ create_directory(std::string dir)
 {
     if (!directory_exists(dir)) {
         if (mkdir(dir.c_str(),0777) == -1) {
-            perror("could not create directory");
+            std::perror("could not create directory");
             exit(EXIT_FAILURE);
         }
     }
 }
+
+void
+rename_file(std::string from,std::string to)
+{
+    int rc = std::rename(from.c_str(),to.c_str()); 
+    if(rc) { 
+        perror("error renaming file");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void
+remove_file(std::string file)
+{
+    std::remove(file.c_str());
+}
+
+void
+remove_all_files_in_dir(std::string dir)
+{
+    struct dirent *next_file;
+    auto folder = opendir(dir.c_str());
+    while ( (next_file = readdir(folder)) != nullptr ) {
+        std::string file_name = (const char*) next_file->d_name;
+        if(file_name != "." && file_name != "..") {
+            auto file_path = dir +"/"+file_name;
+            remove_file(file_path);
+        }
+    }
+}
+
+#define ELPP_THREAD_SAFE
 
 void
 setup_logger(int argc,const char** argv)

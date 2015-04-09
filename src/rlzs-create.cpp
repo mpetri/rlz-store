@@ -8,6 +8,7 @@ INITIALIZE_EASYLOGGINGPP
 typedef struct cmdargs {
     std::string collection_dir;
     bool rebuild;
+    uint32_t threads;
     bool verify;
 } cmdargs_t;
 
@@ -17,9 +18,10 @@ print_usage(const char* program)
     fprintf(stdout,"%s -c <collection directory> \n",program);
     fprintf(stdout,"where\n");
     fprintf(stdout,"  -c <collection directory>  : the directory the collection is stored.\n");
-    fprintf(stdout,"  -d <debug output>   : increase the amount of logs shown.\n");
-    fprintf(stdout,"  -f <force rebuild>  : force rebuild of structures.\n");
-    fprintf(stdout,"  -v <verify index>   : verify the factorization can be used to recover the text.\n");
+    fprintf(stdout,"  -d <debug output>          : increase the amount of logs shown.\n");
+    fprintf(stdout,"  -t <threads>               : number of threads to use during factorization.\n");
+    fprintf(stdout,"  -f <force rebuild>         : force rebuild of structures.\n");
+    fprintf(stdout,"  -v <verify index>          : verify the factorization can be used to recover the text.\n");
 };
 
 cmdargs_t
@@ -30,13 +32,17 @@ parse_args(int argc,const char* argv[])
     args.collection_dir = "";
     args.rebuild = false;
     args.verify = false;
-    while ((op=getopt(argc,(char* const*)argv,"c:fdv")) != -1) {
+    args.threads = 1;
+    while ((op=getopt(argc,(char* const*)argv,"c:fdvt:")) != -1) {
         switch (op) {
             case 'c':
                 args.collection_dir = optarg;
                 break;
             case 'f':
                 args.rebuild = true;
+                break;
+            case 't':
+                args.threads = std::stoul(optarg);
                 break;
             case 'd':
                 el::Loggers::setLoggingLevel(el::Level::Trace);
@@ -66,11 +72,13 @@ int main(int argc,const char* argv[])
     /* parse the collection */
     LOG(INFO) << "Parsing collection directory " << args.collection_dir;
     collection col(args.collection_dir);
-    col.rebuild = args.rebuild;
 
     /* create rlz index */
     {
-        auto rlz_store = rlz_type_standard::create_or_load(col);
+        auto rlz_store = rlz_type_standard::builder{}
+                            .set_rebuild(args.rebuild)
+                            .set_threads(args.threads)
+                            .build_or_load(col);
 
         if(args.verify) {
             LOG(INFO) << "Verify that factorization is correct.";
@@ -84,13 +92,14 @@ int main(int argc,const char* argv[])
                 auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
                 if(!eq) {
                     error = true;
-                    LOG_N_TIMES(10,ERROR) << "BLOCK " << i << " NOT EQUAL";
+                    LOG(ERROR) << "BLOCK " << i << " NOT EQUAL";
                     for(size_t j=0;j<factorization_block_size;j++) {
                         if(text[block_start+j] != block_content[j]) {
-                            LOG_N_TIMES(100,ERROR) << "Error at pos " << j << " should be '" 
+                            LOG_N_TIMES(100,ERROR) << "Error at pos " << j << "("<<block_start+j<<") should be '" 
                                        << (int) text[block_start+j] << "' is '" << (int) block_content[j] << "'";
                         }
                     }
+                    return EXIT_FAILURE;
                 }
             }
             auto left = text.size() % factorization_block_size;
@@ -103,7 +112,7 @@ int main(int argc,const char* argv[])
                     LOG(ERROR) << "LAST BLOCK IS NOT EQUAL";
                     for(size_t j=0;j<left;j++) {
                         if(text[block_start+j] != block_content[j]) {
-                            LOG_N_TIMES(100,ERROR) << "Error at pos " << j << " should be '" 
+                            LOG_N_TIMES(100,ERROR) << "Error at pos " << j << "("<<block_start+j<<") should be '" 
                                        << (int) text[block_start+j] << "' is '" << (int) block_content[j] << "'";
                         }
                     }
