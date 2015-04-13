@@ -9,7 +9,7 @@ struct factorization_info {
 	std::string factored_text_filename;
 	std::string block_offset_filename;
 	std::string block_factors_filename;
-	bool operator<(const factorization_info& fi) {
+	bool operator<(const factorization_info& fi) const {
 		return offset < fi.offset;
 	}
 };
