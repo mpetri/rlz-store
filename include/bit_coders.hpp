@@ -1,8 +1,12 @@
-#ifndef INCLUDED_SDSL_NEW_CODERS
-#define INCLUDED_SDSL_NEW_CODERS
+#pragma once
 
 #include "sdsl/int_vector.hpp"
 #include "bit_streams.hpp"
+#include "zlib.h"
+
+
+#include "easylogging++.h"
+
 
 namespace coder
 {
@@ -12,7 +16,7 @@ struct elias_gamma {
         return "elias_gamma";
     }
 
-    template<class t_bit_ostream,typename T>
+    template<typename T>
     static inline uint64_t encoded_length(const T& x)
     {
         uint8_t len_1 = sdsl::bits::hi(x);
@@ -331,7 +335,95 @@ struct delta {
     }
 };
 
+template<uint8_t t_level = 6>
+struct zlib {
+    static const uint32_t zlib_buf_len = 100000;
+    static std::string type() {
+        return "zlib";
+    }
+
+    template<class t_bit_ostream,typename t_itr>
+    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    {
+        static thread_local uint32_t buf[zlib_buf_len];
+        auto n = std::distance(begin,end);
+        if(n > zlib_buf_len) {
+            LOG(FATAL) << "zlib-encode: zlib_buf_len < n!";
+        }
+        std::copy(begin,end,std::begin(buf));
+
+        uint64_t bits_required = 32+n*128; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+        
+        /* space for writing the encoding size */
+        uint32_t* out_size = (uint32_t*) os.cur_data();
+        os.skip(32);
+
+        /* encode */
+        uint64_t written_bytes = zlib_buf_len*sizeof(uint32_t);
+        auto out_buf = os.cur_data8();
+        uint8_t* in_buf = (uint8_t*)buf;
+        uint64_t in_size = n*sizeof(uint32_t);
+        auto error = compress2(out_buf,&written_bytes,in_buf,in_size,t_level);
+        if(error != Z_OK) {
+            switch(error) {
+                case Z_MEM_ERROR:
+                    LOG(FATAL) << "zlib-encode: Memory error!";
+                    break;
+
+                case Z_BUF_ERROR:
+                    LOG(FATAL) << "zlib-encode: Buffer error!";
+                    break;
+                default:
+                    LOG(FATAL) << "zlib-encode: Unknown error!";
+                    break;
+            }
+        }
+        // write the len. assume it fits in 32bits
+        *out_size = (uint32_t) written_bytes;
+        os.skip(*out_size*8); // skip over the written content
+    }
+    template<class t_bit_istream,typename t_itr>
+    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    {
+        thread_local uint32_t buf[zlib_buf_len];
+        if(n > zlib_buf_len) {
+            LOG(FATAL) << "zlib-decode: zlib_buf_len < n!";
+        }
+        is.align8(); // align to bytes if needed
+
+        /* read the encoding size */
+        uint32_t* pin_size = (uint32_t*) is.cur_data();
+        uint32_t in_size = *pin_size;
+        is.skip(32);
+
+        /* decode */
+        auto in_buf = is.cur_data8();
+        uint8_t* out_buf = (uint8_t*)buf;
+        uint64_t out_size = zlib_buf_len*sizeof(uint32_t);
+        auto error = uncompress(out_buf,&out_size,in_buf,in_size);
+        if(error != Z_OK) {
+            switch(error) {
+                case Z_MEM_ERROR:
+                    LOG(FATAL) << "zlib-decode: Memory error!";
+                    break;
+                case Z_BUF_ERROR:
+                    LOG(FATAL) << "zlib-decode: Buffer error!";
+                    break;
+                default:
+                    LOG(FATAL) << "zlib-decode: Unknown error!";
+                    break;
+            }
+        }
+        is.seek(in_size*8); // skip over the read content
+
+        /* output the data from the buffer */
+        for(size_t i=0;i<n;i++) {
+            *it = buf[i];
+            ++it;
+        }
+    }
+};
+
 }
-
-
-#endif

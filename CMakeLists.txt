@@ -63,6 +63,8 @@ target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastP
 add_executable(rlzs-offset-stats.x src/rlzs-offset-stats.cpp)
 target_link_libraries(rlzs-offset-stats.x sdsl pthread divsufsort divsufsort64 z FastPFor)
 
-
 add_executable(create-sdsl-input.x src/create-sdsl-input.cpp)
 target_link_libraries(create-sdsl-input.x sdsl pthread z)
+
+add_executable(unit-tests.x src/unit-tests.cpp)
+target_link_libraries(unit-tests.x sdsl pthread z gtest_main)

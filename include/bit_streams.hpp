@@ -119,6 +119,18 @@ struct bit_ostream {
             }
         }
 
+        inline void align8()
+        {
+            auto mod = in_word_offset % 8;
+            if (mod != 0) {
+                in_word_offset += mod;
+                if(in_word_offset >= 64) {
+                    data_ptr++;
+                    in_word_offset = 0;
+                }
+            }
+        }
+
         inline void skip(uint64_t len)
         {
             data_ptr += (len/64);
@@ -161,6 +173,11 @@ struct bit_ostream {
         uint64_t* cur_data()
         {
             return data_ptr;
+        }
+        uint8_t* cur_data8()
+        {
+            uint8_t* ptr = (uint8_t*) data_ptr;
+            return ptr += (in_word_offset>>3);
         }
         const t_bv& bitvector() const
         {
@@ -262,6 +279,18 @@ struct bit_istream {
             }
         }
 
+        inline void align8() const
+        {
+            auto mod = in_word_offset % 8;
+            if (mod != 0) {
+                in_word_offset += mod;
+                if(in_word_offset >= 64) {
+                    data_ptr++;
+                    in_word_offset = 0;
+                }
+            }
+        }
+
         value_type peek() const
         {
             return sdsl::bits::read_int(data_ptr,in_word_offset,1);
@@ -299,6 +328,11 @@ struct bit_istream {
         const uint64_t* cur_data() const
         {
             return data_ptr;
+        }
+        const uint8_t* cur_data8() const
+        {
+            uint8_t* ptr = (uint8_t*) data_ptr;
+            return ptr += (in_word_offset>>3);
         }
         void refresh() const
         {
