@@ -65,17 +65,17 @@ void verify_index(collection& col,t_idx& rlz_store)
 {
     LOG(INFO) << "Verify that factorization is correct.";
     sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-    auto num_blocks = text.size() / factorization_block_size;
+    auto num_blocks = text.size() / rlz_store.factorization_block_size;
 
     bool error = false;
     for(size_t i=0;i<num_blocks;i++) {
         auto block_content = rlz_store.block(i);
-        auto block_start = i*factorization_block_size;
+        auto block_start = i*rlz_store.factorization_block_size;
         auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
         if(!eq) {
             error = true;
             LOG(ERROR) << "BLOCK " << i << " NOT EQUAL";
-            for(size_t j=0;j<factorization_block_size;j++) {
+            for(size_t j=0;j<rlz_store.factorization_block_size;j++) {
                 if(text[block_start+j] != block_content[j]) {
                     LOG_N_TIMES(100,ERROR) << "Error at pos " << j << "("<<block_start+j<<") should be '" 
                                << (int) text[block_start+j] << "' is '" << (int) block_content[j] << "'";
@@ -84,10 +84,10 @@ void verify_index(collection& col,t_idx& rlz_store)
             exit(EXIT_FAILURE);
         }
     }
-    auto left = text.size() % factorization_block_size;
+    auto left = text.size() % rlz_store.factorization_block_size;
     if(left) {
         auto block_content = rlz_store.block(num_blocks);
-        auto block_start = num_blocks*factorization_block_size;
+        auto block_start = num_blocks*rlz_store.factorization_block_size;
         auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
         if(!eq) {
             error = true;
@@ -134,7 +134,6 @@ int main(int argc,const char* argv[])
 
         if(args.verify) verify_index(col,rlz_store);
     }
-
 
     return EXIT_SUCCESS;
 }

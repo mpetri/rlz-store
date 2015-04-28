@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "collection.hpp"
 
+#include "factor_iterator.hpp"
 #include "block_maps.hpp"
 #include "factor_selector.hpp"
 #include "factorizor.hpp"
@@ -33,12 +34,16 @@ public:
     using factor_selection_strategy = t_factor_selection_strategy;
     using factorization_strategy = factorizor<t_factorization_block_size,dictionary_index,factor_selection_strategy>;
     using factor_encoder = t_factor_coder;
-    using block_map = t_block_map;
+    using block_map_type = t_block_map;
 private:
     sdsl::int_vector_mapper<1,std::ios_base::in> m_factored_text;
     bit_istream<sdsl::int_vector_mapper<1,std::ios_base::in>> m_factor_stream;
     sdsl::int_vector<8>  m_dict;
-    block_map m_blockmap;
+    block_map_type m_blockmap;
+public:
+    uint32_t factorization_block_size = t_factorization_block_size;
+    block_map_type& block_map = m_blockmap;
+    sdsl::int_vector<8>& dict = m_dict;
 public:
     class builder;
 
@@ -57,26 +62,29 @@ public:
         LOG(INFO) << "RLZ store ready";
     }
 
+    auto factors_begin() const -> factor_iterator<decltype(*this)> {
+        return factor_iterator<decltype(*this)>(*this,0,0);
+    }
+
+    auto factors_end() const -> factor_iterator<decltype(*this)> {
+        return factor_iterator<decltype(*this)>(*this,m_blockmap.num_blocks(),0);
+    }
+
+    void decode_factors(size_t offset,size_t num_factors,std::vector<factor_data>& factors) const {
+        m_factor_stream.seek(offset);
+        factor_encoder::decode_block(m_factor_stream,factors,num_factors);
+    }
+
     std::vector<uint8_t>
-    block(const size_t block_id,bool verbose = false) const {
+    block(const size_t block_id) const {
         std::vector<uint8_t> block_content;
         auto block_start = m_blockmap.block_offset(block_id);
         auto num_factors = m_blockmap.block_factors(block_id);
-        m_factor_stream.seek(block_start);
-
         std::vector<factor_data> factors(num_factors);
-        factor_encoder::decode_block(m_factor_stream,num_factors,factors.begin());
-
-        if(verbose) {
-            LOG(INFO) << "block_start = " << block_start;
-            LOG(INFO) << "num_factors = " << num_factors;
-        }
+        decode_factors(block_start,num_factors,factors);
 
         size_t i=0;
         for(const auto& factor : factors) {
-            if(verbose) {
-                LOG(INFO) << "F("<<i<<") = " << factor.offset << " , " << factor.len;
-            }
             if(factor.len!=0) {
                 auto begin = m_dict.begin()+factor.offset;
                 std::copy(begin,begin+factor.len,std::back_inserter<>(block_content));
@@ -96,7 +104,7 @@ public:
         m_factor_stream.seek(block_start);
 
         std::vector<factor_data> factors(num_factors);
-        factor_encoder::decode_block(m_factor_stream,num_factors,factors.begin());
+        factor_encoder::decode_block(m_factor_stream,factors,num_factors);
 
         size_t cur = 0;
         for(const auto& factor : factors) {
@@ -202,12 +210,12 @@ class rlz_store_static<t_dictionary_creation_strategy,
             }
 
             // (4) encode document start pos
-            LOG(INFO) << "Create block map (" << block_map::type() << ")";
+            LOG(INFO) << "Create block map (" << block_map_type::type() << ")";
             auto blockmap_file = col.path+"/index/"+KEY_BLOCKMAP+"-"
-                    +block_map::type()+"-"+factorization_strategy::type()+"-"
+                    +block_map_type::type()+"-"+factorization_strategy::type()+"-"
                     +col.param_map[PARAM_DICT_HASH]+".sdsl";
             if(rebuild || !utils::file_exists(blockmap_file) ) {
-                block_map tmp(col);
+                block_map_type tmp(col);
                 sdsl::store_to_file(tmp,blockmap_file);
             }
             col.file_map[KEY_BLOCKMAP] = blockmap_file;

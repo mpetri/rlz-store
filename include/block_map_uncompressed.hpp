@@ -47,4 +47,8 @@ struct block_map_uncompressed {
     	return m_block_factors[block_id];
     }
 
+    size_type num_blocks() const {
+        return m_block_offsets.size();
+    }
+
 };

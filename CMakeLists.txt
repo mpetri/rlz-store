@@ -60,5 +60,9 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor)
 
+add_executable(rlzs-offset-stats.x src/rlzs-offset-stats.cpp)
+target_link_libraries(rlzs-offset-stats.x sdsl pthread divsufsort divsufsort64 z FastPFor)
+
+
 add_executable(create-sdsl-input.x src/create-sdsl-input.cpp)
 target_link_libraries(create-sdsl-input.x sdsl pthread z)

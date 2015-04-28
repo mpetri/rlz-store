@@ -17,6 +17,10 @@ const std::string KEY_BLOCKFACTORS = "BLOCKFACTORS";
 
 const std::string PARAM_DICT_HASH = "DICT_HASH";
 
+const std::string KEY_ZLIB = "ZLIB";
+const std::string KEY_ZLIB_OFFSETS = "ZLIB_OFFSETS";
+const std::string KEY_ZLIB_LEN = "ZLIB_LEN";
+
 struct collection {
     std::string path;
     std::map<std::string,std::string> param_map;
@@ -58,7 +62,6 @@ struct collection {
 
     std::string temp_file_name(const std::string& key,size_t offset) {
         auto file_name = path+"/tmp/"+key+"-"+std::to_string(offset)+"-"+std::to_string(getpid())+".sdsl";
-        LOG(TRACE) << "temp_file_name = " << file_name;
         return file_name;
     }
 

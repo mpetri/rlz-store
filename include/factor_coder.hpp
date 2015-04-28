@@ -13,7 +13,7 @@ struct factor_data {
 };
 
 template <
-class t_coder_offset = coder::vbyte,
+class t_coder_offset = coder::u32,
 class t_coder_len = coder::vbyte
 >
 struct factor_coder {
@@ -22,20 +22,19 @@ struct factor_coder {
 	}
 
 	template<class t_ostream>
-	static void encode_block(t_ostream& ofs,std::vector<factor_data>& factors,size_t num_factors) {
+	static void encode_block(t_ostream& ofs,const std::vector<factor_data>& factors,size_t num_factors) {
 		for(size_t i=0;i<num_factors;i++) {
 			t_coder_offset::encode_check_size(ofs,factors[i].offset);
 			t_coder_len::encode_check_size(ofs,factors[i].len);
 		}
 	}
 
-	template<class t_istream,class t_outitr>
-	static void decode_block(t_istream& ifs,size_t num_factors,t_outitr out) {
+	template<class t_istream>
+	static void decode_block(t_istream& ifs,std::vector<factor_data>& factors,size_t num_factors) {
 		for(size_t i=0;i<num_factors;i++) {
-			auto& decoded_factor = *out;
+			auto& decoded_factor = factors[i];
 			decoded_factor.offset = t_coder_offset::decode(ifs);
 			decoded_factor.len = t_coder_len::decode(ifs);
-			++out;
 		}
 	}
 };
@@ -44,7 +43,7 @@ struct factor_coder {
 	encode factors in blocks.
  */
 template <
-class t_coder_offset = coder::vbyte,
+class t_coder_offset = coder::u32,
 class t_coder_len = coder::vbyte
 >
 struct factor_coder_blocked {
@@ -53,14 +52,23 @@ struct factor_coder_blocked {
 	}
 
 	template<class t_ostream>
-	static void encode_block(t_ostream& ofs,std::vector<factor_data>& factors,size_t num_factors) {
+	static void encode_block(t_ostream& ofs,const std::vector<factor_data>& factors,size_t num_factors) {
 		for(size_t i=0;i<num_factors;i++)
 			t_coder_offset::encode(ofs,factors[i].offset);
 		for(size_t i=0;i<num_factors;i++)
 			t_coder_offset::encode(ofs,factors[i].len);
 	}
 
-	void decode() {
-
+	template<class t_istream>
+	static void decode_block(t_istream& ifs,std::vector<factor_data>& factors,size_t num_factors) {
+		for(size_t i=0;i<num_factors;i++) {
+			auto& decoded_factor = factors[i];
+			decoded_factor.offset = t_coder_offset::decode(ifs);
+		}
+		for(size_t i=0;i<num_factors;i++) {
+			auto& decoded_factor = factors[i];
+			decoded_factor.len = t_coder_len::decode(ifs);
+		}
 	}
 };
+
