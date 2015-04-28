@@ -31,7 +31,7 @@ struct factorizor {
 			if( factor_itr.len == 0) {
 				fs.add_to_block_factor(factor_itr.sym,0);
 			} else {
-				auto offset = factor_select_first::pick_offset<>(idx,factor_itr.sp,factor_itr.ep,factor_itr.len);
+				auto offset = t_factor_selector::template pick_offset<>(idx,factor_itr.sp,factor_itr.ep,factor_itr.len);
 				fs.add_to_block_factor(offset,factor_itr.len);
 			}
 			++factor_itr;
