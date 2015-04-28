@@ -3,7 +3,7 @@
 #include "sdsl/int_vector.hpp"
 #include "bit_streams.hpp"
 #include "zlib.h"
-
+#include "lzma.h"
 
 #include "easylogging++.h"
 
@@ -355,14 +355,14 @@ struct zlib {
         uint64_t bits_required = 32+n*128; // upper bound
         os.expand_if_needed(bits_required);
         os.align8(); // align to bytes if needed
-        
+
         /* space for writing the encoding size */
-        uint32_t* out_size = (uint32_t*) os.cur_data();
+        uint32_t* out_size = (uint32_t*) os.cur_data8();
         os.skip(32);
 
         /* encode */
         uint64_t written_bytes = zlib_buf_len*sizeof(uint32_t);
-        auto out_buf = os.cur_data8();
+        uint8_t* out_buf = os.cur_data8();
         uint8_t* in_buf = (uint8_t*)buf;
         uint64_t in_size = n*sizeof(uint32_t);
         auto error = compress2(out_buf,&written_bytes,in_buf,in_size,t_level);
@@ -371,7 +371,6 @@ struct zlib {
                 case Z_MEM_ERROR:
                     LOG(FATAL) << "zlib-encode: Memory error!";
                     break;
-
                 case Z_BUF_ERROR:
                     LOG(FATAL) << "zlib-encode: Buffer error!";
                     break;
@@ -382,27 +381,30 @@ struct zlib {
         }
         // write the len. assume it fits in 32bits
         *out_size = (uint32_t) written_bytes;
-        os.skip(*out_size*8); // skip over the written content
+
+        os.skip(written_bytes*8); // skip over the written content
     }
     template<class t_bit_istream,typename t_itr>
     static void decode(const t_bit_istream& is,t_itr it,size_t n)
     {
-        thread_local uint32_t buf[zlib_buf_len];
+        static thread_local uint32_t buf[zlib_buf_len];
         if(n > zlib_buf_len) {
             LOG(FATAL) << "zlib-decode: zlib_buf_len < n!";
         }
         is.align8(); // align to bytes if needed
 
         /* read the encoding size */
-        uint32_t* pin_size = (uint32_t*) is.cur_data();
+        uint32_t* pin_size = (uint32_t*) is.cur_data8();
         uint32_t in_size = *pin_size;
         is.skip(32);
 
         /* decode */
         auto in_buf = is.cur_data8();
+
         uint8_t* out_buf = (uint8_t*)buf;
         uint64_t out_size = zlib_buf_len*sizeof(uint32_t);
         auto error = uncompress(out_buf,&out_size,in_buf,in_size);
+
         if(error != Z_OK) {
             switch(error) {
                 case Z_MEM_ERROR:
@@ -411,12 +413,21 @@ struct zlib {
                 case Z_BUF_ERROR:
                     LOG(FATAL) << "zlib-decode: Buffer error!";
                     break;
+                case Z_STREAM_ERROR:
+                    LOG(FATAL) << "zlib-decode: Stream error!";
+                    break;
+                case Z_DATA_ERROR:
+                    LOG(FATAL) << "zlib-decode: Data error!";
+                    break;
+                case Z_STREAM_END:
+                    LOG(FATAL) << "zlib-decode: Stream end error!";
+                    break;
                 default:
                     LOG(FATAL) << "zlib-decode: Unknown error!";
                     break;
             }
         }
-        is.seek(in_size*8); // skip over the read content
+        is.skip(in_size*8); // skip over the read content
 
         /* output the data from the buffer */
         for(size_t i=0;i<n;i++) {
@@ -425,5 +436,119 @@ struct zlib {
         }
     }
 };
+
+
+template<uint8_t t_level = 6>
+struct lzma {
+    static const uint32_t lzma_buf_len = 100000;
+    static const uint32_t lzma_mem_limit = 128*1024*1024;
+    static const uint32_t lzma_max_mem_limit = 1024*1024*1024;
+    static std::string type() {
+        return "lzma";
+    }
+
+    template<class t_bit_ostream,typename t_itr>
+    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    {
+        static thread_local uint32_t buf[lzma_buf_len];
+        auto n = std::distance(begin,end);
+        if(n > lzma_buf_len) {
+            LOG(FATAL) << "lzma-encode: lzma_buf_len < n!";
+        }
+        std::copy(begin,end,std::begin(buf));
+
+        uint64_t bits_required = 32+n*128; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+
+        /* space for writing the encoding size */
+        uint32_t* out_size = (uint32_t*) os.cur_data8();
+        os.skip(32);
+
+        /* init compressor */
+        uint8_t* out_buf = os.cur_data8();
+        uint8_t* in_buf = (uint8_t*)buf;
+        uint64_t in_size = n*sizeof(uint32_t);
+        lzma_stream strm = LZMA_STREAM_INIT;
+        strm.next_in = in_buf;
+        strm.avail_in = in_size;
+        strm.next_out = out_buf;
+        strm.avail_out = bits_required>>3;
+
+        int res;
+        if ((res=lzma_easy_encoder(&strm, t_level, LZMA_CHECK_NONE))!=LZMA_OK) {
+            lzma_end(&strm);
+            LOG(FATAL) << "lzma-encode: error init LMZA encoder < n!";
+        }
+
+        if ((res=lzma_code(&strm, LZMA_RUN))!=LZMA_OK) {
+            lzma_end(&strm);
+            LOG(FATAL) << "lzma-encode: error init LZMA_RUN < n!";
+        }
+
+        if ((res=lzma_code(&strm, LZMA_FINISH))!=LZMA_STREAM_END && res!=LZMA_OK) {
+            lzma_end(&strm);
+            LOG(FATAL) << "lzma-encode: error init LZMA_FINISH < n!";
+        }
+
+        *out_size = (uint32_t) strm.total_out;
+        lzma_end(&strm);
+        os.skip(strm.total_out*8); // skip over the written content
+    }
+    template<class t_bit_istream,typename t_itr>
+    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    {
+        static thread_local uint32_t buf[lzma_buf_len];
+        if(n > lzma_buf_len) {
+            LOG(FATAL) << "lzma-decode: lzma_buf_len < n!";
+        }
+        is.align8(); // align to bytes if needed
+
+        /* read the encoding size */
+        uint32_t* pin_size = (uint32_t*) is.cur_data8();
+        uint32_t in_size = *pin_size;
+        is.skip(32);
+
+        /* setup decoder */
+        auto in_buf = is.cur_data8();
+        uint8_t* out_buf = (uint8_t*)buf;
+        uint64_t out_size = lzma_buf_len*sizeof(uint32_t);
+        lzma_stream strm = LZMA_STREAM_INIT;
+        strm.next_in = in_buf;
+        strm.avail_in = in_size;
+        strm.next_out = out_buf;
+        strm.avail_out = out_size;
+
+        int res;
+        uint32_t cur_mem_limit = lzma_mem_limit;
+        if ((res=lzma_auto_decoder(&strm, cur_mem_limit, 0))!=LZMA_OK) {
+            lzma_end(&strm);
+            LOG(FATAL) << "lzma-encode: error init LMZA decoder < n!";
+        }
+
+        /* decode */
+        do {
+            if ((res=lzma_code(&strm, LZMA_RUN)) != LZMA_STREAM_END) {
+                if (res == LZMA_MEMLIMIT_ERROR) {
+                    cur_mem_limit *= 2; // double mem limit
+                } else {
+                    lzma_end(&strm);
+                    LOG(FATAL) << "lzma-encode: error decoding LZMA_RUN < n!";
+                }
+            }
+        } while ((res == LZMA_MEMLIMIT_ERROR) && (cur_mem_limit < lzma_max_mem_limit));
+
+        /* finish decoding */
+        lzma_end(&strm);
+        is.skip(in_size*8); // skip over the read content
+
+        /* output the data from the buffer */
+        for(size_t i=0;i<n;i++) {
+            *it = buf[i];
+            ++it;
+        }
+    }
+};
+
 
 }

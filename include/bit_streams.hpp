@@ -177,7 +177,7 @@ struct bit_ostream {
         uint8_t* cur_data8()
         {
             uint8_t* ptr = (uint8_t*) data_ptr;
-            return ptr += (in_word_offset>>3);
+            return ptr + (in_word_offset>>3);
         }
         const t_bv& bitvector() const
         {
@@ -283,7 +283,7 @@ struct bit_istream {
         {
             auto mod = in_word_offset % 8;
             if (mod != 0) {
-                in_word_offset += mod;
+                in_word_offset += (8-mod);
                 if(in_word_offset >= 64) {
                     data_ptr++;
                     in_word_offset = 0;
@@ -332,7 +332,7 @@ struct bit_istream {
         const uint8_t* cur_data8() const
         {
             uint8_t* ptr = (uint8_t*) data_ptr;
-            return ptr += (in_word_offset>>3);
+            return ptr + (in_word_offset>>3);
         }
         void refresh() const
         {
