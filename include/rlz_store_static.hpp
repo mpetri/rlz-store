@@ -32,8 +32,8 @@ public:
     using dictionary_pruning_strategy = t_dictionary_pruning_strategy;
     using dictionary_index = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
-    using factorization_strategy = factorizor<t_factorization_block_size,dictionary_index,factor_selection_strategy>;
-    using factor_encoder = t_factor_coder;
+    using factor_coder_type = t_factor_coder;
+    using factorization_strategy = factorizor<t_factorization_block_size,dictionary_index,factor_selection_strategy,factor_coder_type>;
     using block_map_type = t_block_map;
 private:
     sdsl::int_vector_mapper<1,std::ios_base::in> m_factored_text;
@@ -44,6 +44,7 @@ public:
     uint32_t factorization_block_size = t_factorization_block_size;
     block_map_type& block_map = m_blockmap;
     sdsl::int_vector<8>& dict = m_dict;
+    factor_coder_type factor_coder;
 public:
     class builder;
 
@@ -72,7 +73,7 @@ public:
 
     void decode_factors(size_t offset,size_t num_factors,std::vector<factor_data>& factors) const {
         m_factor_stream.seek(offset);
-        factor_encoder::decode_block(m_factor_stream,factors,num_factors);
+        factor_coder.decode_block(m_factor_stream,factors,num_factors);
     }
 
     std::vector<uint8_t>
@@ -104,7 +105,7 @@ public:
         m_factor_stream.seek(block_start);
 
         std::vector<factor_data> factors(num_factors);
-        factor_encoder::decode_block(m_factor_stream,factors,num_factors);
+        factor_coder.decode_block(m_factor_stream,factors,num_factors);
 
         size_t cur = 0;
         for(const auto& factor : factors) {
@@ -144,8 +145,8 @@ class rlz_store_static<t_dictionary_creation_strategy,
         using dictionary_pruning_strategy = t_dictionary_pruning_strategy;
         using dictionary_index = t_dictionary_index;
         using factor_selection_strategy = t_factor_selection_strategy;
-        using factorization_strategy = factorizor<t_factorization_block_size,dictionary_index,factor_selection_strategy>;
         using factor_encoder = t_factor_coder;
+        using factorization_strategy = factorizor<t_factorization_block_size,dictionary_index,factor_selection_strategy,factor_encoder>;
         using block_map = t_block_map;
     public:
         builder& set_rebuild(bool r) { rebuild = r; return *this; };
@@ -187,7 +188,7 @@ class rlz_store_static<t_dictionary_creation_strategy,
                     if(left < 2*syms_per_thread) // last thread might have to encode a little more
                         end = text.end();
                     fis.push_back(std::async(std::launch::async,[&,begin,end,i] {
-                        return factorization_strategy::template factorize<factor_encoder>(col,idx,begin,end,i);
+                        return factorization_strategy::factorize(col,idx,begin,end,i);
                     }));
                     itr += syms_per_thread;
                     left -= syms_per_thread;

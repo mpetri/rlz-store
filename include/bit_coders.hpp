@@ -7,7 +7,6 @@
 
 #include "easylogging++.h"
 
-
 namespace coder
 {
 
@@ -17,13 +16,13 @@ struct elias_gamma {
     }
 
     template<typename T>
-    static inline uint64_t encoded_length(const T& x)
+    inline uint64_t encoded_length(const T& x) const
     {
         uint8_t len_1 = sdsl::bits::hi(x);
         return len_1*2+1;
     }
     template<class t_bit_ostream,typename T>
-    static void encode_check_size(t_bit_ostream& os,const T& x)
+    void encode_check_size(t_bit_ostream& os,const T& x) const 
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         uint8_t len_1 = sdsl::bits::hi(x);
@@ -34,7 +33,7 @@ struct elias_gamma {
         }
     }
     template<class t_bit_ostream,typename T>
-    static void encode(t_bit_ostream& os,const T& x)
+    void encode(t_bit_ostream& os,const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         uint8_t len_1 = sdsl::bits::hi(x);
@@ -44,7 +43,7 @@ struct elias_gamma {
         }
     }
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
         uint64_t bits_required = 0;
         auto tmp = begin;
@@ -60,7 +59,7 @@ struct elias_gamma {
         }
     }
     template<class t_bit_istream>
-    static uint64_t decode(const t_bit_istream& is)
+    uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t x;
         auto len = is.get_unary();
@@ -69,7 +68,7 @@ struct elias_gamma {
         return x;
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
         for (size_t i=0; i<n; i++) {
             *it = decode(is);
@@ -84,13 +83,13 @@ struct elias_delta {
     }
 
     template<typename T>
-    static inline uint64_t encoded_length(const T& x)
+    inline uint64_t encoded_length(const T& x) const
     {
         uint8_t len_1 = sdsl::bits::hi(x);
         return len_1 + (sdsl::bits::hi(len_1+1)<<1) + 1;
     }
     template<class t_bit_ostream,typename T>
-    static void encode_check_size(t_bit_ostream& os,const T& x)
+    void encode_check_size(t_bit_ostream& os,const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         // (number of sdsl::bits to represent x)
@@ -108,7 +107,7 @@ struct elias_delta {
         }
     }
     template<class t_bit_ostream,typename T>
-    static void encode(t_bit_ostream& os,const T& x)
+    void encode(t_bit_ostream& os,const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         // (number of sdsl::bits to represent x)
@@ -123,7 +122,7 @@ struct elias_delta {
         }
     }
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
         auto tmp = begin;
         uint64_t len = 0;
@@ -139,7 +138,7 @@ struct elias_delta {
         }
     }
     template<class t_bit_istream>
-    static uint64_t decode(const t_bit_istream& is)
+    uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t x = 1;
         auto len_1_len = is.get_unary();
@@ -152,7 +151,7 @@ struct elias_delta {
         return x;
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
         for (size_t i=0; i<n; i++) {
             *it = decode(is);
@@ -167,7 +166,7 @@ struct vbyte {
     }
 
     template<typename T>
-    static inline uint64_t encoded_length(const T& x)
+    inline uint64_t encoded_length(const T& x) const
     {
         const uint8_t vbyte_len[64] = {1,1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,3,3,3,4,4,4,4,4,4,4,
                                        5,5,5,5,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7,8,8,8,8,8,8,8
@@ -175,7 +174,7 @@ struct vbyte {
         return 8*vbyte_len[sdsl::bits::hi(x)+1];
     }
     template<class t_bit_ostream,typename T>
-    static void encode_check_size(t_bit_ostream& os,T y)
+    void encode_check_size(t_bit_ostream& os,T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         os.expand_if_needed(encoded_length(y));
@@ -191,7 +190,7 @@ struct vbyte {
         os.put_int_no_size_check(w,8);
     }
     template<class t_bit_ostream,typename T>
-    static void encode(t_bit_ostream& os,T y)
+    void encode(t_bit_ostream& os,T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         uint64_t x = y;
@@ -206,7 +205,7 @@ struct vbyte {
         os.put_int_no_size_check(w,8);
     }
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
         uint64_t bits_required = 0;
         auto tmp = begin;
@@ -222,7 +221,7 @@ struct vbyte {
         }
     }
     template<class t_bit_istream>
-    static uint64_t decode(const t_bit_istream& is)
+    uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t ww=0;
         uint8_t w=0;
@@ -235,7 +234,7 @@ struct vbyte {
         return ww;
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
         for (size_t i=0; i<n; i++) {
             *it = decode(is);
@@ -250,20 +249,20 @@ struct u32 {
     }
 
     template<class t_bit_ostream,typename T>
-    static void encode_check_size(t_bit_ostream& os,T y)
+    void encode_check_size(t_bit_ostream& os,T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         os.expand_if_needed(32);
         os.put_int_no_size_check(y,32);
     }
     template<class t_bit_ostream,typename T>
-    static void encode(t_bit_ostream& os,T y)
+    void encode(t_bit_ostream& os,T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false,"can only encode unsigned integers");
         os.put_int_no_size_check(y,32);
     }
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
         auto num_elems = std::distance(begin,end);
         os.expand_if_needed(32*num_elems);
@@ -274,13 +273,13 @@ struct u32 {
         }
     }
     template<class t_bit_istream>
-    static uint64_t decode(const t_bit_istream& is)
+    uint64_t decode(const t_bit_istream& is) const
     {
         uint32_t w32= is.get_int(32);
         return w32;
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
         for (size_t i=0; i<n; i++) {
             *it = decode(is);
@@ -289,66 +288,50 @@ struct u32 {
     }
 };
 
-template<class t_coder>
-struct delta {
-    static std::string type() {
-        return "delta+"+t_coder::type();
-    }
-
-    template<typename t_itr>
-    static inline uint64_t encoded_length(t_itr begin,t_itr end)
-    {
-        uint64_t bits_required = t_coder::encoded_length(*begin);
-        auto prev = begin;
-        auto cur = prev+1;
-        while (cur != end) {
-            bits_required += t_coder::encoded_length(*cur-*prev);
-            prev = cur;
-            ++cur;
-        }
-        return bits_required;
-    }
-    template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
-    {
-        uint64_t bits_required = encoded_length(begin,end);
-        os.expand_if_needed(bits_required);
-        auto prev = begin;
-        auto cur = prev+1;
-        t_coder::encode(os,*begin);
-        while (cur != end) {
-            t_coder::encode(os,*cur-*prev);
-            prev = cur;
-            ++cur;
-        }
-    }
-    template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
-    {
-        auto prev = t_coder::decode(is);
-        *it++ = prev;
-        for (size_t i=1; i<n; i++) {
-            *it = prev + t_coder::decode(is);
-            prev = *it;
-            ++it;
-        }
-    }
-};
-
 template<uint8_t t_level = 6>
 struct zlib {
+public:
     static const uint32_t zlib_buf_len = 100000;
+    static const uint32_t mem_level = 9;
+    static const uint32_t window_bits = 15;
+private:
+    mutable uint32_t buf[zlib_buf_len];
+    mutable z_stream dstrm;
+    mutable z_stream istrm;
+public:
+    zlib() {
+        dstrm.zalloc = Z_NULL;
+        dstrm.zfree = Z_NULL;
+        dstrm.opaque = Z_NULL;
+        dstrm.next_in = (uint8_t*)buf;
+        deflateInit2(&dstrm,
+            t_level,
+            Z_DEFLATED,
+            window_bits,
+            mem_level,
+            Z_DEFAULT_STRATEGY
+            );
+        istrm.zalloc = Z_NULL;
+        istrm.zfree = Z_NULL;
+        istrm.opaque = Z_NULL;
+        istrm.next_in = (uint8_t*)buf;
+        inflateInit2(&istrm,window_bits);
+    }
+    ~zlib() {
+        deflateEnd(&dstrm);
+        inflateEnd(&istrm);
+    }
+public:
     static std::string type() {
-        return "zlib";
+        return "zlib-"+std::to_string(t_level);
     }
 
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
-        static thread_local uint32_t buf[zlib_buf_len];
         auto n = std::distance(begin,end);
         if(n > zlib_buf_len) {
-            LOG(FATAL) << "zlib-encode: zlib_buf_len < n!";
+            LOG(FATAL) << "zlib-encode: zlib_buf_len < n";
         }
         std::copy(begin,end,std::begin(buf));
 
@@ -361,12 +344,21 @@ struct zlib {
         os.skip(32);
 
         /* encode */
-        uint64_t written_bytes = zlib_buf_len*sizeof(uint32_t);
         uint8_t* out_buf = os.cur_data8();
-        uint8_t* in_buf = (uint8_t*)buf;
         uint64_t in_size = n*sizeof(uint32_t);
-        auto error = compress2(out_buf,&written_bytes,in_buf,in_size,t_level);
-        if(error != Z_OK) {
+
+        uint32_t out_buf_bytes = bits_required>>3;
+        dstrm.avail_in = in_size;
+        dstrm.avail_out = out_buf_bytes;
+        dstrm.next_in = (uint8_t*)buf;
+        dstrm.next_out = out_buf;
+        auto error = deflate (&dstrm,Z_FINISH);
+        /* If the parameter flush is set to Z_FINISH, pending input
+         is processed, pending output is flushed and deflate returns
+         with Z_STREAM_END if there was enough output space; if 
+         deflate returns with Z_OK, this function must be called
+         again with Z_FINISH and more output spac */
+        if(error != Z_STREAM_END) {
             switch(error) {
                 case Z_MEM_ERROR:
                     LOG(FATAL) << "zlib-encode: Memory error!";
@@ -374,22 +366,30 @@ struct zlib {
                 case Z_BUF_ERROR:
                     LOG(FATAL) << "zlib-encode: Buffer error!";
                     break;
+                case Z_OK:
+                    LOG(FATAL) << "zlib-encode: need to call deflate again!";
+                    break;
+                case Z_DATA_ERROR:
+                    LOG(FATAL) << "zlib-encode: Invalid or incomplete deflate data!";
+                    break;
                 default:
-                    LOG(FATAL) << "zlib-encode: Unknown error!";
+                    LOG(FATAL) << "zlib-encode: Unknown error: " << error;
                     break;
             }
         }
+        if(dstrm.avail_in != 0) {
+            LOG(FATAL) << "zlib-encode: not everything was encoded!";
+        }
         // write the len. assume it fits in 32bits
+        uint32_t written_bytes = out_buf_bytes - dstrm.avail_out;
         *out_size = (uint32_t) written_bytes;
-
         os.skip(written_bytes*8); // skip over the written content
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
-        static thread_local uint32_t buf[zlib_buf_len];
         if(n > zlib_buf_len) {
-            LOG(FATAL) << "zlib-decode: zlib_buf_len < n!";
+            LOG(FATAL) << "zlib-decode: zlib_buf_len < n";
         }
         is.align8(); // align to bytes if needed
 
@@ -400,21 +400,21 @@ struct zlib {
 
         /* decode */
         auto in_buf = is.cur_data8();
-
         uint8_t* out_buf = (uint8_t*)buf;
         uint64_t out_size = zlib_buf_len*sizeof(uint32_t);
-        auto error = uncompress(out_buf,&out_size,in_buf,in_size);
 
-        if(error != Z_OK) {
+        istrm.avail_in = in_size;
+        istrm.next_in = (uint8_t*) in_buf;
+        istrm.avail_out = out_size;
+        istrm.next_out = out_buf;
+        auto error = inflate(&istrm, Z_FINISH);
+        if(error != Z_STREAM_END) {
             switch(error) {
                 case Z_MEM_ERROR:
                     LOG(FATAL) << "zlib-decode: Memory error!";
                     break;
                 case Z_BUF_ERROR:
                     LOG(FATAL) << "zlib-decode: Buffer error!";
-                    break;
-                case Z_STREAM_ERROR:
-                    LOG(FATAL) << "zlib-decode: Stream error!";
                     break;
                 case Z_DATA_ERROR:
                     LOG(FATAL) << "zlib-decode: Data error!";
@@ -423,10 +423,11 @@ struct zlib {
                     LOG(FATAL) << "zlib-decode: Stream end error!";
                     break;
                 default:
-                    LOG(FATAL) << "zlib-decode: Unknown error!";
+                    LOG(FATAL) << "zlib-decode: Unknown error: " << error;
                     break;
             }
         }
+
         is.skip(in_size*8); // skip over the read content
 
         /* output the data from the buffer */
@@ -438,19 +439,30 @@ struct zlib {
 };
 
 
-template<uint8_t t_level = 6>
+template<uint8_t t_level = 3>
 struct lzma {
+public:
     static const uint32_t lzma_buf_len = 100000;
     static const uint32_t lzma_mem_limit = 128*1024*1024;
     static const uint32_t lzma_max_mem_limit = 1024*1024*1024;
+private:
+    mutable uint32_t buf[lzma_buf_len];
+    mutable lzma_stream strm;
+public:
+    lzma() {
+        strm = LZMA_STREAM_INIT;
+    }
+    ~lzma() {
+        lzma_end(&strm);
+    }
+public:
     static std::string type() {
-        return "lzma";
+        return "lzma-"+std::to_string(t_level);
     }
 
     template<class t_bit_ostream,typename t_itr>
-    static void encode(t_bit_ostream& os,t_itr begin,t_itr end)
+    void encode(t_bit_ostream& os,t_itr begin,t_itr end) const
     {
-        static thread_local uint32_t buf[lzma_buf_len];
         auto n = std::distance(begin,end);
         if(n > lzma_buf_len) {
             LOG(FATAL) << "lzma-encode: lzma_buf_len < n!";
@@ -469,36 +481,30 @@ struct lzma {
         uint8_t* out_buf = os.cur_data8();
         uint8_t* in_buf = (uint8_t*)buf;
         uint64_t in_size = n*sizeof(uint32_t);
-        lzma_stream strm = LZMA_STREAM_INIT;
         strm.next_in = in_buf;
         strm.avail_in = in_size;
         strm.next_out = out_buf;
         strm.avail_out = bits_required>>3;
 
+        /* compress */
         int res;
         if ((res=lzma_easy_encoder(&strm, t_level, LZMA_CHECK_NONE))!=LZMA_OK) {
-            lzma_end(&strm);
             LOG(FATAL) << "lzma-encode: error init LMZA encoder < n!";
         }
-
         if ((res=lzma_code(&strm, LZMA_RUN))!=LZMA_OK) {
-            lzma_end(&strm);
             LOG(FATAL) << "lzma-encode: error init LZMA_RUN < n!";
         }
 
         if ((res=lzma_code(&strm, LZMA_FINISH))!=LZMA_STREAM_END && res!=LZMA_OK) {
-            lzma_end(&strm);
             LOG(FATAL) << "lzma-encode: error init LZMA_FINISH < n!";
         }
 
         *out_size = (uint32_t) strm.total_out;
-        lzma_end(&strm);
         os.skip(strm.total_out*8); // skip over the written content
     }
     template<class t_bit_istream,typename t_itr>
-    static void decode(const t_bit_istream& is,t_itr it,size_t n)
+    void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {
-        static thread_local uint32_t buf[lzma_buf_len];
         if(n > lzma_buf_len) {
             LOG(FATAL) << "lzma-decode: lzma_buf_len < n!";
         }
@@ -513,7 +519,7 @@ struct lzma {
         auto in_buf = is.cur_data8();
         uint8_t* out_buf = (uint8_t*)buf;
         uint64_t out_size = lzma_buf_len*sizeof(uint32_t);
-        lzma_stream strm = LZMA_STREAM_INIT;
+
         strm.next_in = in_buf;
         strm.avail_in = in_size;
         strm.next_out = out_buf;
@@ -523,7 +529,7 @@ struct lzma {
         uint32_t cur_mem_limit = lzma_mem_limit;
         if ((res=lzma_auto_decoder(&strm, cur_mem_limit, 0))!=LZMA_OK) {
             lzma_end(&strm);
-            LOG(FATAL) << "lzma-encode: error init LMZA decoder < n!";
+            LOG(FATAL) << "lzma-encode: error init LMZA decoder";
         }
 
         /* decode */
@@ -533,7 +539,7 @@ struct lzma {
                     cur_mem_limit *= 2; // double mem limit
                 } else {
                     lzma_end(&strm);
-                    LOG(FATAL) << "lzma-encode: error decoding LZMA_RUN < n!";
+                    LOG(FATAL) << "lzma-encode: error decoding LZMA_RUN";
                 }
             }
         } while ((res == LZMA_MEMLIMIT_ERROR) && (cur_mem_limit < lzma_max_mem_limit));

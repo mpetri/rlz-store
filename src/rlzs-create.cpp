@@ -119,15 +119,18 @@ int main(int argc,const char* argv[])
 
     /* create rlz index */
     {
-        auto rlz_store = rlz_type_standard::builder{}
-                            .set_rebuild(args.rebuild)
-                            .set_threads(args.threads)
-                            .build_or_load(col);
-
-        if(args.verify) verify_index(col,rlz_store);
-    }
-    { // use uncompressed sa for factorization
-        auto rlz_store = rlz_type_salcp::builder{}
+        const uint32_t dictionary_mem_budget_mb = 1;
+        const uint32_t factorization_block_size = 2048;
+        using dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb,1024>;
+        using rlz_type = rlz_store_static<
+                            dict_creation_strategy,
+                            default_dict_pruning_strategy,
+                            default_dict_index_type,
+                            factorization_block_size,
+                            default_factor_selection_strategy,
+                            factor_coder_blocked<coder::lzma<1>,coder::lzma<1>>,
+                            default_block_map>;
+        auto rlz_store = rlz_type::builder{}
                             .set_rebuild(args.rebuild)
                             .set_threads(args.threads)
                             .build_or_load(col);

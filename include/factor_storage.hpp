@@ -47,14 +47,13 @@ struct factor_storage {
 		cur_factors_in_block = 0;
 	}
 	template<class t_coder>
-	void encode_current_block() {
+	void encode_current_block(t_coder& coder) {
 		block_offsets.push_back(factor_stream.tellp());
 		block_factors.push_back(cur_factors_in_block);
 
 		total_encoded_factors += cur_factors_in_block;
 		total_encoded_blocks++;
-		t_coder::template encode_block<bit_ostream<sdsl::int_vector_mapper<1>>>(factor_stream,
-			tmp_factor_buffer,cur_factors_in_block);
+		coder.encode_block(factor_stream,tmp_factor_buffer,cur_factors_in_block);
 	}
 	void output_stats(size_t total_blocks) const {
 		auto cur_time = hrclock::now();
