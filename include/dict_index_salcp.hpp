@@ -3,7 +3,7 @@
 #include <sdsl/int_vector.hpp>
 #include <string>
 
-template<class t_itr>
+template <class t_itr>
 struct factor_itr_salcp {
     const sdsl::int_vector<0>& sa;
     const sdsl::int_vector<0>& lcp;
@@ -17,95 +17,104 @@ struct factor_itr_salcp {
     uint8_t sym;
     bool done;
     factor_itr_salcp(const sdsl::int_vector<0>& _sa,
-    				 const sdsl::int_vector<0>& _lcp,
-    				 const sdsl::int_vector<8>& _dictionary,
-    				 t_itr begin,t_itr _end)
-        : sa(_sa),lcp(_lcp),dictionary(_dictionary),
-          factor_start(begin), itr(begin), end(_end),
-          sp(0), ep(_sa.size()-1), len(0), sym(0), done(false)
+                     const sdsl::int_vector<0>& _lcp,
+                     const sdsl::int_vector<8>& _dictionary,
+                     t_itr begin, t_itr _end)
+        : sa(_sa)
+        , lcp(_lcp)
+        , dictionary(_dictionary)
+        , factor_start(begin)
+        , itr(begin)
+        , end(_end)
+        , sp(0)
+        , ep(_sa.size() - 1)
+        , len(0)
+        , sym(0)
+        , done(false)
     {
         find_next_factor();
     }
-    factor_itr_salcp& operator++() {
+    factor_itr_salcp& operator++()
+    {
         find_next_factor();
         return *this;
     }
 
-	struct binSearchWithSA
+    struct binSearchWithSA 
+    {
+        const sdsl::int_vector<8>& dictionary;
+        const t_itr& query_end;
+
+        binSearchWithSA(const sdsl::int_vector<8>& _dictionary, const t_itr& _qe)
+            : dictionary(_dictionary)
+            , query_end(_qe)
 	{
-
-		const sdsl::int_vector<8> & dictionary;
-		const t_itr & queryStringEnd;
-
-		binSearchWithSA(const sdsl::int_vector<8>& _dictionary, const t_itr & _qe):dictionary(_dictionary),queryStringEnd(_qe) {};
-
-		bool operator ()(const int & sfxVal,  t_itr queryString) //assuming t_itr is equivalent to const unsigned char*
-		{
-			return std::lexicographical_compare ( dictionary.begin()+ sfxVal , dictionary.end(), queryString, queryStringEnd);
-		}
 	};
 
+        bool operator()(const int& suffix_value, t_itr query_ptr)
+        {
+            return std::lexicographical_compare(dictionary.begin() + suffix_value, dictionary.end(), query_ptr, query_end);
+        }
+    };
 
-
-    inline void find_next_factor() 
+    inline void find_next_factor()
     {
-	//using t_saitr = decltype(sa.begin());
+        if (itr >= end) {
+            done = true; //nothing to process .. all finished
+            return;
+        }
 
-	
-	//LOG(TRACE) <<"find_next_factor  "<< (size_t)(end-itr) << " chars remaining";
-	if ( itr >= end)
+        size_t match_len_high = 0;
+        size_t match_len_low  = 0;
+	auto query_length =  end - itr;
+
+        auto sfx_high = std::lower_bound(sa.begin(), sa.end(), itr, binSearchWithSA(dictionary, end));
+	auto sfx_low  = sfx_high;
+	//query's rank is sfx_high in sa
+
+	if (sfx_high < sa.end()) 
 	{
-		done=true; //nothing to process .. all finished
-		return;
+		//find match length with this suffix
+		auto suffix_itr = dictionary.begin() + *sfx_high;
+
+		auto suffix_length =   dictionary.end() - suffix_itr;
+		match_len_high = std::mismatch( suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first -suffix_itr;
 	}
 
-	size_t matchLenHigh=0;
-	size_t matchLenLow= 0;
-
-	auto sfxhigh = 	std::lower_bound( sa.begin(), sa.end(), itr , binSearchWithSA(dictionary , end));
-	auto sfxlow = sfxhigh ;
-	if(sfxhigh < sa.end() )
+        if (sfx_high > sa.begin() && sfx_high < sa.end()) 
 	{
-		long endlen1 =   end - itr;
-		long endlen2 =   dictionary.end() - (dictionary.begin()+ *sfxhigh);
+		//find match length with a suffix at previous suffix (low)
+        	sfx_low	= sfx_high -1;
+		auto suffix_itr = dictionary.begin() + *sfx_low;
 
-		long realend = std::min( endlen1, endlen2);
-		
-		matchLenHigh = std::mismatch(dictionary.begin()+ *sfxhigh, dictionary.begin()+*sfxhigh+ realend, itr).first  - (dictionary.begin()+ *sfxhigh);	
-	}
-	if ( sfxhigh > sa.begin() && sfxhigh < sa.end() )
+		auto suffix_length =   dictionary.end() - suffix_itr;
+		match_len_low = std::mismatch( suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first -suffix_itr;
+        }
+
+        if (match_len_high > 0 || match_len_low > 0) 
 	{
-		--sfxlow ;
-		// the query string -- [itr,...)  fits in lexicographically between sfxlow and sfx high.
-
-		long realend = std::min( dictionary.end() - (dictionary.begin()+*sfxlow) ,  end-itr);
-		matchLenLow  = std::mismatch(dictionary.begin()+ *sfxlow , dictionary.begin()+ *sfxlow+realend  , itr).first  - (dictionary.begin()+ *sfxlow) ;
-	}
-
-	if ( matchLenHigh >0 || matchLenLow>0 )
+            if (match_len_high > match_len_low) 
+	    {
+                len = match_len_high;
+                sp = ep = (sfx_high - sa.begin());
+                itr += len;
+            } else
+	    {
+                len = match_len_low;
+                sp = ep = (sfx_low - sa.begin());
+                itr += len;
+            }
+            //LOG(TRACE) <<"found factor  "<< sp << "," <<len;
+        } else 
 	{
-		if (matchLenHigh > matchLenLow) 
-		{
-			len = matchLenHigh;
-			sp = ep = (sfxhigh - sa.begin());
-			itr+= len;
-		}else
-		{
-			len = matchLenLow;
-			sp = ep = (sfxlow  - sa.begin());
-			itr+= len;
-		}	
-		//LOG(TRACE) <<"found factor  "<< sp << "," <<len;
-	}else
-	{
-		len =0;
-		sym= *itr;
-		itr++;
-		//LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
-	}
+            len = 0;
+            sym = *itr;
+            itr++;
+            //LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
+        }
+	/*
 
-
-    /*	if(itr != end) {
+       	if(itr != end) {
 	    len = 0;
 	    sym = *itr;
 	    ++itr;
@@ -114,9 +123,10 @@ struct factor_itr_salcp {
     	// TODO 
         done = true;
 	*/
-	
+
     }
-    inline bool finished() const {
+    inline bool finished() const
+    {
         return done;
     }
 };
@@ -127,45 +137,47 @@ struct dict_index_salcp {
     sdsl::int_vector<> lcp;
     sdsl::int_vector<8> dict;
 
-	std::string type() const {
-		return "dict_index_salcp";
-	}
+    std::string type() const
+    {
+        return "dict_index_salcp";
+    }
 
-    dict_index_salcp(collection& col,bool rebuild) {
-    	auto dict_hash = col.param_map[PARAM_DICT_HASH];
-    	auto file_name = col.path + "/index/"+type()+"-dhash="+dict_hash+".sdsl";
-        if(!rebuild && utils::file_exists(file_name)) {
-        	LOG(INFO) << "\tDictionary index exists. Loading index from file.";
-        	std::ifstream ifs(file_name);
-        	load(ifs);
+    dict_index_salcp(collection& col, bool rebuild)
+    {
+        auto dict_hash = col.param_map[PARAM_DICT_HASH];
+        auto file_name = col.path + "/index/" + type() + "-dhash=" + dict_hash + ".sdsl";
+        if (!rebuild && utils::file_exists(file_name)) {
+            LOG(INFO) << "\tDictionary index exists. Loading index from file.";
+            std::ifstream ifs(file_name);
+            load(ifs);
         } else {
-	        LOG(INFO) << "\tConstruct and store dictionary index";
-	        sdsl::cache_config cfg;
-	        cfg.delete_files = false;
-	        cfg.dir = col.path + "/tmp/";
-	        cfg.id = dict_hash;
-	        cfg.file_map[sdsl::conf::KEY_TEXT] = col.file_map[KEY_DICT];
-	        LOG(INFO) << "\tConstruct SA";
-	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_SA, cfg)) {
-	            sdsl::construct_sa<8>(cfg);
-	        }
-	        LOG(INFO) << "\tConstruct BWT";
-	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_BWT, cfg)) {
-	            sdsl::construct_bwt<8>(cfg);
-	        }
-	        LOG(INFO) << "\tConstruct LCP";
-	        if (!sdsl::cache_file_exists(sdsl::conf::KEY_LCP, cfg)) {
-	        	sdsl::construct_lcp_semi_extern_PHI(cfg);
-	        }
+            LOG(INFO) << "\tConstruct and store dictionary index";
+            sdsl::cache_config cfg;
+            cfg.delete_files = false;
+            cfg.dir = col.path + "/tmp/";
+            cfg.id = dict_hash;
+            cfg.file_map[sdsl::conf::KEY_TEXT] = col.file_map[KEY_DICT];
+            LOG(INFO) << "\tConstruct SA";
+            if (!sdsl::cache_file_exists(sdsl::conf::KEY_SA, cfg)) {
+                sdsl::construct_sa<8>(cfg);
+            }
+            LOG(INFO) << "\tConstruct BWT";
+            if (!sdsl::cache_file_exists(sdsl::conf::KEY_BWT, cfg)) {
+                sdsl::construct_bwt<8>(cfg);
+            }
+            LOG(INFO) << "\tConstruct LCP";
+            if (!sdsl::cache_file_exists(sdsl::conf::KEY_LCP, cfg)) {
+                sdsl::construct_lcp_semi_extern_PHI(cfg);
+            }
 
-	        LOG(INFO) << "\tLoad SA/LCP/DICT";
-	        sdsl::load_from_cache(sa,sdsl::conf::KEY_SA,cfg);
-	        sdsl::load_from_cache(lcp,sdsl::conf::KEY_LCP,cfg);
-	        sdsl::load_from_cache(dict,sdsl::conf::KEY_TEXT,cfg);
+            LOG(INFO) << "\tLoad SA/LCP/DICT";
+            sdsl::load_from_cache(sa, sdsl::conf::KEY_SA, cfg);
+            sdsl::load_from_cache(lcp, sdsl::conf::KEY_LCP, cfg);
+            sdsl::load_from_cache(dict, sdsl::conf::KEY_TEXT, cfg);
 
             std::ofstream ofs(file_name);
             serialize(ofs);
-	    }
+        }
     }
 
     inline size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = NULL, std::string name = "") const
@@ -187,12 +199,14 @@ struct dict_index_salcp {
         dict.load(in);
     }
 
-    template<class t_itr>
-    factor_itr_salcp<t_itr> factorize(t_itr itr,t_itr end) const {
-        return factor_itr_salcp<t_itr>(sa,lcp,dict,itr,end);
+    template <class t_itr>
+    factor_itr_salcp<t_itr> factorize(t_itr itr, t_itr end) const
+    {
+        return factor_itr_salcp<t_itr>(sa, lcp, dict, itr, end);
     }
 
-    bool is_reverse() const {
+    bool is_reverse() const
+    {
         return false;
     }
 };

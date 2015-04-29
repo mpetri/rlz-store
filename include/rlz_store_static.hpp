@@ -99,7 +99,7 @@ public:
         factor_coder.decode_block(m_factor_stream,offsets,lens,num_factors);
     }
 
-    void decode_block(
+    uint64_t decode_block(
         uint64_t block_id,
         std::vector<uint8_t>& text,
         std::vector<uint32_t>& offsets,
@@ -122,6 +122,8 @@ public:
                 out_itr++;
             }
         }
+	auto written_syms = std::distance(text.begin(),out_itr);
+	return written_syms;	
     }
 
     std::vector<uint8_t>
@@ -129,7 +131,8 @@ public:
         std::vector<uint8_t> block_content(factorization_block_size);
         std::vector<uint32_t> offsets(factorization_block_size);
         std::vector<uint32_t> lens(factorization_block_size);
-        decode_block(block_id,block_content,offsets,lens);
+        auto decoded_syms = decode_block(block_id,block_content,offsets,lens);
+	block_content.resize(decoded_syms);
         return block_content;
     }
 };

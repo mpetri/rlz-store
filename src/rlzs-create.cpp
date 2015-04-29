@@ -94,6 +94,12 @@ void verify_index(collection& col,t_idx& rlz_store)
     if(left) {
         auto block_content = rlz_store.block(num_blocks);
         auto block_start = num_blocks*rlz_store.factorization_block_size;
+	if( block_content.size() != left) {
+		error = true;
+		LOG_N_TIMES(100,ERROR) << "Error in  LAST block " 
+			<< " block size = " << block_content.size()
+			<< " left  = " << left;
+	}
         auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
         if(!eq) {
             error = true;
@@ -140,7 +146,7 @@ int main(int argc,const char* argv[])
 	using dict_prune_strat = dict_prune_none;
 	using factor_select_strat = factor_select_first;
 	using factor_coder_strat = factor_coder<coder::u32,coder::vbyte>;
-	using dict_index_type = dict_index_salcp;
+	using dict_index_type =  dict_index_salcp ;//default_dict_index_type 
 	using rlz_type = rlz_store_static<
 				dict_strat,
 				dict_prune_strat,

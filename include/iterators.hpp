@@ -77,7 +77,7 @@ public:
 		m_text_buf.resize(m_block_size);
 	}
 	void decode_cur_block() {
-		m_idx.decode_block(m_block_offset,m_text_buf,m_offset_buf,m_len_buf);
+		m_block_size = m_idx.decode_block(m_block_offset,m_text_buf,m_offset_buf,m_len_buf);
 	}
 	uint8_t operator*() {
 		if(m_text_block_offset == 0) {
