@@ -126,6 +126,7 @@ int main(int argc,const char* argv[])
     /* create rlz index */
     /*
     {
+<<<<<<< HEAD
 
         auto rlz_store = rlz_type_standard::builder{}
                             .set_rebuild(args.rebuild)

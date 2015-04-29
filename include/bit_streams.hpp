@@ -65,12 +65,14 @@ struct bit_ostream {
         template<class t_coder,class t_itr>
         inline void encode(t_itr begin, std::streamsize count)
         {
-            t_coder::encode(*this,begin,begin+count);
+            t_coder e;
+            e.encode(*this,begin,begin+count);
         }
         template<class t_coder,class t_itr>
         inline void encode(t_itr begin,t_itr end)
         {
-            t_coder::encode(*this,begin,end);
+            t_coder e;
+            e.encode(*this,begin,end);
         }
         // write chunks unary integers
         template<class t_itr>
@@ -177,7 +179,7 @@ struct bit_ostream {
         uint8_t* cur_data8()
         {
             uint8_t* ptr = (uint8_t*) data_ptr;
-            return ptr += (in_word_offset>>3);
+            return ptr + (in_word_offset>>3);
         }
         const t_bv& bitvector() const
         {
@@ -245,12 +247,14 @@ struct bit_istream {
         template<class t_coder>
         inline value_type decode() const
         {
-            return t_coder::decode(*this);
+            t_coder c;
+            return c.decode(*this);
         }
         template<class t_coder,class t_itr>
         inline void decode(t_itr itr, std::streamsize count) const
         {
-            t_coder::decode(*this,itr,count);
+            t_coder c;
+            c.decode(*this,itr,count);
         }
         template<class t_itr>
         void get_int(t_itr itr, std::streamsize count,const uint8_t len=64)
@@ -283,7 +287,7 @@ struct bit_istream {
         {
             auto mod = in_word_offset % 8;
             if (mod != 0) {
-                in_word_offset += mod;
+                in_word_offset += (8-mod);
                 if(in_word_offset >= 64) {
                     data_ptr++;
                     in_word_offset = 0;
@@ -332,7 +336,7 @@ struct bit_istream {
         const uint8_t* cur_data8() const
         {
             uint8_t* ptr = (uint8_t*) data_ptr;
-            return ptr += (in_word_offset>>3);
+            return ptr + (in_word_offset>>3);
         }
         void refresh() const
         {
