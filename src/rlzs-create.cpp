@@ -71,6 +71,12 @@ void verify_index(collection& col,t_idx& rlz_store)
     for(size_t i=0;i<num_blocks;i++) {
         auto block_content = rlz_store.block(i);
         auto block_start = i*rlz_store.factorization_block_size;
+	if( block_content.size() != rlz_store.factorization_block_size) {
+		error = true;
+		LOG_N_TIMES(100,ERROR) << "Error in block " << i
+			<< " block size = " << block_content.size()
+			<< " factorization_block_size = " << rlz_store.factorization_block_size;
+	}
         auto eq = std::equal(block_content.begin(),block_content.end(),text.begin()+block_start);
         if(!eq) {
             error = true;
@@ -118,16 +124,32 @@ int main(int argc,const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
+    /*
     {
+
         auto rlz_store = rlz_type_standard::builder{}
                             .set_rebuild(args.rebuild)
                             .set_threads(args.threads)
                             .build_or_load(col);
 
         if(args.verify) verify_index(col,rlz_store);
-    }
+    }*/
     { // use uncompressed sa for factorization
-        auto rlz_store = rlz_type_salcp::builder{}
+        using dict_strat = dict_random_sample_budget<16,1024>;
+	using dict_prune_strat = dict_prune_none;
+	using factor_select_strat = factor_select_first;
+	using factor_coder_strat = factor_coder<coder::u32,coder::vbyte>;
+	using dict_index_type = dict_index_salcp;
+	using rlz_type = rlz_store_static<
+				dict_strat,
+				dict_prune_strat,
+				dict_index_type,
+				2048,
+				factor_select_strat,
+				factor_coder_strat,
+				block_map_uncompressed
+				>;
+	auto rlz_store = rlz_type::builder{}
                             .set_rebuild(args.rebuild)
                             .set_threads(args.threads)
                             .build_or_load(col);

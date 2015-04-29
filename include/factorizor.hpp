@@ -27,16 +27,24 @@ struct factorizor {
 		auto factor_itr = idx.factorize(itr,end);
 		fs.start_new_block();
 		size_t i=0;
+		size_t decoded_syms = 0;
 		while(! factor_itr.finished() ) {
 			if( factor_itr.len == 0) {
 				fs.add_to_block_factor(factor_itr.sym,0);
+				//LOG(TRACE) << "sym = " << (int) factor_itr.sym;
+				decoded_syms++;
 			} else {
 				auto offset = factor_select_first::pick_offset<>(idx,factor_itr.sp,factor_itr.ep,factor_itr.len);
 				fs.add_to_block_factor(offset,factor_itr.len);
+				decoded_syms += factor_itr.len;
+				//LOG(TRACE) << "offset=" << offset << " len=" << factor_itr.len;
 			}
+
+			//LOG(TRACE) << "encoded syms = " << decoded_syms;
 			++factor_itr;
 			i++;
 		}
+		LOG(TRACE) << "BLOCK ENCODED" << decoded_syms;
 		fs.encode_current_block<t_coder>();
 	}
 
