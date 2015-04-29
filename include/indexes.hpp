@@ -14,33 +14,29 @@
 /* parameters */
 const uint32_t dictionary_mem_budget_mb = 32;
 const uint32_t default_factorization_block_size = 2048;
-using default_dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb,1024>;
+using default_dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb, 1024>;
 using default_dict_pruning_strategy = dict_prune_none;
 using default_factor_selection_strategy = factor_select_first;
-using default_factor_encoder = factor_coder<coder::u32,coder::vbyte>;
+using default_factor_encoder = factor_coder<coder::u32, coder::vbyte>;
 using default_block_map = block_map_uncompressed;
 
-
 /* dict type = csa */
-using csa_type = sdsl::csa_wt< sdsl::wt_huff<sdsl::bit_vector_il<64>> , 4 , 4096 >;
+using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 4, 4096>;
 using default_dict_index_type = dict_index_csa<csa_type>;
 
-using rlz_type_standard = rlz_store_static<
-	                        default_dict_creation_strategy,
-	                        default_dict_pruning_strategy,
-	                        default_dict_index_type,
-	                        default_factorization_block_size,
-	                        default_factor_selection_strategy,
-	                        default_factor_encoder,
-	                        default_block_map>;
-
+using rlz_type_standard = rlz_store_static<default_dict_creation_strategy,
+                                           default_dict_pruning_strategy,
+                                           default_dict_index_type,
+                                           default_factorization_block_size,
+                                           default_factor_selection_strategy,
+                                           default_factor_encoder,
+                                           default_block_map>;
 
 /* use an uncompressed SA + LCP for factoriation instead */
-using rlz_type_salcp = rlz_store_static<
-	                        default_dict_creation_strategy,
-	                        default_dict_pruning_strategy,
-	                        dict_index_salcp,
-	                        default_factorization_block_size,
-	                        default_factor_selection_strategy,
-	                        default_factor_encoder,
-	                        default_block_map>;
+using rlz_type_salcp = rlz_store_static<default_dict_creation_strategy,
+                                        default_dict_pruning_strategy,
+                                        dict_index_salcp,
+                                        default_factorization_block_size,
+                                        default_factor_selection_strategy,
+                                        default_factor_encoder,
+                                        default_block_map>;

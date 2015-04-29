@@ -8,17 +8,19 @@ struct block_map_uncompressed {
     sdsl::int_vector<> m_block_offsets;
     sdsl::int_vector<> m_block_factors;
 
-	static std::string type() {
-		return "block_map_uncompressed";
-	}
+    static std::string type()
+    {
+        return "block_map_uncompressed";
+    }
 
     block_map_uncompressed() = default;
     block_map_uncompressed(block_map_uncompressed&&) = default;
 
-    block_map_uncompressed(collection& col) {
-    	LOG(INFO) << "\tLoad block offsets from file";
-    	sdsl::load_from_file(m_block_offsets,col.file_map[KEY_BLOCKOFFSETS]);
-    	sdsl::load_from_file(m_block_factors,col.file_map[KEY_BLOCKFACTORS]);
+    block_map_uncompressed(collection& col)
+    {
+        LOG(INFO) << "\tLoad block offsets from file";
+        sdsl::load_from_file(m_block_offsets, col.file_map[KEY_BLOCKOFFSETS]);
+        sdsl::load_from_file(m_block_factors, col.file_map[KEY_BLOCKFACTORS]);
         sdsl::util::bit_compress(m_block_offsets);
         sdsl::util::bit_compress(m_block_factors);
     }
@@ -40,15 +42,17 @@ struct block_map_uncompressed {
         m_block_factors.load(in);
     }
 
-    size_type block_offset(size_t block_id) const {
-    	return m_block_offsets[block_id];
+    size_type block_offset(size_t block_id) const
+    {
+        return m_block_offsets[block_id];
     }
-    size_type block_factors(size_t block_id) const {
-    	return m_block_factors[block_id];
+    size_type block_factors(size_t block_id) const
+    {
+        return m_block_factors[block_id];
     }
 
-    size_type num_blocks() const {
+    size_type num_blocks() const
+    {
         return m_block_offsets.size();
     }
-
 };

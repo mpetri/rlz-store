@@ -40,16 +40,13 @@ struct factor_itr_salcp {
         return *this;
     }
 
-    struct binSearchWithSA 
-    {
+    struct binSearchWithSA {
         const sdsl::int_vector<8>& dictionary;
         const t_itr& query_end;
 
         binSearchWithSA(const sdsl::int_vector<8>& _dictionary, const t_itr& _qe)
             : dictionary(_dictionary)
-            , query_end(_qe)
-	{
-	};
+            , query_end(_qe){};
 
         bool operator()(const int& suffix_value, t_itr query_ptr)
         {
@@ -65,54 +62,48 @@ struct factor_itr_salcp {
         }
 
         size_t match_len_high = 0;
-        size_t match_len_low  = 0;
-	auto query_length =  end - itr;
+        size_t match_len_low = 0;
+        auto query_length = end - itr;
 
         auto sfx_high = std::lower_bound(sa.begin(), sa.end(), itr, binSearchWithSA(dictionary, end));
-	auto sfx_low  = sfx_high;
-	//query's rank is sfx_high in sa
+        auto sfx_low = sfx_high;
+        //query's rank is sfx_high in sa
 
-	if (sfx_high < sa.end()) 
-	{
-		//find match length with this suffix
-		auto suffix_itr = dictionary.begin() + *sfx_high;
+        if (sfx_high < sa.end()) {
+            //find match length with this suffix
+            auto suffix_itr = dictionary.begin() + *sfx_high;
 
-		auto suffix_length =   dictionary.end() - suffix_itr;
-		match_len_high = std::mismatch( suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first -suffix_itr;
-	}
-
-        if (sfx_high > sa.begin() && sfx_high < sa.end()) 
-	{
-		//find match length with a suffix at previous suffix (low)
-        	sfx_low	= sfx_high -1;
-		auto suffix_itr = dictionary.begin() + *sfx_low;
-
-		auto suffix_length =   dictionary.end() - suffix_itr;
-		match_len_low = std::mismatch( suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first -suffix_itr;
+            auto suffix_length = dictionary.end() - suffix_itr;
+            match_len_high = std::mismatch(suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first - suffix_itr;
         }
 
-        if (match_len_high > 0 || match_len_low > 0) 
-	{
-            if (match_len_high > match_len_low) 
-	    {
+        if (sfx_high > sa.begin() && sfx_high < sa.end()) {
+            //find match length with a suffix at previous suffix (low)
+            sfx_low = sfx_high - 1;
+            auto suffix_itr = dictionary.begin() + *sfx_low;
+
+            auto suffix_length = dictionary.end() - suffix_itr;
+            match_len_low = std::mismatch(suffix_itr, suffix_itr + std::min(suffix_length, query_length), itr).first - suffix_itr;
+        }
+
+        if (match_len_high > 0 || match_len_low > 0) {
+            if (match_len_high > match_len_low) {
                 len = match_len_high;
                 sp = ep = (sfx_high - sa.begin());
                 itr += len;
-            } else
-	    {
+            } else {
                 len = match_len_low;
                 sp = ep = (sfx_low - sa.begin());
                 itr += len;
             }
             //LOG(TRACE) <<"found factor  "<< sp << "," <<len;
-        } else 
-	{
+        } else {
             len = 0;
             sym = *itr;
             itr++;
             //LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
         }
-	/*
+        /*
 
        	if(itr != end) {
 	    len = 0;
@@ -123,7 +114,6 @@ struct factor_itr_salcp {
     	// TODO 
         done = true;
 	*/
-
     }
     inline bool finished() const
     {
