@@ -7,7 +7,7 @@ template<class t_itr>
 struct factor_itr_salcp {
     const sdsl::int_vector<0>& sa;
     const sdsl::int_vector<0>& lcp;
-    const sdsl::int_vector<8>& text;
+    const sdsl::int_vector<8>& dictionary;
     t_itr factor_start;
     t_itr itr;
     t_itr end;
@@ -18,9 +18,9 @@ struct factor_itr_salcp {
     bool done;
     factor_itr_salcp(const sdsl::int_vector<0>& _sa,
     				 const sdsl::int_vector<0>& _lcp,
-    				 const sdsl::int_vector<8>& _text,
+    				 const sdsl::int_vector<8>& _dictionary,
     				 t_itr begin,t_itr _end)
-        : sa(_sa),lcp(_lcp),text(_text),
+        : sa(_sa),lcp(_lcp),dictionary(_dictionary),
           factor_start(begin), itr(begin), end(_end),
           sp(0), ep(_sa.size()-1), len(0), sym(0), done(false)
     {
@@ -30,9 +30,91 @@ struct factor_itr_salcp {
         find_next_factor();
         return *this;
     }
-    inline void find_next_factor() {
-    	/* TODO */
+
+	struct binSearchWithSA
+	{
+
+		const sdsl::int_vector<8> & dictionary;
+		const t_itr & queryStringEnd;
+
+		binSearchWithSA(const sdsl::int_vector<8>& _dictionary, const t_itr & _qe):dictionary(_dictionary),queryStringEnd(_qe) {};
+
+		bool operator ()(const int & sfxVal,  t_itr queryString) //assuming t_itr is equivalent to const unsigned char*
+		{
+			return std::lexicographical_compare ( dictionary.begin()+ sfxVal , dictionary.end(), queryString, queryStringEnd);
+		}
+	};
+
+
+
+    inline void find_next_factor() 
+    {
+	//using t_saitr = decltype(sa.begin());
+
+	
+	//LOG(TRACE) <<"find_next_factor  "<< (size_t)(end-itr) << " chars remaining";
+	if ( itr >= end)
+	{
+		done=true; //nothing to process .. all finished
+		return;
+	}
+
+	size_t matchLenHigh=0;
+	size_t matchLenLow= 0;
+
+	auto sfxhigh = 	std::lower_bound( sa.begin(), sa.end(), itr , binSearchWithSA(dictionary , end));
+	auto sfxlow = sfxhigh ;
+	if(sfxhigh < sa.end() )
+	{
+		long endlen1 =   end - itr;
+		long endlen2 =   dictionary.end() - (dictionary.begin()+ *sfxhigh);
+
+		long realend = std::min( endlen1, endlen2);
+		
+		matchLenHigh = std::mismatch(dictionary.begin()+ *sfxhigh, dictionary.begin()+*sfxhigh+ realend, itr).first  - (dictionary.begin()+ *sfxhigh);	
+	}
+	if ( sfxhigh > sa.begin() && sfxhigh < sa.end() )
+	{
+		--sfxlow ;
+		// the query string -- [itr,...)  fits in lexicographically between sfxlow and sfx high.
+
+		long realend = std::min( dictionary.end() - (dictionary.begin()+*sfxlow) ,  end-itr);
+		matchLenLow  = std::mismatch(dictionary.begin()+ *sfxlow , dictionary.begin()+ *sfxlow+realend  , itr).first  - (dictionary.begin()+ *sfxlow) ;
+	}
+
+	if ( matchLenHigh >0 || matchLenLow>0 )
+	{
+		if (matchLenHigh > matchLenLow) 
+		{
+			len = matchLenHigh;
+			sp = ep = (sfxhigh - sa.begin());
+			itr+= len;
+		}else
+		{
+			len = matchLenLow;
+			sp = ep = (sfxlow  - sa.begin());
+			itr+= len;
+		}	
+		//LOG(TRACE) <<"found factor  "<< sp << "," <<len;
+	}else
+	{
+		len =0;
+		sym= *itr;
+		itr++;
+		//LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
+	}
+
+
+    /*	if(itr != end) {
+	    len = 0;
+	    sym = *itr;
+	    ++itr;
+	    return;
+	}
+    	// TODO 
         done = true;
+	*/
+	
     }
     inline bool finished() const {
         return done;
