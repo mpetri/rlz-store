@@ -502,6 +502,7 @@ public:
         *out_size = (uint32_t) strm.total_out;
         os.skip(strm.total_out*8); // skip over the written content
     }
+
     template<class t_bit_istream,typename t_itr>
     void decode(const t_bit_istream& is,t_itr it,size_t n) const
     {

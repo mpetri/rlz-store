@@ -21,7 +21,8 @@ struct factor_storage {
 	uint64_t total_encoded_blocks = 0;
 	uint64_t cur_factors_in_block = 0;
 	hrclock::time_point encoding_start;
-	std::vector<factor_data> tmp_factor_buffer;
+	std::vector<uint32_t> tmp_factor_offset_buffer;
+	std::vector<uint32_t> tmp_factor_len_buffer;
     sdsl::int_vector_mapper<1> factored_text;
     sdsl::int_vector_mapper<0> block_offsets;
     sdsl::int_vector_mapper<0> block_factors;
@@ -34,13 +35,14 @@ struct factor_storage {
 		  factor_stream(factored_text)
 	{
 		// create a buffer we can write to without reallocating
-		tmp_factor_buffer.resize(block_size);
+		tmp_factor_offset_buffer.resize(block_size);
+		tmp_factor_len_buffer.resize(block_size);
 		// save the start of the encoding process
 		encoding_start = hrclock::now();
 	}
 	void add_to_block_factor(uint32_t offset,uint32_t len) {
-		tmp_factor_buffer[cur_factors_in_block].offset = offset;
-		tmp_factor_buffer[cur_factors_in_block].len = len;
+		tmp_factor_offset_buffer[cur_factors_in_block] = offset;
+		tmp_factor_len_buffer[cur_factors_in_block] = len;
 		cur_factors_in_block++;
 	}
 	void start_new_block() {
@@ -53,7 +55,10 @@ struct factor_storage {
 
 		total_encoded_factors += cur_factors_in_block;
 		total_encoded_blocks++;
-		coder.encode_block(factor_stream,tmp_factor_buffer,cur_factors_in_block);
+		coder.encode_block(factor_stream,
+			tmp_factor_offset_buffer,
+			tmp_factor_len_buffer,
+			cur_factors_in_block);
 	}
 	void output_stats(size_t total_blocks) const {
 		auto cur_time = hrclock::now();
