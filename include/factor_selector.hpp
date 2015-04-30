@@ -55,9 +55,10 @@ struct factor_select_minimum {
             }
         }
 
-        auto min_ptr = std::min_element(idx.sa.begin() + sp, idx.sa.begin() + ep);
-        if (min_ptr != idx.sa.begin() + ep) //search succeeded
+        auto min_ptr = std::min_element(idx.sa.begin() + sp, idx.sa.begin() + ep + 1);
+        if (min_ptr != (idx.sa.begin() + ep + 1)) //search succeeded
         {
+            LOG(TRACE) << "factor select_minimum" << *min_ptr;
             return *min_ptr;
         } else { //default
             return idx.sa[sp];

@@ -7,6 +7,7 @@
 
 #include "easylogging++.h"
 
+#include <cassert>
 namespace coder {
 
 struct elias_gamma {
@@ -570,16 +571,52 @@ public:
     }
 };
 
-/*
-template<int lm,class t_coder>
-struct lm
-{
-    t_coder c;
+//with the dict_index_sa_length_selector strategy - match lengths are a known multiple of LM. This coder simply removes/adds the LM component, before
+// passing on to the next stage of coding say U32 or Zlib (given by t_coder c)
+template <int lm, class t_coder>
+struct length_multiplier {
+    t_coder next_stage_coder;
+
+    std::string type()
+    {
+        return (std::string("length_multiplier-") + std::to_string(lm) + std::string("-") + next_stage_coder.type());
+    }
+
+    template <class t_bit_ostream, typename T>
+    void encode_check_size(t_bit_ostream& os, T y) const
+    {
+        assert((y % lm) == 0); //"invalid number for length_multiplier"
+        next_stage_coder.encode_check_size(os, y / lm);
+    }
+    template <class t_bit_ostream, typename T>
+    void encode(t_bit_ostream& os, T y) const
+    {
+        assert((y % lm) == 0); //"invalid number for length_multiplier"
+        next_stage_coder.encode(os, y / lm);
+    }
     template <class t_bit_ostream, typename t_itr>
     void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
-	c.encode(os,buf.begin(),buf.end()); 		
+        //convert the input list before passing on to next stage
 
-    }	 
-}*/
+        std::vector<decltype(*begin)> tempInput;
+        for (auto copy_itr = begin; copy_itr != end; ++copy_itr) {
+            tempInput.push_back(*copy_itr / lm);
+        }
+        next_stage_coder.encode(os, tempInput.begin(), tempInput.end());
+    }
+    template <class t_bit_istream>
+    uint64_t decode(const t_bit_istream& is) const
+    {
+        return lm * next_stage_coder.decode(is);
+    }
+    template <class t_bit_istream, typename t_itr>
+    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    {
+        for (size_t i = 0; i < n; i++) {
+            *it = lm * next_stage_coder.decode(is);
+            ++it;
+        }
+    }
+};
 }

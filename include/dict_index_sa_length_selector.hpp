@@ -129,7 +129,26 @@ struct factor_itr_sa_length_selector {
             }
         }
 
-        //factor is the one at the top of the list
+        for (auto factor_iterator = factorRanges.rbegin(); factor_iterator != factorRanges.rend(); ++factor_iterator) {
+            if ((factor_iterator->matchlength % LM) == 0) //found a factor whose match length is a multiple of LM
+            {
+                len = factor_iterator->matchlength;
+                sp = factor_iterator->sp;
+                ep = factor_iterator->ep;
+                itr += len;
+                LOG(TRACE) << "found factor  " << sa[sp] << "," << sa[ep] << "," << len << " from Range " << sp << "," << ep;
+                return;
+            }
+        }
+
+        //default option -- select no factor ( matchlength ==0)
+        len = 0;
+        sym = *itr;
+        ++itr;
+        LOG(TRACE) << "found factor(0)  " << sym << "," << len;
+        return;
+
+        /*factor is the one at the top of the list
         if (factorRanges.size() <= 0) {
             len = 0;
             sym = *itr;
@@ -142,9 +161,9 @@ struct factor_itr_sa_length_selector {
             ep = factorRanges.back().ep;
             itr += len;
 
-            LOG(TRACE) << "found factor  " << sa[sp] << "," << sa[ep] << "," << len;
+            LOG(TRACE) << "found factor  " << sa[sp] << "," << sa[ep] << "," << len <<" from Range "<< sp <<","<<ep;
             return;
-        }
+        }*/
     }
     inline bool finished() const
     {
