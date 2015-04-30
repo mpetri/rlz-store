@@ -569,4 +569,77 @@ public:
         }
     }
 };
+
+/*
+
+struct ascii {
+    static std::string type()
+    {
+        return "ascii";
+    }
+
+    template <typename T>
+    inline uint64_t encoded_length(const T& x) const
+    {
+        return 8 *  (  std::string::to_string(x).size() + 1 );  //ascii string representation followed by a comma
+    }
+    template <class t_bit_ostream, typename T>
+    void encode_check_size(t_bit_ostream& os, T y) const
+    {
+       std::string  ascii_representation =  std::string::to_string(y);
+       os.expand_if_needed( 8 * ( ascii_representation.size() +1) );
+	for (auto byteval :  ascii_representation.c_str() )
+	{
+          os.put_int_no_size_check(byteval, 8);
+	}
+    }
+    template <class t_bit_ostream, typename T>
+    void encode(t_bit_ostream& os, T y) const
+    {
+    	std::string  ascii_representation =  std::string::to_string(y);
+       os.expand_if_needed( 8 * ( ascii_representation.size() +1) );
+	for (auto byteval :  ascii_representation.c_str() )
+	{
+          os.put_int_no_size_check(byteval, 8);
+	}
+
+    }
+    template <class t_bit_ostream, typename t_itr>
+    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    {
+        uint64_t bits_required = 0;
+        auto tmp = begin;
+        while (tmp != end) {
+            bits_required += encoded_length(*tmp);
+            ++tmp;
+        }
+        os.expand_if_needed(bits_required);
+        tmp = begin;
+        while (tmp != end) {
+            encode(os, *tmp);
+            ++tmp;
+        }
+    }
+    template <class t_bit_istream>
+    uint64_t decode(const t_bit_istream& is) const
+    {
+	uint64_t data=0;
+	char byte=0;
+
+	do{
+		data = data*10+ ( byte -'0' );
+		byte = is.get_int(8);
+	}while (byte != ',');
+    }
+    template <class t_bit_istream, typename t_itr>
+    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    {
+        for (size_t i = 0; i < n; i++) {
+            *it = decode(is);
+            ++it;
+        }
+    }
+};
+*/
+
 }
