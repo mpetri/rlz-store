@@ -96,12 +96,12 @@ struct factor_itr_salcp {
                 sp = ep = (sfx_low - sa.begin());
                 itr += len;
             }
-            LOG(TRACE) <<"found factor  "<< sa[sp] << "," <<len;
+            LOG(TRACE) << "found factor  " << sa[sp] << "," << len;
         } else {
             len = 0;
             sym = *itr;
             itr++;
-            LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
+            LOG(TRACE) << "found factor(0)  " << sym << "," << len;
         }
         /*
 

@@ -44,23 +44,23 @@ struct factor_select_minimum {
     template <class t_index>
     static uint32_t pick_offset(const t_index& idx, size_t sp, size_t ep, size_t factor_len)
     {
-    	auto min_ptr = std::min_element( idx.sa.begin()+sp, idx.sa.begin()+ep);
-	auto max_ptr = std::min_element( idx.sa.begin()+sp, idx.sa.begin()+ep);
 
-	if (idx.is_reverse()) {
-		if ( max_ptr !=  idx.sa.begin()+ep ) //search succeeded
-		{
-			return  idx.sa.size() - ( *max_ptr)  -1;	
-		}else{ //default
-			return idx.sa.size() - (idx.sa[ep] + factor_len) - 1;
-		}
-	}
+        if (idx.is_reverse()) {
+            auto max_ptr = std::max_element(idx.sa.begin() + sp, idx.sa.begin() + ep);
+            if (max_ptr != idx.sa.begin() + ep) //search succeeded
+            {
+                return idx.sa.size() - (*max_ptr) - 1;
+            } else { //default
+                return idx.sa.size() - (idx.sa[ep] + factor_len) - 1;
+            }
+        }
 
-	if ( min_ptr !=  idx.sa.begin()+ ep) //search succeeded
-	{
-		return *min_ptr;
-	}else{ //default
-        	return idx.sa[sp];
-	}
+        auto min_ptr = std::min_element(idx.sa.begin() + sp, idx.sa.begin() + ep);
+        if (min_ptr != idx.sa.begin() + ep) //search succeeded
+        {
+            return *min_ptr;
+        } else { //default
+            return idx.sa[sp];
+        }
     }
 };

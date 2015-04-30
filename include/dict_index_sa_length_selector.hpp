@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-//this class tries to select a factor with the maximum possible length "factor-length" with the constraint that "factor-length" is a multiple of LM 
+//this class tries to select a factor with the maximum possible length "factor-length" with the constraint that "factor-length" is a multiple of LM
 // [sp-ep] then gives the range of factors valid with that length.
 //LM stands for length multiplier . With the default value of 1, all factor lengths are valid and this is the same strategy as the greedy algorithm.
 //
@@ -24,9 +24,9 @@ struct factor_itr_sa_length_selector {
     bool done;
     int LM;
     factor_itr_sa_length_selector(const sdsl::int_vector<0>& _sa,
-                     const sdsl::int_vector<0>& _lcp,
-                     const sdsl::int_vector<8>& _dictionary,
-                     t_itr begin, t_itr _end)
+                                  const sdsl::int_vector<0>& _lcp,
+                                  const sdsl::int_vector<8>& _dictionary,
+                                  t_itr begin, t_itr _end, int _lm)
         : sa(_sa)
         , lcp(_lcp)
         , dictionary(_dictionary)
@@ -38,57 +38,52 @@ struct factor_itr_sa_length_selector {
         , len(0)
         , sym(0)
         , done(false)
-	, LM(1)
+        , LM(_lm)
     {
         find_next_factor();
     }
     factor_itr_sa_length_selector& operator++()
     {
         find_next_factor();
-//	std::cerr<<"calling find_next_factor "<<std::endl;
         return *this;
     }
 
     struct searchInAColumn {
         const sdsl::int_vector<8>& dictionary;
         const t_itr& query_end;
-	const size_t matchPosition; //search only at this matchPosition - rlz refine() algorithm
-	
-        searchInAColumn(const sdsl::int_vector<8>& _dictionary, const t_itr& _qe, const size_t & _mp)
+        const size_t matchPosition; //search only at this matchPosition - rlz refine() algorithm
+
+        searchInAColumn(const sdsl::int_vector<8>& _dictionary, const t_itr& _qe, const size_t& _mp)
             : dictionary(_dictionary)
             , query_end(_qe)
-	    , matchPosition(_mp)
-	  {
-	//  	std::cerr<<"searchInAColumn ctor "<< matchPosition << std::endl;
-	  }
+            , matchPosition(_mp)
+        {
+        }
 
         bool operator()(const int& suffix_value, t_itr query_ptr)
         {
-	
-		t_itr suffix_ptr = dictionary.begin() + suffix_value + matchPosition;
-		query_ptr += matchPosition;
 
-		if (  suffix_ptr > dictionary.end() )
-		{
-			//suffix string is empty at match pos => it is lesser 
-			return true;
-		}
-	    return ( *suffix_ptr <  *query_ptr );
+            t_itr suffix_ptr = dictionary.begin() + suffix_value + matchPosition;
+            query_ptr += matchPosition;
+
+            if (suffix_ptr > dictionary.end()) {
+                //suffix string is empty at match pos => it is lesser
+                return true;
+            }
+            return (*suffix_ptr < *query_ptr);
         }
-	
-	bool operator()(t_itr query_ptr ,const int& suffix_value)
-        {
-		t_itr suffix_ptr = dictionary.begin() + suffix_value + matchPosition;
-		query_ptr += matchPosition;
 
-		if (  suffix_ptr > dictionary.end() )
-		{
-			//suffix string is empty at match pos => it is lesser 
-			return true;
-		}
-	   	 return  (  *query_ptr <  *suffix_ptr);
-	}
-	
+        bool operator()(t_itr query_ptr, const int& suffix_value)
+        {
+            t_itr suffix_ptr = dictionary.begin() + suffix_value + matchPosition;
+            query_ptr += matchPosition;
+
+            if (suffix_ptr > dictionary.end()) {
+                //suffix string is empty at match pos => it is lesser
+                return true;
+            }
+            return (*query_ptr < *suffix_ptr);
+        }
     };
 
     void find_next_factor()
@@ -98,64 +93,58 @@ struct factor_itr_sa_length_selector {
             return;
         }
 
+        struct factorInfo {
+            size_t sp;
+            size_t ep;
+            size_t matchlength;
+        };
+        std::vector<factorInfo> factorRanges;
+        auto rangeStart = sa.begin();
+        auto rangeEnd = sa.end();
+        size_t match_length = 0;
+        while (true) //rlz-refine loop here
+        {
+            auto sfx_left = std::lower_bound(rangeStart, rangeEnd, itr, searchInAColumn(dictionary, end, match_length));
+            auto sfx_right = std::upper_bound(rangeStart, rangeEnd, itr, searchInAColumn(dictionary, end, match_length));
 
-	struct factorInfo{ size_t sp; size_t ep; size_t matchlength; };
-	std::vector<factorInfo> factorRanges;
-	auto rangeStart = sa.begin();
-	auto rangeEnd = sa.end();
-	size_t match_length = 0;
-	while (true) //rlz-refine loop here
-	{
-		auto sfx_left = std::lower_bound( rangeStart, rangeEnd, itr, searchInAColumn(dictionary,end, match_length)); 
-		auto sfx_right = std::upper_bound( rangeStart, rangeEnd, itr, searchInAColumn(dictionary,end, match_length)); 
+            //check if we got a valid subrange -- ie a column full of matching characters
+            if ((sfx_left == rangeEnd) || (dictionary[*sfx_left + match_length] != itr[match_length])) {
+                break;
+            }
 
-		//check if we got a valid subrange -- ie a column full of matching characters
-		if ((sfx_left ==rangeEnd)  || (dictionary[*sfx_left + match_length] != itr[match_length]) )
-		{
-			break;
-		}
+            //otherwise valid range
+            {
+                size_t lb = std::distance(sa.begin(), sfx_left);
+                size_t rb = std::distance(sa.begin(), sfx_right) - 1; //-1 because sfx_right points to the first entry > than query
 
-		//otherwise valid range
-		{
-			size_t lb =  std::distance( sa.begin(), sfx_left);
-			size_t rb =  std::distance( sa.begin(), sfx_right) -1; //-1 because sfx_right points to the first entry > than query
-	
-//			std::cerr<<"in find_next_factor lb,rb,matchlength="<< lb <<","<<rb<< ","<< match_length<<std::endl;
-//			std::cerr<<"char at itr |"<< itr[match_length]  <<"| char at |"<< dictionary[*sfx_left+match_length] <<"|"<<dictionary[*sfx_right+match_length]<<"|"<<std::endl;
+                factorRanges.push_back(factorInfo{ lb, rb, ++match_length });
+                rangeStart = sfx_left;
+                rangeEnd = sfx_right;
 
+                // go back to loop and look at the next matchlength/matchPosition column
+                //unless we have ran out of the block
+                if (std::distance(itr, end) <= match_length) {
+                    break;
+                }
+            }
+        }
 
-			factorRanges.push_back( factorInfo{ lb, rb, ++match_length } );
-			rangeStart = sfx_left;
-			rangeEnd = sfx_right;
+        //factor is the one at the top of the list
+        if (factorRanges.size() <= 0) {
+            len = 0;
+            sym = *itr;
+            ++itr;
+            LOG(TRACE) << "found factor(0)  " << sym << "," << len;
+            return;
+        } else {
+            len = factorRanges.back().matchlength;
+            sp = factorRanges.back().sp;
+            ep = factorRanges.back().ep;
+            itr += len;
 
-			// go back to loop and look at the next matchlength/matchPosition column
-			//unless we have ran out of the block
-			if (  std::distance(itr, end) <= match_length )
-			{
-				break;
-			}
-		}
-	}
-
-	//factor is the one at the top of the list
-	if ( factorRanges.size()<=0 )
-	{
-		len = 0; 
-		sym = *itr; 
-		++itr;
-            	LOG(TRACE) <<"found factor(0)  "<< sym << ","<<len;
-		return;
-	}else
-	{
-		len	= factorRanges.back().matchlength;
-		sp	= factorRanges.back().sp;
-		ep	= factorRanges.back().ep;
-		itr	+= len;
-
-            	LOG(TRACE) <<"found factor  "<< sa[sp] << "," << sa[ep]<<"," <<len;
-		return;
-	}
- 
+            LOG(TRACE) << "found factor  " << sa[sp] << "," << sa[ep] << "," << len;
+            return;
+        }
     }
     inline bool finished() const
     {
@@ -163,6 +152,7 @@ struct factor_itr_sa_length_selector {
     }
 };
 
+template <int t_LM = 1>
 struct dict_index_sa_length_selector {
     typedef typename sdsl::int_vector<>::size_type size_type;
     sdsl::int_vector<> sa;
@@ -234,7 +224,7 @@ struct dict_index_sa_length_selector {
     template <class t_itr>
     factor_itr_sa_length_selector<t_itr> factorize(t_itr itr, t_itr end) const
     {
-        return factor_itr_sa_length_selector<t_itr>(sa, lcp, dict, itr, end);
+        return factor_itr_sa_length_selector<t_itr>(sa, lcp, dict, itr, end, t_LM);
     }
 
     bool is_reverse() const
