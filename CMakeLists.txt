@@ -60,6 +60,9 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
 
+add_executable(rlzs-reencode.x src/rlzs-reencode.cpp)
+target_link_libraries(rlzs-reencode.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
+
 add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
 target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
 
