@@ -7,6 +7,7 @@
 
 #include "easylogging++.h"
 
+#include <cassert>
 namespace coder {
 
 struct elias_gamma {
@@ -608,4 +609,64 @@ public:
         }
     }
 };
+
+//with the dict_index_sa_length_selector strategy - match lengths are a known multiple of LM. This coder simply removes/adds the LM component, before
+// passing on to the next stage of coding say U32 or Zlib (given by t_coder c)
+template <int lm, class t_coder>
+struct length_multiplier {
+public:
+    static const uint32_t lm_buf_len = 100000;
+
+private:
+    mutable uint32_t buf[lm_buf_len];
+    t_coder next_stage_coder;
+public:
+    static std::string type()
+    {
+        return "length_multiplier-" + std::to_string(lm) + "-" + t_coder::type();
+    }
+
+    template <class t_bit_ostream, typename T>
+    void encode_check_size(t_bit_ostream& os, T y) const
+    {
+        assert((y % lm) == 0); //"invalid number for length_multiplier"
+        next_stage_coder.encode_check_size(os, y / lm);
+    }
+    template <class t_bit_ostream, typename T>
+    void encode(t_bit_ostream& os, T y) const
+    {
+        assert((y % lm) == 0); //"invalid number for length_multiplier"
+        next_stage_coder.encode(os, y / lm);
+    }
+    template <class t_bit_ostream, typename t_itr>
+    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    {
+        size_t num_elems = std::distance(begin,end);
+        auto buf_itr = std::begin(buf);
+        for(size_t i=0;i<num_elems;i++) {
+            *buf_itr = *begin / lm;
+            ++buf_itr;
+            ++begin;
+        }
+        next_stage_coder.encode(os,std::begin(buf),buf_itr);
+    }
+    template <class t_bit_istream>
+    uint64_t decode(const t_bit_istream& is) const
+    {
+        return lm * next_stage_coder.decode(is);
+    }
+    template <class t_bit_istream, typename t_itr>
+    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    {
+        auto itr = it;
+        next_stage_coder.decode(is,it,n);
+        for (size_t i = 0; i < n; i++) {
+            auto elem = *itr;
+            *itr = lm * elem;
+            ++itr;
+        }
+    }
+};
+
+
 }

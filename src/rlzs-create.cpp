@@ -130,27 +130,17 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    /*
-    {
-<<<<<<< HEAD
-
-        auto rlz_store = rlz_type_standard::builder{}
-                            .set_rebuild(args.rebuild)
-                            .set_threads(args.threads)
-                            .build_or_load(col);
-
-        if(args.verify) verify_index(col,rlz_store);
-    }*/
     { // use uncompressed sa for factorization
         using dict_strat = dict_random_sample_budget<100, 1024>;
         using dict_prune_strat = dict_prune_none;
-        using factor_select_strat = factor_select_first;
-        using factor_coder_strat = factor_coder_blocked<coder::u32, coder::vbyte>;
-        using dict_index_type = dict_index_salcp; //default_dict_index_type
+        using factor_select_strat = factor_select_minimum; //factor_select_first;
+        const int keep_length_multiple_of = 2;
+        using factor_coder_strat = factor_coder_blocked<coder::u32, coder::length_multiplier<keep_length_multiple_of, coder::vbyte> >; // factor_coder<coder::u32, coder::vbyte>;
+        using dict_index_type = dict_index_sa_length_selector<keep_length_multiple_of>; // dict_index_salcp; //default_dict_index_type
         using rlz_type = rlz_store_static<dict_strat,
                                           dict_prune_strat,
                                           dict_index_type,
-                                          16384,
+                                          8192,
                                           factor_select_strat,
                                           factor_coder_strat,
                                           block_map_uncompressed>;
