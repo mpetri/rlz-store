@@ -190,9 +190,9 @@ public:
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         auto boffsets_file_name = factorization_strategy::boffsets_file_name(col);
         auto bfactors_file_name = factorization_strategy::bfactors_file_name(col);
-        sdsl::int_vector_mapper<1> factor_buf(factor_file_name);
-        sdsl::int_vector_mapper<0> block_offsets(boffsets_file_name);
-        sdsl::int_vector_mapper<0> block_factors(bfactors_file_name);
+        auto factor_buf =  sdsl::write_out_buffer<1>::create(factor_file_name);
+        auto block_offsets = sdsl::write_out_buffer<0>::create(boffsets_file_name);
+        auto block_factors = sdsl::write_out_buffer<0>::create(bfactors_file_name);
         bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
         size_t cur_block_offset = itr.block_id;
         t_factor_coder coder;
