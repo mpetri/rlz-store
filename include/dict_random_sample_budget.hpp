@@ -26,23 +26,29 @@ public:
             LOG(INFO) << "\t"
                       << "Create dictionary with budget " << t_budget_mb << " MiB";
             // memory map the text and iterate over it
-            auto dict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
-            sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-            auto num_samples = budget_bytes / block_size;
-            LOG(INFO) << "\t"
-                      << "Dictionary samples = " << num_samples;
-            auto n = text.size();
-            size_t sample_step = n / num_samples;
-            LOG(INFO) << "\t"
-                      << "Sample steps = " << sample_step;
-            for (size_t i = 0; i < n; i += sample_step) {
-                for (size_t j = 0; j < block_size; j++) {
-                    if (i + j >= n)
-                        break;
-                    dict.push_back(text[i + j]);
+            std::vector<uint8_t> dict;
+            {
+                sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+                auto num_samples = budget_bytes / block_size;
+                LOG(INFO) << "\t"
+                          << "Dictionary samples = " << num_samples;
+                auto n = text.size();
+                size_t sample_step = n / num_samples;
+                LOG(INFO) << "\t"
+                          << "Sample steps = " << sample_step;
+                for (size_t i = 0; i < n; i += sample_step) {
+                    for (size_t j = 0; j < block_size; j++) {
+                        if (i + j >= n)
+                            break;
+                        dict.push_back(text[i + j]);
+                    }
                 }
+                dict.push_back(0); // zero terminate for SA construction
             }
-            dict.push_back(0); // zero terminate for SA construction
+            /* store to disk */
+            LOG(INFO) << "\t" << "Writing dictionary.";
+            auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
+            std::copy(dict.begin(),dict.end(),std::back_inserter(wdict));
         } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << file_name << "'";
