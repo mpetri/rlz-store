@@ -42,16 +42,16 @@ struct block_map_uncompressed {
         m_block_factors.load(in);
     }
 
-    size_type block_offset(size_t block_id) const
+    inline size_type block_offset(size_t block_id) const
     {
         return m_block_offsets[block_id];
     }
-    size_type block_factors(size_t block_id) const
+    inline size_type block_factors(size_t block_id) const
     {
         return m_block_factors[block_id];
     }
 
-    size_type num_blocks() const
+    inline size_type num_blocks() const
     {
         return m_block_offsets.size();
     }
