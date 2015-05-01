@@ -7,9 +7,7 @@ INITIALIZE_EASYLOGGINGPP
 
 typedef struct cmdargs {
     std::string collection_dir;
-    bool rebuild;
-    uint32_t threads;
-    bool verify;
+    bool factor_decoding;
 } cmdargs_t;
 
 void
@@ -26,10 +24,14 @@ parse_args(int argc, const char* argv[])
     cmdargs_t args;
     int op;
     args.collection_dir = "";
-    while ((op = getopt(argc, (char* const*)argv, "c:fdvt:")) != -1) {
+    args.factor_decoding = false;
+    while ((op = getopt(argc, (char* const*)argv, "c:f")) != -1) {
         switch (op) {
         case 'c':
             args.collection_dir = optarg;
+            break;
+        case 'f':
+            args.factor_decoding = true;
             break;
         }
     }
@@ -72,7 +74,7 @@ int main(int argc, const char* argv[])
                                  .load(col);
 
             /* measure factor decoding speed */
-            {
+            if(args.factor_decoding) {
                 auto start = hrclock::now();
                 auto itr = rlz_store.factors_begin();
                 auto end = rlz_store.factors_end();
@@ -95,10 +97,9 @@ int main(int argc, const char* argv[])
                 LOG(INFO) << "num_factors = " << num_factors;
                 LOG(INFO) << "total time = " << fact_seconds << " sec";
                 LOG(INFO) << "factors per sec = " << num_factors / fact_seconds;
-            }
-
-            /* measure text decoding speed */
-            {
+                auto factors_mb = rlz_store.factor_text.size() / (double)(8*1024*1024); // bits to mb
+                LOG(INFO) << "decoding speed = " << factors_mb / fact_seconds;
+            } else { /* measure text decoding speed */
                 auto start = hrclock::now();
                 auto itr = rlz_store.begin();
                 auto end = rlz_store.end();

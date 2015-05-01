@@ -25,7 +25,7 @@ struct factor_coder {
     template <class t_ostream>
     void encode_block(t_ostream& ofs,
                       const std::vector<uint32_t>& offsets,
-                      std::vector<uint32_t>& lens,
+                      const std::vector<uint32_t>& lens,
                       size_t num_factors) const
     {
         for (size_t i = 0; i < num_factors; i++) {
@@ -63,7 +63,7 @@ struct factor_coder_blocked {
     template <class t_ostream>
     void encode_block(t_ostream& ofs,
                       const std::vector<uint32_t>& offsets,
-                      std::vector<uint32_t>& lens,
+                      const std::vector<uint32_t>& lens,
                       size_t num_factors) const
     {
         offset_coder.encode(ofs, std::begin(offsets), std::begin(offsets) + num_factors);

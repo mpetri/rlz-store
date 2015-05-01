@@ -22,7 +22,7 @@ struct elias_gamma {
         return len_1 * 2 + 1;
     }
     template <class t_bit_ostream, typename T>
-    void encode_check_size(t_bit_ostream& os, const T& x) const
+    inline void encode_check_size(t_bit_ostream& os, const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         uint8_t len_1 = sdsl::bits::hi(x);
@@ -33,7 +33,7 @@ struct elias_gamma {
         }
     }
     template <class t_bit_ostream, typename T>
-    void encode(t_bit_ostream& os, const T& x) const
+    inline void encode(t_bit_ostream& os, const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         uint8_t len_1 = sdsl::bits::hi(x);
@@ -43,7 +43,7 @@ struct elias_gamma {
         }
     }
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         uint64_t bits_required = 0;
         auto tmp = begin;
@@ -59,7 +59,7 @@ struct elias_gamma {
         }
     }
     template <class t_bit_istream>
-    uint64_t decode(const t_bit_istream& is) const
+    inline uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t x;
         auto len = is.get_unary();
@@ -69,7 +69,7 @@ struct elias_gamma {
         return x;
     }
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         for (size_t i = 0; i < n; i++) {
             *it = decode(is);
@@ -91,7 +91,7 @@ struct elias_delta {
         return len_1 + (sdsl::bits::hi(len_1 + 1) << 1) + 1;
     }
     template <class t_bit_ostream, typename T>
-    void encode_check_size(t_bit_ostream& os, const T& x) const
+    inline void encode_check_size(t_bit_ostream& os, const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         // (number of sdsl::bits to represent x)
@@ -109,7 +109,7 @@ struct elias_delta {
         }
     }
     template <class t_bit_ostream, typename T>
-    void encode(t_bit_ostream& os, const T& x) const
+    inline void encode(t_bit_ostream& os, const T& x) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         // (number of sdsl::bits to represent x)
@@ -124,7 +124,7 @@ struct elias_delta {
         }
     }
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         auto tmp = begin;
         uint64_t len = 0;
@@ -140,7 +140,7 @@ struct elias_delta {
         }
     }
     template <class t_bit_istream>
-    uint64_t decode(const t_bit_istream& is) const
+    inline uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t x = 1;
         auto len_1_len = is.get_unary();
@@ -153,7 +153,7 @@ struct elias_delta {
         return x;
     }
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         for (size_t i = 0; i < n; i++) {
             *it = decode(is);
@@ -176,7 +176,7 @@ struct vbyte {
         return 8 * vbyte_len[sdsl::bits::hi(x) + 1];
     }
     template <class t_bit_ostream, typename T>
-    void encode_check_size(t_bit_ostream& os, T y) const
+    inline void encode_check_size(t_bit_ostream& os, T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         os.expand_if_needed(encoded_length(y));
@@ -192,7 +192,7 @@ struct vbyte {
         os.put_int_no_size_check(w, 8);
     }
     template <class t_bit_ostream, typename T>
-    void encode(t_bit_ostream& os, T y) const
+    inline void encode(t_bit_ostream& os, T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         uint64_t x = y;
@@ -207,7 +207,7 @@ struct vbyte {
         os.put_int_no_size_check(w, 8);
     }
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         uint64_t bits_required = 0;
         auto tmp = begin;
@@ -223,7 +223,7 @@ struct vbyte {
         }
     }
     template <class t_bit_istream>
-    uint64_t decode(const t_bit_istream& is) const
+    inline uint64_t decode(const t_bit_istream& is) const
     {
         uint64_t ww = 0;
         uint8_t w = 0;
@@ -236,7 +236,7 @@ struct vbyte {
         return ww;
     }
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         for (size_t i = 0; i < n; i++) {
             *it = decode(is);
@@ -252,20 +252,20 @@ struct u32 {
     }
 
     template <class t_bit_ostream, typename T>
-    void encode_check_size(t_bit_ostream& os, T y) const
+    inline void encode_check_size(t_bit_ostream& os, T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         os.expand_if_needed(32);
         os.put_int_no_size_check(y, 32);
     }
     template <class t_bit_ostream, typename T>
-    void encode(t_bit_ostream& os, T y) const
+    inline void encode(t_bit_ostream& os, T y) const
     {
         static_assert(std::numeric_limits<T>::is_signed == false, "can only encode unsigned integers");
         os.put_int_no_size_check(y, 32);
     }
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         auto num_elems = std::distance(begin, end);
         os.expand_if_needed(32 * num_elems);
@@ -276,18 +276,52 @@ struct u32 {
         }
     }
     template <class t_bit_istream>
-    uint64_t decode(const t_bit_istream& is) const
+    inline uint64_t decode(const t_bit_istream& is) const
     {
         uint32_t w32 = is.get_int(32);
         return w32;
     }
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         for (size_t i = 0; i < n; i++) {
             *it = decode(is);
             ++it;
         }
+    }
+};
+
+struct u32a {
+public:
+    static const uint32_t u32a_buf_len = 100000;
+private:    
+    mutable uint32_t buf[u32a_buf_len];
+public:
+    static std::string type()
+    {
+        return "u32a";
+    }
+
+    template <class t_bit_ostream, typename t_itr>
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    {
+        std::copy(begin,end,std::begin(buf));
+        auto num_elems = std::distance(begin, end);
+        os.expand_if_needed(8+ 32 * num_elems);
+        os.align8();
+        uint8_t* out = os.cur_data8();
+        uint32_t* out32 = (uint32_t*)out;
+        std::copy(begin,end,out32);
+        os.skip(32*num_elems);
+    }
+    template <class t_bit_istream, typename t_itr>
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    {
+        is.align8();
+        const uint8_t* in = is.cur_data8();
+        const uint32_t* is32 = (uint32_t*)in;
+        std::copy(is32,is32+n,it);
+        is.skip(32*n);
     }
 };
 
@@ -335,7 +369,7 @@ public:
     }
 
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         auto n = std::distance(begin, end);
         if (n > zlib_buf_len) {
@@ -356,11 +390,15 @@ public:
         uint64_t in_size = n * sizeof(uint32_t);
 
         uint32_t out_buf_bytes = bits_required >> 3;
+
         dstrm.avail_in = in_size;
         dstrm.avail_out = out_buf_bytes;
         dstrm.next_in = (uint8_t*)buf;
         dstrm.next_out = out_buf;
+
         auto error = deflate(&dstrm, Z_FINISH);
+        deflateReset(&dstrm); // after finish we have to reset
+
         /* If the parameter flush is set to Z_FINISH, pending input
          is processed, pending output is flushed and deflate returns
          with Z_STREAM_END if there was enough output space; if 
@@ -394,7 +432,7 @@ public:
         os.skip(written_bytes * 8); // skip over the written content
     }
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         if (n > zlib_buf_len) {
             LOG(FATAL) << "zlib-decode: zlib_buf_len < n";
@@ -416,6 +454,7 @@ public:
         istrm.avail_out = out_size;
         istrm.next_out = out_buf;
         auto error = inflate(&istrm, Z_FINISH);
+        inflateReset(&istrm); // after finish we need to reset
         if (error != Z_STREAM_END) {
             switch (error) {
             case Z_MEM_ERROR:
@@ -474,7 +513,7 @@ public:
     }
 
     template <class t_bit_ostream, typename t_itr>
-    void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
+    inline void encode(t_bit_ostream& os, t_itr begin, t_itr end) const
     {
         auto n = std::distance(begin, end);
         if (n > lzma_buf_len) {
@@ -517,7 +556,7 @@ public:
     }
 
     template <class t_bit_istream, typename t_itr>
-    void decode(const t_bit_istream& is, t_itr it, size_t n) const
+    inline void decode(const t_bit_istream& is, t_itr it, size_t n) const
     {
         if (n > lzma_buf_len) {
             LOG(FATAL) << "lzma-decode: lzma_buf_len < n!";
