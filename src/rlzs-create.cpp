@@ -142,15 +142,15 @@ int main(int argc, const char* argv[])
         if(args.verify) verify_index(col,rlz_store);
     }*/
     { // use uncompressed sa for factorization
-        using dict_strat = dict_random_sample_budget<16, 1024>;
+        using dict_strat = dict_random_sample_budget<100, 1024>;
         using dict_prune_strat = dict_prune_none;
         using factor_select_strat = factor_select_first;
-        using factor_coder_strat = factor_coder<coder::u32, coder::vbyte>;
+        using factor_coder_strat = factor_coder_blocked<coder::u32, coder::vbyte>;
         using dict_index_type = dict_index_salcp; //default_dict_index_type
         using rlz_type = rlz_store_static<dict_strat,
                                           dict_prune_strat,
                                           dict_index_type,
-                                          2048,
+                                          16384,
                                           factor_select_strat,
                                           factor_coder_strat,
                                           block_map_uncompressed>;

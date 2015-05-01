@@ -18,7 +18,25 @@ template <uint32_t t_block_size = 1024,
 struct factorizor {
     static std::string type()
     {
-        return "factorizor-" + std::to_string(t_block_size) + "-" + t_factor_selector::type();
+        return "factorizor-" + std::to_string(t_block_size) + "-" + t_factor_selector::type() + "-" + t_coder::type();
+    }
+
+    static std::string factor_file_name(collection& col)
+    {
+        auto dict_hash = col.param_map[PARAM_DICT_HASH];
+        return col.path + "/index/" + type() + "-dhash=" + dict_hash + ".sdsl";
+    }
+
+    static std::string boffsets_file_name(collection& col)
+    {
+        auto dict_hash = col.param_map[PARAM_DICT_HASH];
+        return col.path + "/index/" + KEY_BLOCKOFFSETS + "-fs="+type()+"-dhash=" + dict_hash + ".sdsl";
+    }
+
+    static std::string bfactors_file_name(collection& col)
+    {
+        auto dict_hash = col.param_map[PARAM_DICT_HASH];
+        return col.path + "/index/" + KEY_BLOCKFACTORS + "-fs="+type()+"-dhash=" + dict_hash + ".sdsl";
     }
 
     template <class t_itr>
@@ -27,30 +45,22 @@ struct factorizor {
         auto factor_itr = idx.factorize(itr, end);
         fs.start_new_block();
         size_t i = 0;
-        size_t decoded_syms = 0;
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
                 fs.add_to_block_factor(factor_itr.sym, 0);
-                //LOG(TRACE) << "sym = " << (int) factor_itr.sym;
-                decoded_syms++;
             } else {
                 auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
                 fs.add_to_block_factor(offset, factor_itr.len);
-                decoded_syms += factor_itr.len;
-                //LOG(TRACE) << "offset=" << offset << " len=" << factor_itr.len;
             }
-
-            //LOG(TRACE) << "encoded syms = " << decoded_syms;
             ++factor_itr;
             i++;
         }
-        LOG(TRACE) << "BLOCK ENCODED" << decoded_syms;
         fs.encode_current_block(coder);
     }
 
     template <class t_itr>
     static factorization_info
-    factorize(collection& col, t_index& idx, t_itr itr, t_itr end, size_t offset = 0)
+    factorize(collection& col, t_index& idx,t_itr itr, t_itr end, size_t offset = 0)
     {
         /* (1) create output files */
         factor_storage fs(col, t_block_size, offset);

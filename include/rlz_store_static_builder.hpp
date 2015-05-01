@@ -41,6 +41,13 @@ public:
         return *this;
     };
 
+    static std::string blockmap_file_name(collection& col)
+    {
+        return col.path + "/index/" + KEY_BLOCKMAP + "-"
+                 + block_map_type::type() + "-" + factorization_strategy::type() + "-"
+                 + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+    }
+
     rlz_store_static build_or_load(collection& col) const
     {
         auto start = hrclock::now();
@@ -58,7 +65,7 @@ public:
 
         // (3) create factorized text using the dict
         auto dict_hash = col.param_map[PARAM_DICT_HASH];
-        auto factor_file_name = col.path + "/index/" + factorization_strategy::type() + "-dhash=" + dict_hash + ".sdsl";
+        auto factor_file_name = factorization_strategy::factor_file_name(col);
         if (rebuild || !utils::file_exists(factor_file_name)) {
             LOG(INFO) << "Create/Load dictionary index";
             dictionary_index idx(col, rebuild);
@@ -80,7 +87,7 @@ public:
                 if (left < 2 * syms_per_thread) // last thread might have to encode a little more
                     end = text.end();
                 fis.push_back(std::async(std::launch::async, [&, begin, end, i] {
-                        return factorization_strategy::factorize(col,idx,text,begin,end,i);
+                        return factorization_strategy::factorize(col,idx,begin,end,i);
                 }));
                 itr += syms_per_thread;
                 left -= syms_per_thread;
@@ -102,18 +109,14 @@ public:
             merge_factor_encodings<factorization_strategy>(col, efs);
         } else {
             LOG(INFO) << "Factorized text exists.";
-            auto boffsets_file_name = col.path + "/index/" + KEY_BLOCKOFFSETS + "-dhash=" + dict_hash + ".sdsl";
-            auto bfactors_file_name = col.path + "/index/" + KEY_BLOCKFACTORS + "-dhash=" + dict_hash + ".sdsl";
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
-            col.file_map[KEY_BLOCKOFFSETS] = boffsets_file_name;
-            col.file_map[KEY_BLOCKFACTORS] = bfactors_file_name;
+            col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
+            col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
         }
 
         // (4) encode document start pos
         LOG(INFO) << "Create block map (" << block_map_type::type() << ")";
-        auto blockmap_file = col.path + "/index/" + KEY_BLOCKMAP + "-"
-                             + block_map_type::type() + "-" + factorization_strategy::type() + "-"
-                             + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+        auto blockmap_file = blockmap_file_name(col); 
         if (rebuild || !utils::file_exists(blockmap_file)) {
             block_map_type tmp(col);
             sdsl::store_to_file(tmp, blockmap_file);
@@ -141,19 +144,17 @@ public:
 
         /* (2) check factorized text */
         auto dict_hash = col.param_map[PARAM_DICT_HASH];
-        auto factor_file_name = col.path + "/index/" + factorization_strategy::type() + "-dhash=" + dict_hash + ".sdsl";
+        auto factor_file_name = factorization_strategy::factor_file_name(col);
         if (!utils::file_exists(factor_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find factorized text.");
         } else {
-            auto boffsets_file_name = col.path + "/index/" + KEY_BLOCKOFFSETS + "-dhash=" + dict_hash + ".sdsl";
-            auto bfactors_file_name = col.path + "/index/" + KEY_BLOCKFACTORS + "-dhash=" + dict_hash + ".sdsl";
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
+            col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
+            col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
         }
 
         /* (2) check blockmap */
-        auto blockmap_file = col.path + "/index/" + KEY_BLOCKMAP + "-"
-                             + block_map_type::type() + "-" + factorization_strategy::type() + "-"
-                             + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+        auto blockmap_file = blockmap_file_name(col);
         if (!utils::file_exists(blockmap_file)) {
             throw std::runtime_error("LOAD FAILED: Cannot find blockmap.");
         } else {
@@ -188,7 +189,10 @@ public:
         size_t factors_in_block = 0;
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         auto boffsets_file_name = factorization_strategy::boffsets_file_name(col);
-        auto boffsets_file_name = factorization_strategy::bfactors_file_name(col);
+        auto bfactors_file_name = factorization_strategy::bfactors_file_name(col);
+        sdsl::int_vector_mapper<1> factor_buf(factor_file_name);
+        sdsl::int_vector_mapper<0> block_offsets(boffsets_file_name);
+        sdsl::int_vector_mapper<0> block_factors(bfactors_file_name);
         bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
         size_t cur_block_offset = itr.block_id;
         t_factor_coder coder;
@@ -220,9 +224,7 @@ public:
 	    col.file_map[KEY_BLOCKFACTORS] = bfactors_file_name;
 
         LOG(INFO) << "\t" << "Create block map (" << block_map_type::type() << ")";
-        auto blockmap_file = col.path + "/index/" + KEY_BLOCKMAP + "-"
-                             + block_map_type::type() + "-" + factorization_strategy::type() + "-"
-                             + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+        auto blockmap_file = blockmap_file_name(col);
         if (rebuild || !utils::file_exists(blockmap_file)) {
             block_map_type tmp(col);
             sdsl::store_to_file(tmp, blockmap_file);

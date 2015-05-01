@@ -110,6 +110,7 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
     LOG(INFO) << "=====================================================================";
     LOG(INFO) << "text size          = " << n << " bytes (" << n / (1024 * 1024.0) << " MB)";
     LOG(INFO) << "encoding size      = " << nb << " bytes (" << nb / (1024 * 1024.0) << " MB)";
+    LOG(INFO) << "compression ratio  = " << 100.0 * (((double)nb / (double)n)) << " %";
     LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)nb / (double)n)) << " %";
     LOG(INFO) << "number of factors  = " << num_factors;
     LOG(INFO) << "number of blocks   = " << num_blocks;
@@ -117,13 +118,14 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
     LOG(INFO) << "=====================================================================";
 }
 
+template<class t_fact_strategy>
 void
-merge_factor_encodings(collection& col, std::vector<factorization_info>& efs, std::string out_prefix)
+merge_factor_encodings(collection& col, std::vector<factorization_info>& efs)
 {
     auto dict_hash = col.param_map[PARAM_DICT_HASH];
-    auto factor_file_name = col.path + "/index/" + out_prefix + "-dhash=" + dict_hash + ".sdsl";
-    auto boffsets_file_name = col.path + "/index/" + KEY_BLOCKOFFSETS + "-dhash=" + dict_hash + ".sdsl";
-    auto bfactors_file_name = col.path + "/index/" + KEY_BLOCKFACTORS + "-dhash=" + dict_hash + ".sdsl";
+    auto factor_file_name = t_fact_strategy::factor_file_name(col);
+    auto boffsets_file_name = t_fact_strategy::boffsets_file_name(col);
+    auto bfactors_file_name = t_fact_strategy::bfactors_file_name(col);
     // rename the first block to the correct file name
     std::sort(efs.begin(), efs.end());
     LOG(INFO) << "\tRename offset 0 block to output files";
