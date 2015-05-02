@@ -217,6 +217,8 @@ public:
         	++itr;
         }
         if(factors_in_block != 0) {
+        	block_offsets.push_back(factor_stream.tellp());
+        	block_factors.push_back(factors_in_block);
     		coder.encode_block(factor_stream,offsets,lens,factors_in_block);
         }
 	    col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
