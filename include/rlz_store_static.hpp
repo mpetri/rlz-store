@@ -40,8 +40,6 @@ private:
     bit_istream<sdsl::int_vector_mapper<1, std::ios_base::in> > m_factor_stream;
     sdsl::int_vector<8> m_dict;
     block_map_type m_blockmap;
-    uint64_t text_size;
-
 public:
     enum { factorization_bs = t_factorization_block_size };
     uint32_t factorization_block_size = t_factorization_block_size;
@@ -49,6 +47,7 @@ public:
     sdsl::int_vector<8>& dict = m_dict;
     factor_coder_type factor_coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& factor_text = m_factored_text;
+    uint64_t text_size;
 public:
     class builder;
 
