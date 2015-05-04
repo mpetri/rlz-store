@@ -1,3 +1,5 @@
+#define ELPP_THREAD_SAFE
+
 #include "utils.hpp"
 #include "collection.hpp"
 

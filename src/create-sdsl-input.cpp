@@ -2,8 +2,7 @@
 #include "collection.hpp"
 #include "sdsl/int_vector_mapper.hpp"
 
-#include "easylogging++.h"
-
+#include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
 typedef struct cmdargs {
@@ -47,9 +46,7 @@ parse_args(int argc, const char* argv[])
 
 int main(int argc, const char* argv[])
 {
-    START_EASYLOGGINGPP(argc, argv);
-    el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);
-    el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Format, "%datetime : %msg");
+    setup_logger(argc, argv);
 
     cmdargs_t args = parse_args(argc, argv);
 

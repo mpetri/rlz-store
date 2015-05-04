@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils.hpp"
-#include "easylogging++.h"
+#include "logging.hpp"
 
 #include "sdsl/io.hpp"
 #include "sdsl/construct.hpp"

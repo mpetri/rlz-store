@@ -5,10 +5,9 @@
 #include <functional>
 #include <random>
 
-#include "easylogging++.h"
-
 #include "utils.hpp"
 
+#include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
 TEST(bit_stream, vbyte)

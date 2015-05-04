@@ -5,7 +5,7 @@
 #include "zlib.h"
 #include "lzma.h"
 
-#include "easylogging++.h"
+#include "logging.hpp"
 
 #include <cassert>
 namespace coder {

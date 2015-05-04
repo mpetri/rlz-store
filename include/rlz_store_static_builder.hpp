@@ -191,36 +191,38 @@ public:
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         auto boffsets_file_name = factorization_strategy::boffsets_file_name(col);
         auto bfactors_file_name = factorization_strategy::bfactors_file_name(col);
-        auto factor_buf =  sdsl::write_out_buffer<1>::create(factor_file_name);
-        auto block_offsets = sdsl::write_out_buffer<0>::create(boffsets_file_name);
-        auto block_factors = sdsl::write_out_buffer<0>::create(bfactors_file_name);
-        bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
-        size_t cur_block_offset = itr.block_id;
-        t_factor_coder coder;
-        auto num_blocks = old.block_map.num_blocks();
-        auto num_blocks10p = (uint64_t)(num_blocks * 0.1);
-        while( itr != end ) {
-        	const auto& f = *itr;
-        	if( itr.block_id != cur_block_offset ) {
-        		block_offsets.push_back(factor_stream.tellp());
-        		block_factors.push_back(factors_in_block);
+        if (rebuild || !utils::file_exists(factor_file_name)) {
+            auto factor_buf =  sdsl::write_out_buffer<1>::create(factor_file_name);
+            auto block_offsets = sdsl::write_out_buffer<0>::create(boffsets_file_name);
+            auto block_factors = sdsl::write_out_buffer<0>::create(bfactors_file_name);
+            bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
+            size_t cur_block_offset = itr.block_id;
+            t_factor_coder coder;
+            auto num_blocks = old.block_map.num_blocks();
+            auto num_blocks10p = (uint64_t)(num_blocks * 0.1);
+            while( itr != end ) {
+            	const auto& f = *itr;
+            	if( itr.block_id != cur_block_offset ) {
+            		block_offsets.push_back(factor_stream.tellp());
+            		block_factors.push_back(factors_in_block);
+            		coder.encode_block(factor_stream,offsets,lens,factors_in_block);
+            		cur_block_offset = itr.block_id;
+            		factors_in_block = 0;
+                    if( (cur_block_offset+1) % num_blocks10p == 0) {
+                        LOG(INFO) << "\t" << "Encoded " << 100*(cur_block_offset+1)/num_blocks << "% (" 
+                            << (cur_block_offset+1) << "/" << num_blocks << ")";
+                    }
+            	}
+            	offsets[factors_in_block] = f.offset;
+            	lens[factors_in_block] = f.len;
+            	factors_in_block++;
+            	++itr;
+            }
+            if(factors_in_block != 0) {
+            	block_offsets.push_back(factor_stream.tellp());
+            	block_factors.push_back(factors_in_block);
         		coder.encode_block(factor_stream,offsets,lens,factors_in_block);
-        		cur_block_offset = itr.block_id;
-        		factors_in_block = 0;
-                if( (cur_block_offset+1) % num_blocks10p == 0) {
-                    LOG(INFO) << "\t" << "Encoded " << 100*(cur_block_offset+1)/num_blocks << "% (" 
-                        << (cur_block_offset+1) << "/" << num_blocks << ")";
-                }
-        	}
-        	offsets[factors_in_block] = f.offset;
-        	lens[factors_in_block] = f.len;
-        	factors_in_block++;
-        	++itr;
-        }
-        if(factors_in_block != 0) {
-        	block_offsets.push_back(factor_stream.tellp());
-        	block_factors.push_back(factors_in_block);
-    		coder.encode_block(factor_stream,offsets,lens,factors_in_block);
+            }
         }
 	    col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
 	    col.file_map[KEY_BLOCKOFFSETS] = boffsets_file_name;
