@@ -70,7 +70,8 @@ public:
             LOG(INFO) << "Create/Load dictionary index";
             dictionary_index idx(col, rebuild);
 
-            LOG(INFO) << "Factorize text (" << num_threads << " threads)";
+            LOG(INFO) << "Factorize text (" << num_threads << " threads) - (" 
+                << factorization_strategy::type() << ")";
             auto start_fact = hrclock::now();
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
             
