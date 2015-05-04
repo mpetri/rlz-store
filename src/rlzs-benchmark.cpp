@@ -1,8 +1,8 @@
 #include "utils.hpp"
 #include "collection.hpp"
-
 #include "indexes.hpp"
 
+#include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
 typedef struct cmdargs {
@@ -45,7 +45,7 @@ parse_args(int argc, const char* argv[])
 
 int main(int argc, const char* argv[])
 {
-    utils::setup_logger(argc, argv);
+    setup_logger(argc, argv);
 
     /* parse command line */
     LOG(INFO) << "Parsing command line arguments";

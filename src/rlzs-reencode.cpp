@@ -3,6 +3,7 @@
 
 #include "indexes.hpp"
 
+#include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
 typedef struct cmdargs {
@@ -119,7 +120,7 @@ void verify_index(collection& col, t_idx& rlz_store)
 
 int main(int argc, const char* argv[])
 {
-    utils::setup_logger(argc, argv);
+    setup_logger(argc, argv);
 
     /* parse command line */
     LOG(INFO) << "Parsing command line arguments";
@@ -148,7 +149,8 @@ int main(int argc, const char* argv[])
                              .set_threads(args.threads)
                              .build_or_load(col);
 
-
+        if(args.verify) 
+            col.verify_index(rlz_store);
 
         using dict_strat = dict_random_sample_budget<100, 1024>;
         using dict_prune_strat = dict_prune_none;
@@ -168,6 +170,9 @@ int main(int argc, const char* argv[])
                              .set_threads(args.threads)
                              .reencode(col,rlz_store);
 
+
+        if(args.verify) 
+            col.verify_index(rlz_store_new);
     }
 
     return EXIT_SUCCESS;
