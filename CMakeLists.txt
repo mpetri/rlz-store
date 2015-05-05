@@ -3,7 +3,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include(AppendCompilerFlags)
 
 project(rlz-docstore CXX C)
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 
 # C++11 compiler Check
 if(NOT CMAKE_CXX_COMPILER_VERSION) # work around for cmake versions smaller than 2.8.10
@@ -20,7 +20,7 @@ else()
 endif()
 if( CMAKE_COMPILER_IS_GNUCXX )
     append_cxx_compiler_flags("-std=c++11 -Wall -Wextra " "GCC" CMAKE_CXX_FLAGS)
-    append_cxx_compiler_flags("-O0 -g -ffast-math -funroll-loops" "GCC" CMAKE_CXX_FLAGS)
+    append_cxx_compiler_flags("-O3 -ffast-math -funroll-loops" "GCC" CMAKE_CXX_FLAGS)
 else()
     append_cxx_compiler_flags("-std=c++11 -DNDEBUG" "CLANG" CMAKE_CXX_FLAGS)
     append_cxx_compiler_flags("-stdlib=libc++" "CLANG" CMAKE_CXX_FLAGS)
@@ -54,20 +54,11 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
 
-add_executable(rlzs-reencode.x src/rlzs-reencode.cpp)
-target_link_libraries(rlzs-reencode.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
-
-add_executable(rlzs-block-sizes.x src/rlzs-block-sizes.cpp)
-target_link_libraries(rlzs-block-sizes.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
-
-add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
-target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
-
-add_executable(rlzs-offset-stats.x src/rlzs-offset-stats.cpp)
-target_link_libraries(rlzs-offset-stats.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
-
 add_executable(create-sdsl-input.x src/create-sdsl-input.cpp)
 target_link_libraries(create-sdsl-input.x sdsl pthread z)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread z gtest_main lzma)
+
+add_executable(create-indexes-cikm15.x src/experiments/create-indexes-cikm15.cpp)
+target_link_libraries(create-indexes-cikm15.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)

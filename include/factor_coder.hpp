@@ -80,3 +80,39 @@ struct factor_coder_blocked {
         len_coder.decode(ifs, std::begin(lens), num_factors);
     }
 };
+
+/*
+  encode factors in blocks.
+ */
+template <class t_coder_offset = coder::u32,
+          class t_coder_len = coder::vbyte>
+struct factor_coder_blocked_aligned {
+    t_coder_offset offset_coder;
+    t_coder_len len_coder;
+    static std::string type()
+    {
+        return "factor_coder_blocked_aligned-" + t_coder_offset::type() + "-" + t_coder_len::type();
+    }
+
+    template <class t_ostream>
+    void encode_block(t_ostream& ofs,
+                      const std::vector<uint32_t>& offsets,
+                      const std::vector<uint32_t>& lens,
+                      size_t num_factors) const
+    {
+        ofs.align64();
+        offset_coder.encode(ofs, std::begin(offsets), std::begin(offsets) + num_factors);
+        len_coder.encode(ofs, std::begin(lens), std::begin(lens) + num_factors);
+    }
+
+    template <class t_istream>
+    void decode_block(t_istream& ifs,
+                      std::vector<uint32_t>& offsets,
+                      std::vector<uint32_t>& lens,
+                      size_t num_factors) const
+    {
+        ifs.align64();
+        offset_coder.decode(ifs, std::begin(offsets), num_factors);
+        len_coder.decode(ifs, std::begin(lens), num_factors);
+    }
+};

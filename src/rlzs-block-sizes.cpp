@@ -5,38 +5,6 @@
 #include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
-typedef struct cmdargs {
-    std::string collection_dir;
-} cmdargs_t;
-
-void
-print_usage(const char* program)
-{
-    fprintf(stdout, "%s -c <collection directory> \n", program);
-    fprintf(stdout, "where\n");
-    fprintf(stdout, "  -c <collection directory>  : the directory the collection is stored.\n");
-};
-
-cmdargs_t
-parse_args(int argc, const char* argv[])
-{
-    cmdargs_t args;
-    int op;
-    args.collection_dir = "";
-    while ((op = getopt(argc, (char* const*)argv, "c:f")) != -1) {
-        switch (op) {
-        case 'c':
-            args.collection_dir = optarg;
-            break;
-        }
-    }
-    if (args.collection_dir == "") {
-        std::cerr << "Missing command line parameters.\n";
-        print_usage(argv[0]);
-        exit(EXIT_FAILURE);
-    }
-    return args;
-}
 
 int main(int argc, const char* argv[])
 {
@@ -44,7 +12,7 @@ int main(int argc, const char* argv[])
 
     /* parse command line */
     LOG(INFO) << "Parsing command line arguments";
-    cmdargs_t args = parse_args(argc, argv);
+    cmdargs_t args = utils::parse_args(argc, argv);
 
     /* parse the collection */
     LOG(INFO) << "Parsing collection directory " << args.collection_dir;
@@ -52,17 +20,8 @@ int main(int argc, const char* argv[])
 
     /* create rlz index */
     {
-        const uint32_t dictionary_mem_budget_mb = 10;
-        const uint32_t factorization_block_size = 1024*32;
-        using dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb, 1024>;
-        using rlz_type = rlz_store_static<dict_creation_strategy,
-                                          default_dict_pruning_strategy,
-                                          default_dict_index_type,
-                                          factorization_block_size,
-                                          default_factor_selection_strategy,
-                                          factor_coder_blocked<coder::u32, coder::vbyte>,
-                                          default_block_map>;
-        auto rlz_store = rlz_type::builder{}
+        auto rlz_store = rlz_type_standard::builder{}
+                             .set_dict_size(args.dict_size_in_bytes)
                              .load(col);
 
         size_t prev = 0;

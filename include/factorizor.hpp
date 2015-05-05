@@ -48,12 +48,14 @@ struct factorizor {
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
                 fs.add_to_block_factor(factor_itr.sym, 0);
+                i++;
             } else {
                 auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
                 fs.add_to_block_factor(offset, factor_itr.len);
+                i += factor_itr.len;
             }
+            
             ++factor_itr;
-            i++;
         }
         fs.encode_current_block(coder);
     }
@@ -78,6 +80,7 @@ struct factorizor {
         /* (4) encode blocks */
         for (size_t i = 1; i <= num_blocks; i++) {
             auto block_end = itr + block_size;
+            // LOG(INFO) << "block " << i;
             factorize_block(fs, coder, idx, itr, block_end);
             itr = block_end;
             block_end += block_size;

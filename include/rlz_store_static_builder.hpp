@@ -6,13 +6,16 @@
 
 #include "rlz_store_static.hpp"
 
-template <class t_dictionary_creation_strategy = dict_random_sample_budget<1024, 1024>,
-          class t_dictionary_pruning_strategy = dict_prune_none,
-          class t_dictionary_index = dict_index_csa<>,
-          uint32_t t_factorization_block_size = 2048,
-          class t_factor_selection_strategy = factor_select_first,
-          class t_factor_coder = factor_coder<coder::vbyte, coder::vbyte>,
-          class t_block_map = block_map_uncompressed>
+template 
+<
+class t_dictionary_creation_strategy,
+class t_dictionary_pruning_strategy,
+class t_dictionary_index ,
+uint32_t t_factorization_block_size,
+class t_factor_selection_strategy,
+class t_factor_coder,
+class t_block_map
+>
 class rlz_store_static<t_dictionary_creation_strategy,
                        t_dictionary_pruning_strategy,
                        t_dictionary_index,
@@ -40,6 +43,11 @@ public:
         num_threads = nt;
         return *this;
     };
+    builder& set_dict_size(uint64_t ds)
+    {
+        dict_size_bytes = ds;
+        return *this;
+    };
 
     static std::string blockmap_file_name(collection& col)
     {
@@ -55,7 +63,7 @@ public:
         // (1) create dictionary based on parametrized
         // dictionary creation strategy if necessary
         LOG(INFO) << "Create dictionary (" << dictionary_creation_strategy::type() << ")";
-        dictionary_creation_strategy::create(col, rebuild);
+        dictionary_creation_strategy::create(col, rebuild, dict_size_bytes);
         LOG(INFO) << "Dictionary hash before pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (2) prune the dictionary if necessary
@@ -135,7 +143,7 @@ public:
         /* make sure components exists and register them */
 
         /* (1) check dict */
-        auto dict_file_name = col.path + "/index/" + dictionary_creation_strategy::type() + ".sdsl";
+        auto dict_file_name = dictionary_creation_strategy::file_name(col,dict_size_bytes);
         if (!utils::file_exists(dict_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find dictionary.");
         } else {
@@ -169,7 +177,7 @@ public:
     template<class t_idx>
     rlz_store_static reencode(collection& col,t_idx& old) const
     {
-    	/* make sure we use the same dict, and coding strategy etc. */
+    	/* (0) make sure we use the same dict, and coding strategy etc. */
     	static_assert(std::is_same<typename t_idx::dictionary_creation_strategy,dictionary_creation_strategy>::value,
                 "different dictionary creation strategy");
     	static_assert(std::is_same<typename t_idx::dictionary_pruning_strategy,dictionary_pruning_strategy>::value,
@@ -181,6 +189,16 @@ public:
     	static_assert(t_idx::factorization_bs == t_factorization_block_size,
                 "different factorization block size");
 
+        /* (1) check dict */
+        auto dict_file_name = dictionary_creation_strategy::file_name(col,dict_size_bytes);
+        if (!utils::file_exists(dict_file_name)) {
+            throw std::runtime_error("Cannot find dictionary.");
+        } else {
+            col.file_map[KEY_DICT] = dict_file_name;
+            col.compute_dict_hash();
+        }
+
+        /* (2) reencode the factors */
         auto start = hrclock::now();
     	LOG(INFO) << "Reencoding factors (" << t_factor_coder::type() << ")";
         auto itr = old.factors_begin();
@@ -243,4 +261,5 @@ public:
 private:
     bool rebuild = false;
     uint32_t num_threads = 1;
+    uint64_t dict_size_bytes = 0;
 };

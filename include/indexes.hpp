@@ -13,9 +13,8 @@
 #include <sdsl/optpfor_vector.hpp>
 
 /* parameters */
-const uint32_t dictionary_mem_budget_mb = 32;
-const uint32_t default_factorization_block_size = 2048;
-using default_dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb, 1024>;
+const uint32_t default_factorization_block_size = 32768;
+using default_dict_creation_strategy = dict_random_sample_budget<1024>;
 using default_dict_pruning_strategy = dict_prune_none;
 using default_factor_selection_strategy = factor_select_first;
 using default_factor_encoder = factor_coder<coder::u32, coder::vbyte>;
@@ -33,11 +32,3 @@ using rlz_type_standard = rlz_store_static<default_dict_creation_strategy,
                                            default_factor_encoder,
                                            default_block_map>;
 
-/* use an uncompressed SA + LCP for factoriation instead */
-using rlz_type_salcp = rlz_store_static<default_dict_creation_strategy,
-                                        default_dict_pruning_strategy,
-                                        dict_index_salcp,
-                                        default_factorization_block_size,
-                                        default_factor_selection_strategy,
-                                        default_factor_encoder,
-                                        default_block_map>;

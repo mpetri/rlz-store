@@ -137,7 +137,6 @@ struct factor_itr_sa_length_selector {
                 sp = factor_iterator->sp;
                 ep = factor_iterator->ep;
                 itr += len;
-                LOG(TRACE) << "found factor  " << sa[sp] << "," << sa[ep] << "," << len << " from Range " << sp << "," << ep;
                 return;
             }
         }
@@ -146,7 +145,6 @@ struct factor_itr_sa_length_selector {
         len = 0;
         sym = *itr;
         ++itr;
-        LOG(TRACE) << "found factor(0)  " << sym << "," << len;
         return;
 
         /*factor is the one at the top of the list
@@ -250,5 +248,13 @@ struct dict_index_sa_length_selector {
     bool is_reverse() const
     {
         return false;
+    }
+
+    uint64_t find_minimum(size_t sp,size_t ep) const {
+        if(sp != ep) {
+            auto min_itr = std::min_element(sa.begin()+sp,sa.begin()+ep+1);
+            return *min_itr;
+        }
+        return sa[sp];
     }
 };

@@ -17,13 +17,13 @@
 
 using namespace std::chrono;
 
-template <class t_dictionary_creation_strategy = dict_random_sample_budget<1024, 1024>,
-          class t_dictionary_pruning_strategy = dict_prune_none,
-          class t_dictionary_index = dict_index_csa<>,
-          uint32_t t_factorization_block_size = 2048,
-          class t_factor_selection_strategy = factor_select_first,
-          class t_factor_coder = factor_coder<coder::vbyte, coder::vbyte>,
-          class t_block_map = block_map_uncompressed>
+template <class t_dictionary_creation_strategy,
+          class t_dictionary_pruning_strategy,
+          class t_dictionary_index,
+          uint32_t t_factorization_block_size,
+          class t_factor_selection_strategy,
+          class t_factor_coder,
+          class t_block_map>
 class rlz_store_static {
 public:
     using dictionary_creation_strategy = t_dictionary_creation_strategy;
@@ -34,7 +34,6 @@ public:
     using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_coder_type>;
     using block_map_type = t_block_map;
     using size_type = uint64_t;
-
 private:
     sdsl::int_vector_mapper<1, std::ios_base::in> m_factored_text;
     bit_istream<sdsl::int_vector_mapper<1, std::ios_base::in> > m_factor_stream;
@@ -50,6 +49,14 @@ public:
     uint64_t text_size;
 public:
     class builder;
+
+    std::string type() const {
+        auto dict_size_mb = dict.size() / (1024*1024);
+        return dictionary_creation_strategy::type() + "-" + std::to_string(dict_size_mb) + "_" 
+            + dictionary_pruning_strategy::type() + "_"
+            + factor_selection_strategy::type() + "_"
+            + factor_coder_type::type();
+    }
 
     rlz_store_static() = delete;
     rlz_store_static(rlz_store_static&&) = default;
