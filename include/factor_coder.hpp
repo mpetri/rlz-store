@@ -7,112 +7,47 @@
 
 #include <sdsl/suffix_arrays.hpp>
 
-struct factor_data {
-    uint32_t offset;
-    uint32_t len;
-};
-
-template <class t_coder_offset = coder::u32,
-          class t_coder_len = coder::vbyte>
-struct factor_coder {
-    t_coder_offset offset_coder;
-    t_coder_len len_coder;
-    static std::string type()
-    {
-        return "factor_coder-" + t_coder_offset::type() + "-" + t_coder_len::type();
-    }
-
-    template <class t_ostream>
-    void encode_block(t_ostream& ofs,
-                      const std::vector<uint32_t>& offsets,
-                      const std::vector<uint32_t>& lens,
-                      size_t num_factors) const
-    {
-        for (size_t i = 0; i < num_factors; i++) {
-            offset_coder.encode_check_size(ofs, offsets[i]);
-            len_coder.encode_check_size(ofs, lens[i]);
-        }
-    }
-
-    template <class t_istream>
-    void decode_block(t_istream& ifs,
-                      std::vector<uint32_t>& offsets,
-                      std::vector<uint32_t>& lens,
-                      size_t num_factors) const
-    {
-        for (size_t i = 0; i < num_factors; i++) {
-            offsets[i] = offset_coder.decode(ifs);
-            lens[i] = len_coder.decode(ifs);
-        }
-    }
+struct block_factor_data {
+    std::vector<uint8_t>  literals;
+    std::vector<uint32_t> offsets;
+    std::vector<uint32_t> lengths;
+    size_t num_factors;
+    size_t num_literals;
+    size_t num_offsets;
 };
 
 /*
 	encode factors in blocks.
  */
-template <class t_coder_offset = coder::u32,
+template <uint32_t t_literal_threshold = 3,
+          class t_coder_literal = coder::u32,
+          class t_coder_offset = coder::u32,
           class t_coder_len = coder::vbyte>
 struct factor_coder_blocked {
+    t_coder_literal literal_coder;
     t_coder_offset offset_coder;
     t_coder_len len_coder;
     static std::string type()
     {
-        return "factor_coder_blocked-" + t_coder_offset::type() + "-" + t_coder_len::type();
+        return "factor_coder_blocked-" + t_coder_offset::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
     }
 
     template <class t_ostream>
-    void encode_block(t_ostream& ofs,
-                      const std::vector<uint32_t>& offsets,
-                      const std::vector<uint32_t>& lens,
-                      size_t num_factors) const
+    void encode_block(t_ostream& ofs,const block_factor_data& bfd) const
     {
-        offset_coder.encode(ofs, std::begin(offsets), std::begin(offsets) + num_factors);
-        len_coder.encode(ofs, std::begin(lens), std::begin(lens) + num_factors);
+        len_coder.encode(ofs,bfd.lengths.data(),bfd.num_factors);
+        literal_coder.encode(ofs,bfd.literals.data(),bfd.num_literals);
+        offset_coder.encode(ofs,bfd.offsets.data(),bfd.num_offsets);
     }
 
     template <class t_istream>
-    void decode_block(t_istream& ifs,
-                      std::vector<uint32_t>& offsets,
-                      std::vector<uint32_t>& lens,
-                      size_t num_factors) const
+    void decode_block(t_istream& ifs,block_factor_data& bfd,size_t num_factors) const
     {
-        offset_coder.decode(ifs, std::begin(offsets), num_factors);
-        len_coder.decode(ifs, std::begin(lens), num_factors);
+        len_coder.decode(ifs,bfd.lengths.data(), num_factors);
+        auto num_literals = std::count_if(v.begin(), v.end(), [](uint32_t i) {return i <= t_literal_threshold;});
+        literal_coder.decode(ofs,bfd.literals.data(),num_literals);
+        auto num_offsets = num_factors - num_literals;
+        offset_coder.decode(ifs,bfd.offsets.data(),num_offsets);
     }
 };
 
-/*
-  encode factors in blocks.
- */
-template <class t_coder_offset = coder::u32,
-          class t_coder_len = coder::vbyte>
-struct factor_coder_blocked_aligned {
-    t_coder_offset offset_coder;
-    t_coder_len len_coder;
-    static std::string type()
-    {
-        return "factor_coder_blocked_aligned-" + t_coder_offset::type() + "-" + t_coder_len::type();
-    }
-
-    template <class t_ostream>
-    void encode_block(t_ostream& ofs,
-                      const std::vector<uint32_t>& offsets,
-                      const std::vector<uint32_t>& lens,
-                      size_t num_factors) const
-    {
-        ofs.align64();
-        offset_coder.encode(ofs, std::begin(offsets), std::begin(offsets) + num_factors);
-        len_coder.encode(ofs, std::begin(lens), std::begin(lens) + num_factors);
-    }
-
-    template <class t_istream>
-    void decode_block(t_istream& ifs,
-                      std::vector<uint32_t>& offsets,
-                      std::vector<uint32_t>& lens,
-                      size_t num_factors) const
-    {
-        ifs.align64();
-        offset_coder.decode(ifs, std::begin(offsets), num_factors);
-        len_coder.decode(ifs, std::begin(lens), num_factors);
-    }
-};
