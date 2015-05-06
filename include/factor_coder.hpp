@@ -2,28 +2,20 @@
 
 #include "utils.hpp"
 #include "collection.hpp"
-
 #include "bit_coders.hpp"
+#include "factor_data.hpp"
 
 #include <sdsl/suffix_arrays.hpp>
-
-struct block_factor_data {
-    std::vector<uint8_t>  literals;
-    std::vector<uint32_t> offsets;
-    std::vector<uint32_t> lengths;
-    size_t num_factors;
-    size_t num_literals;
-    size_t num_offsets;
-};
 
 /*
 	encode factors in blocks.
  */
-template <uint32_t t_literal_threshold = 3,
-          class t_coder_literal = coder::u32,
-          class t_coder_offset = coder::u32,
+template <uint32_t t_literal_threshold = 1,
+          class t_coder_literal = coder::fixed<32>,
+          class t_coder_offset = coder::aligned_fixed<uint32_t>,
           class t_coder_len = coder::vbyte>
 struct factor_coder_blocked {
+    uint32_t literal_threshold = t_literal_threshold;
     t_coder_literal literal_coder;
     t_coder_offset offset_coder;
     t_coder_len len_coder;
@@ -43,10 +35,12 @@ struct factor_coder_blocked {
     template <class t_istream>
     void decode_block(t_istream& ifs,block_factor_data& bfd,size_t num_factors) const
     {
+      bfd.num_factors = num_factors;
         len_coder.decode(ifs,bfd.lengths.data(), num_factors);
-        auto num_literals = std::count_if(v.begin(), v.end(), [](uint32_t i) {return i <= t_literal_threshold;});
-        literal_coder.decode(ofs,bfd.literals.data(),num_literals);
-        auto num_offsets = num_factors - num_literals;
+        bfd.num_literals = std::count_if(bfd.lengths.begin(),
+          bfd.lengths.begin()+num_factors, [](uint32_t i) {return i <= t_literal_threshold;});
+        literal_coder.decode(ifs,bfd.literals.data(),num_literals);
+        bfd.num_offsets = num_factors - num_literals;
         offset_coder.decode(ifs,bfd.offsets.data(),num_offsets);
     }
 };

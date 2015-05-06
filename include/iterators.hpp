@@ -1,5 +1,12 @@
 #pragma once
 
+#include "factor_data.hpp"
+
+struct factor_data {
+    uint64_t offset;
+    uint64_t len;
+};
+
 template <class t_idx>
 class factor_iterator {
 public:
@@ -11,6 +18,7 @@ private:
     size_t m_block_offset;
     size_t m_factor_offset;
     size_t m_factors_in_cur_block;
+    block_factor_data m_block_factor_data;
     std::vector<uint32_t> m_offset_buf;
     std::vector<uint32_t> m_len_buf;
 public:
@@ -21,8 +29,7 @@ public:
         , m_block_offset(block_offset)
         , m_factor_offset(factor_offset)
     {
-        m_offset_buf.resize(m_idx.factorization_block_size);
-        m_len_buf.resize(m_idx.factorization_block_size);
+        m_block_factor_data.resize(m_idx.factorization_block_size);
         decode_cur_block();
     }
     void decode_cur_block()
@@ -30,7 +37,7 @@ public:
         if( m_block_offset < m_idx.block_map.num_blocks() ) {
             m_factors_in_cur_block = m_idx.block_map.block_factors(m_block_offset);
             auto block_file_offset = m_idx.block_map.block_offset(m_block_offset);
-            m_idx.decode_factors(block_file_offset, m_offset_buf, m_len_buf, m_factors_in_cur_block);
+            m_idx.decode_factors(block_file_offset,m_block_factor_data,m_factors_in_cur_block);
         }
     }
     value_type operator*()
@@ -72,8 +79,7 @@ private:
     size_t m_text_block_offset;
     size_t m_block_size;
     size_t m_block_offset;
-    std::vector<uint32_t> m_offset_buf;
-    std::vector<uint32_t> m_len_buf;
+    block_factor_data m_block_factor_data;
     std::vector<uint8_t> m_text_buf;
 public:
     const size_t& block_id = m_block_offset;
@@ -86,13 +92,12 @@ public:
         , m_block_size(m_idx.factorization_block_size)
         , m_block_offset(text_offset / m_idx.factorization_block_size)
     {
-        m_offset_buf.resize(m_block_size);
-        m_len_buf.resize(m_block_size);
+        m_block_factor_data.resize(m_block_size);
         m_text_buf.resize(m_block_size);
     }
     inline void decode_cur_block()
     {
-        m_block_size = m_idx.decode_block(m_block_offset, m_text_buf, m_offset_buf, m_len_buf);
+        m_block_size = m_idx.decode_block(m_block_offset, m_text_buf,m_block_factor_data);
     }
     inline uint8_t operator*()
     {

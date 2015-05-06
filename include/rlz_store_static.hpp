@@ -106,35 +106,36 @@ public:
     }
 
     inline void decode_factors(size_t offset,
-                        std::vector<uint32_t>& offsets,
-                        std::vector<uint32_t>& lens,
+                        block_factor_data& bfd,
                         size_t num_factors) const
     {
         m_factor_stream.seek(offset);
-        factor_coder.decode_block(m_factor_stream, offsets, lens, num_factors);
+        factor_coder.decode_block(m_factor_stream, bfd, num_factors);
     }
 
-    inline uint64_t decode_block(
-        uint64_t block_id,
-        std::vector<uint8_t>& text,
-        std::vector<uint32_t>& offsets,
-        std::vector<uint32_t>& lens) const
+    inline uint64_t decode_block(uint64_t block_id,std::vector<uint8_t>& text,block_factor_data& bfd) const
     {
         auto block_start = m_blockmap.block_offset(block_id);
         auto num_factors = m_blockmap.block_factors(block_id);
-        decode_factors(block_start, offsets, lens, num_factors);
+        decode_factors(block_start,bfd, num_factors);
 
         auto out_itr = text.begin();
+        size_t literals_used = 0;
         for (size_t i = 0; i < num_factors; i++) {
-            const auto& factor_len = lens[i];
-            const auto& factor_offset = offsets[i];
-            if (factor_len != 0) {
+            const auto& factor_len = bfd.lengths[i];
+            if(factor_len <= factor_coder.literal_threshold) {
+                /* copy literals */
+                for(size_t i=0;i<factor_len;i++) {
+                    *out_itr = bfd.literals[literals_used+i];
+                    out_itr++;
+                }
+                literals_used += factor_len;
+            } else {
+                /* copy from dict */
+                const auto& factor_offset = bfd.offsets[i];
                 auto begin = m_dict.begin() + factor_offset;
                 std::copy(begin, begin + factor_len, out_itr);
                 out_itr += factor_len;
-            } else {
-                *out_itr = factor_offset;
-                out_itr++;
             }
         }
         auto written_syms = std::distance(text.begin(), out_itr);
@@ -144,10 +145,9 @@ public:
     std::vector<uint8_t>
     block(const size_t block_id) const
     {
+        block_factor_data bfd(factorization_block_size);
         std::vector<uint8_t> block_content(factorization_block_size);
-        std::vector<uint32_t> offsets(factorization_block_size);
-        std::vector<uint32_t> lens(factorization_block_size);
-        auto decoded_syms = decode_block(block_id, block_content, offsets, lens);
+        auto decoded_syms = decode_block(block_id,block_content, bfd);
         block_content.resize(decoded_syms);
         return block_content;
     }

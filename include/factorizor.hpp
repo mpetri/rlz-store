@@ -11,10 +11,10 @@
 
 #include <cctype>
 
-template <uint32_t t_block_size = 1024,
-          class t_index = dict_index_csa<>,
-          class t_factor_selector = factor_select_first,
-          class t_coder = factor_coder_blocked<coder::u32, coder::vbyte> >
+template <uint32_t t_block_size,
+          class t_index,
+          class t_factor_selector,
+          class t_coder>
 struct factorizor {
     static std::string type()
     {
@@ -44,15 +44,15 @@ struct factorizor {
     {
         auto factor_itr = idx.factorize(itr, end);
         fs.start_new_block();
-        size_t i = 0;
+        size_t syms_encoded = 0;
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
-                fs.add_to_block_factor(factor_itr.sym, 0);
-                i++;
+                fs.add_to_block_factor(coder,itr+syms_encoded,0,1);
+                syms_encoded++;
             } else {
                 auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
-                fs.add_to_block_factor(offset, factor_itr.len);
-                i += factor_itr.len;
+                fs.add_to_block_factor(coder,itr+syms_encoded,offset, factor_itr.len);
+                syms_encoded += factor_itr.len;
             }
             
             ++factor_itr;
