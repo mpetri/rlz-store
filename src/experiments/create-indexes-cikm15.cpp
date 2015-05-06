@@ -40,9 +40,14 @@ int main(int argc, const char* argv[])
                              .set_threads(args.threads)
                              .set_dict_size(args.dict_size_in_bytes)
                              .build_or_load(col);
-
         if (args.verify)
             verify_index(col, rlz_store);
+
+        auto rlz_store_new = rlz_type_zz_greedy_sp::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(args.dict_size_in_bytes)
+                             .reencode(col,rlz_store);
     }
     {
         auto rlz_store = rlz_type_zz_lenmul2::builder{}

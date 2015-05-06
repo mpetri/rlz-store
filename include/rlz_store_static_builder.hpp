@@ -230,17 +230,16 @@ public:
                     }
                 }
 
-
-                offsets[factors_in_block] = f.offset;
-                lens[factors_in_block] = f.len;
-                factors_in_block++;
-
-
+                if(f.is_literal) {
+                    bfd.add_factor(coder,f.literal_ptr,0,f.len);
+                } else {
+                    bfd.add_factor(coder,f.literal_ptr,f.offset,f.len);
+                }
                 ++itr;
             }
             if ( bfd.num_factors != 0) {
                 block_offsets.push_back(factor_stream.tellp());
-                block_factors.push_back(factors_in_block);
+                block_factors.push_back(bfd.num_factors);
                 coder.encode_block(factor_stream,bfd);
             }
         }

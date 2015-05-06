@@ -32,6 +32,8 @@ struct block_factor_data {
     template <class t_coder, class t_itr>
     void add_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
     {
+        assert(len > 0); // we define len to be larger than 0 even for unknown syms.
+        
         if (coder.literal_threshold <= len) {
             std::copy(text_itr, text_itr + len, literals.begin() + num_literals);
             num_literals += len;
@@ -39,7 +41,7 @@ struct block_factor_data {
             offsets[num_offsets] = offset;
             num_offsets++;
         }
-        lengths[num_factors] = len - 1;
+        lengths[num_factors] = len;
         num_factors++;
     }
 };

@@ -25,8 +25,9 @@ struct factor_coder_blocked {
     }
 
     template <class t_ostream>
-    void encode_block(t_ostream& ofs, const block_factor_data& bfd) const
+    void encode_block(t_ostream& ofs,block_factor_data& bfd) const
     {
+        std::for_each(bfd.lengths.begin(),bfd.lengths.begin()+bfd.num_factors, [](uint32_t &n){ n--; });
         len_coder.encode(ofs, bfd.lengths.data(), bfd.num_factors);
         literal_coder.encode(ofs, bfd.literals.data(), bfd.num_literals);
         offset_coder.encode(ofs, bfd.offsets.data(), bfd.num_offsets);
@@ -37,8 +38,12 @@ struct factor_coder_blocked {
     {
         bfd.num_factors = num_factors;
         len_coder.decode(ifs, bfd.lengths.data(), num_factors);
-        bfd.num_literals = std::count_if(bfd.lengths.begin(),
-                                         bfd.lengths.begin() + num_factors, [](uint32_t i) {return i <= literal_threshold; });
+        std::for_each(bfd.lengths.begin(),bfd.lengths.begin()+num_factors, [](uint32_t &n){ n++; });
+        bfd.num_literals = 0;
+        for(size_t i=0;i<bfd.num_factors;i++) {
+          if(bfd.lengths[i] <= literal_threshold)
+            bfd.num_literals += bfd.lengths[i];
+        }
         literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
         bfd.num_offsets = bfd.num_factors - bfd.num_literals;
         offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);

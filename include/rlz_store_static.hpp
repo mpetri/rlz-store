@@ -125,8 +125,9 @@ public:
 
         auto out_itr = text.begin();
         size_t literals_used = 0;
+        size_t offsets_used = 0;
         for (size_t i = 0; i < num_factors; i++) {
-            const auto& factor_len = bfd.lengths[i] + 1;
+            const auto& factor_len = bfd.lengths[i];
             if (factor_len <= factor_coder.literal_threshold) {
                 /* copy literals */
                 for (size_t i = 0; i < factor_len; i++) {
@@ -136,10 +137,11 @@ public:
                 literals_used += factor_len;
             } else {
                 /* copy from dict */
-                const auto& factor_offset = bfd.offsets[i];
+                const auto& factor_offset = bfd.offsets[offsets_used];
                 auto begin = m_dict.begin() + factor_offset;
                 std::copy(begin, begin + factor_len, out_itr);
                 out_itr += factor_len;
+                offsets_used++;
             }
         }
         auto written_syms = std::distance(text.begin(), out_itr);
