@@ -22,7 +22,7 @@ struct factor_coder_blocked {
     static std::string type()
     {
         return "factor_coder_blocked-t=" + std::to_string(t_literal_threshold) 
-            + "-" + t_coder_offset::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
+            + "-" + t_coder_literal::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
     }
 
     template <class t_ostream>
