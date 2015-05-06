@@ -126,7 +126,7 @@ public:
         auto out_itr = text.begin();
         size_t literals_used = 0;
         for (size_t i = 0; i < num_factors; i++) {
-            const auto& factor_len = bfd.lengths[i];
+            const auto& factor_len = bfd.lengths[i] + 1;
             if (factor_len <= factor_coder.literal_threshold) {
                 /* copy literals */
                 for (size_t i = 0; i < factor_len; i++) {

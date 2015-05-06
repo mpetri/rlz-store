@@ -15,7 +15,7 @@ template <uint32_t t_literal_threshold = 1,
           class t_coder_offset = coder::aligned_fixed<uint32_t>,
           class t_coder_len = coder::vbyte>
 struct factor_coder_blocked {
-    uint32_t literal_threshold = t_literal_threshold;
+    enum { literal_threshold = t_literal_threshold };
     t_coder_literal literal_coder;
     t_coder_offset offset_coder;
     t_coder_len len_coder;
@@ -38,7 +38,7 @@ struct factor_coder_blocked {
         bfd.num_factors = num_factors;
         len_coder.decode(ifs, bfd.lengths.data(), num_factors);
         bfd.num_literals = std::count_if(bfd.lengths.begin(),
-                                         bfd.lengths.begin() + num_factors, [](uint32_t i) {return i <= t_literal_threshold; });
+                                         bfd.lengths.begin() + num_factors, [](uint32_t i) {return i <= literal_threshold; });
         literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
         bfd.num_offsets = bfd.num_factors - bfd.num_literals;
         offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);

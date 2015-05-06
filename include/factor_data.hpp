@@ -39,7 +39,7 @@ struct block_factor_data {
             offsets[num_offsets] = offset;
             num_offsets++;
         }
-        lengths[num_factors] = len;
+        lengths[num_factors] = len - 1;
         num_factors++;
     }
 };
