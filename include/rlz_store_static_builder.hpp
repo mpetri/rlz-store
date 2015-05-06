@@ -107,7 +107,7 @@ public:
             auto fact_seconds = duration_cast<milliseconds>(stop_fact - start_fact).count() / 1000.0;
             LOG(INFO) << "Factorization time = " << fact_seconds << " sec";
             LOG(INFO) << "Factorization speed = " << text_size_mb / fact_seconds << " MB/s";
-
+            LOG(INFO) << "Factorize done. (" << factorization_strategy::type() << ")";
             output_encoding_stats(efs, text.size());
 
             LOG(INFO) << "Merge factorized text blocks";
