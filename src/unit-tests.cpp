@@ -24,15 +24,16 @@ TEST(bit_stream, vbyte)
         std::sort(A.begin(), A.end());
         auto last = std::unique(A.begin(), A.end());
         auto n = std::distance(A.begin(), last);
+        coder::vbyte c;
         sdsl::bit_vector bv;
         {
             bit_ostream<sdsl::bit_vector> os(bv);
-            os.encode<coder::vbyte>(A.begin(), n);
+            c.encode(os,A.data(), n);
         }
         std::vector<uint32_t> B(n);
         {
             bit_istream<sdsl::bit_vector> is(bv);
-            is.decode<coder::vbyte>(B.begin(), n);
+            c.decode(is,B.data(),n);
         }
         for (auto i = 0; i < n; i++) {
             ASSERT_EQ(B[i], A[i]);
@@ -40,7 +41,7 @@ TEST(bit_stream, vbyte)
     }
 }
 
-TEST(bit_stream, fix_width_int)
+TEST(bit_stream, fixed)
 {
     size_t n = 20;
     std::mt19937 gen(4711);
@@ -54,15 +55,16 @@ TEST(bit_stream, fix_width_int)
         std::sort(A.begin(), A.end());
         auto last = std::unique(A.begin(), A.end());
         auto n = std::distance(A.begin(), last);
+        coder::fixed<7> c;
         sdsl::bit_vector bv;
         {
             bit_ostream<sdsl::bit_vector> os(bv);
-            os.write_int(A.begin(), n, 7);
+            c.encode(os,A.data(),n);
         }
         std::vector<uint32_t> B(n);
         {
             bit_istream<sdsl::bit_vector> is(bv);
-            is.get_int(B.begin(), n, 7);
+            c.decode(is,B.data(),n);
         }
         for (auto i = 0; i < n; i++) {
             ASSERT_EQ(B[i], A[i]);
@@ -70,11 +72,12 @@ TEST(bit_stream, fix_width_int)
     }
 }
 
-TEST(bit_stream, gamma)
+
+TEST(bit_stream, aligned_fixed)
 {
     size_t n = 20;
     std::mt19937 gen(4711);
-    std::uniform_int_distribution<uint64_t> dis(1, 100000);
+    std::uniform_int_distribution<uint64_t> dis(1, 100);
 
     for (size_t i = 0; i < n; i++) {
         size_t len = dis(gen);
@@ -84,15 +87,40 @@ TEST(bit_stream, gamma)
         std::sort(A.begin(), A.end());
         auto last = std::unique(A.begin(), A.end());
         auto n = std::distance(A.begin(), last);
+        coder::aligned_fixed<uint32_t> c;
         sdsl::bit_vector bv;
         {
             bit_ostream<sdsl::bit_vector> os(bv);
-            os.encode<coder::elias_gamma>(A.begin(), last);
+            c.encode(os,A.data(),n);
         }
         std::vector<uint32_t> B(n);
         {
             bit_istream<sdsl::bit_vector> is(bv);
-            is.decode<coder::elias_gamma>(B.begin(), n);
+            c.decode(is,B.data(),n);
+        }
+        for (auto i = 0; i < n; i++) {
+            ASSERT_EQ(B[i], A[i]);
+        }
+    }
+
+    for (size_t i = 0; i < n; i++) {
+        size_t len = dis(gen);
+        std::vector<uint8_t> A(len);
+        for (size_t j = 0; j < len; j++)
+            A[j] = dis(gen);
+        std::sort(A.begin(), A.end());
+        auto last = std::unique(A.begin(), A.end());
+        auto n = std::distance(A.begin(), last);
+        coder::aligned_fixed<uint8_t> c;
+        sdsl::bit_vector bv;
+        {
+            bit_ostream<sdsl::bit_vector> os(bv);
+            c.encode(os,A.data(),n);
+        }
+        std::vector<uint8_t> B(n);
+        {
+            bit_istream<sdsl::bit_vector> is(bv);
+            c.decode(is,B.data(),n);
         }
         for (auto i = 0; i < n; i++) {
             ASSERT_EQ(B[i], A[i]);
@@ -114,15 +142,47 @@ TEST(bit_stream, zlib)
         std::sort(A.begin(), A.end());
         auto last = std::unique(A.begin(), A.end());
         auto n = std::distance(A.begin(), last);
+        coder::zlib<6> c;
         sdsl::bit_vector bv;
         {
             bit_ostream<sdsl::bit_vector> os(bv);
-            os.encode<coder::zlib<6> >(A.begin(), last);
+            c.encode(os,A.data(),n);
         }
         std::vector<uint32_t> B(n);
         {
             bit_istream<sdsl::bit_vector> is(bv);
-            is.decode<coder::zlib<6> >(B.begin(), n);
+            c.decode(is,B.data(),n);
+        }
+        for (auto i = 0; i < n; i++) {
+            ASSERT_EQ(B[i], A[i]);
+        }
+    }
+}
+
+TEST(bit_stream, zlib_uint8 )
+{
+    size_t n = 20;
+    std::mt19937 gen(4711);
+    std::uniform_int_distribution<uint64_t> dis(1, 200);
+
+    for (size_t i = 0; i < n; i++) {
+        size_t len = dis(gen);
+        std::vector<uint8_t> A(len);
+        for (size_t j = 0; j < len; j++)
+            A[j] = dis(gen);
+        std::sort(A.begin(), A.end());
+        auto last = std::unique(A.begin(), A.end());
+        auto n = std::distance(A.begin(), last);
+        coder::zlib<6> c;
+        sdsl::bit_vector bv;
+        {
+            bit_ostream<sdsl::bit_vector> os(bv);
+            c.encode(os,A.data(),n);
+        }
+        std::vector<uint8_t> B(n);
+        {
+            bit_istream<sdsl::bit_vector> is(bv);
+            c.decode(is,B.data(),n);
         }
         for (auto i = 0; i < n; i++) {
             ASSERT_EQ(B[i], A[i]);
@@ -144,15 +204,16 @@ TEST(bit_stream, lzma)
         std::sort(A.begin(), A.end());
         auto last = std::unique(A.begin(), A.end());
         auto n = std::distance(A.begin(), last);
+        coder::lzma<2> c;
         sdsl::bit_vector bv;
         {
             bit_ostream<sdsl::bit_vector> os(bv);
-            os.encode<coder::lzma<2> >(A.begin(), last);
+            c.encode(os,A.data(),n);
         }
         std::vector<uint32_t> B(n);
         {
             bit_istream<sdsl::bit_vector> is(bv);
-            is.decode<coder::lzma<2> >(B.begin(), n);
+            c.decode(is,B.data(),n);
         }
         for (auto i = 0; i < n; i++) {
             ASSERT_EQ(B[i], A[i]);
@@ -160,36 +221,6 @@ TEST(bit_stream, lzma)
     }
 }
 
-
-TEST(bit_stream, u32a)
-{
-    size_t n = 20;
-    std::mt19937 gen(4711);
-    std::uniform_int_distribution<uint64_t> dis(1, 100000);
-
-    for (size_t i = 0; i < n; i++) {
-        size_t len = dis(gen);
-        std::vector<uint32_t> A(len);
-        for (size_t j = 0; j < len; j++)
-            A[j] = dis(gen);
-        std::sort(A.begin(), A.end());
-        auto last = std::unique(A.begin(), A.end());
-        auto n = std::distance(A.begin(), last);
-        sdsl::bit_vector bv;
-        {
-            bit_ostream<sdsl::bit_vector> os(bv);
-            os.encode< coder::u32a >(A.begin(), last);
-        }
-        std::vector<uint32_t> B(n);
-        {
-            bit_istream<sdsl::bit_vector> is(bv);
-            is.decode< coder::u32a >(B.begin(), n);
-        }
-        for (auto i = 0; i < n; i++) {
-            ASSERT_EQ(B[i], A[i]);
-        }
-    }
-}
 
 int main(int argc, char* argv[])
 {

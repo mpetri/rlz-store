@@ -94,7 +94,7 @@ struct vbyte {
 };
 
 template<uint8_t t_width>
-struct aligned_fixed {
+struct fixed {
 public:
     static std::string type()
     {
@@ -104,21 +104,44 @@ public:
     template <class t_bit_ostream,class T>
     inline void encode(t_bit_ostream& os,T* in_buf,size_t n) const
     {
-        os.expand_if_needed(8 + t_width * n);
-        os.align8();
-        uint8_t* out = os.cur_data8();
-        T* outA = (T*) out;
-        std::copy(in_buf,in_buf+n,outA);
-        os.skip(t_width*n);
+        os.expand_if_needed(t_width * n);
+        for(size_t i=0;i<n;i++)
+            os.put_int_no_size_check(in_buf[i],t_width);
     }
     template <class t_bit_istream,class T>
     inline void decode(const t_bit_istream& is,T* out_buf, size_t n) const
     {
+        for(size_t i=0;i<n;i++)
+            out_buf[i] = is.get_int(t_width);
+    }
+};
+
+template<class t_int_type>
+struct aligned_fixed {
+public:
+    static std::string type()
+    {
+        return "u"+std::to_string(8*sizeof(t_int_type))+"a";
+    }
+
+    template <class t_bit_ostream>
+    inline void encode(t_bit_ostream& os,const t_int_type* in_buf,size_t n) const
+    {
+        os.expand_if_needed(8 + sizeof(t_int_type) * n);
+        os.align8();
+        uint8_t* out = os.cur_data8();
+        t_int_type* outA = (t_int_type*) out;
+        std::copy(in_buf,in_buf+n,outA);
+        os.skip(sizeof(t_int_type)*8*n);
+    }
+    template <class t_bit_istream>
+    inline void decode(const t_bit_istream& is,t_int_type* out_buf, size_t n) const
+    {
         is.align8();
         const uint8_t* in = is.cur_data8();
-        const T* isA = (T*)in;
+        const t_int_type* isA = (t_int_type*)in;
         std::copy(isA,isA+n,out_buf);
-        is.skip(t_width*n);
+        is.skip(sizeof(t_int_type)*8*n);
     }
 };
 
@@ -137,7 +160,6 @@ public:
         dstrm.zalloc = Z_NULL;
         dstrm.zfree = Z_NULL;
         dstrm.opaque = Z_NULL;
-        dstrm.next_in = (uint8_t*)buf;
         deflateInit2(&dstrm,
                      t_level,
                      Z_DEFLATED,
@@ -147,7 +169,6 @@ public:
         istrm.zalloc = Z_NULL;
         istrm.zfree = Z_NULL;
         istrm.opaque = Z_NULL;
-        istrm.next_in = (uint8_t*)buf;
         inflateInit2(&istrm, window_bits);
     }
     ~zlib()
@@ -163,7 +184,7 @@ public:
     }
 
     template <class t_bit_ostream,class T>
-    inline void encode(t_bit_ostream& os,T* in_buf,size_t n) const
+    inline void encode(t_bit_ostream& os,const T* in_buf,size_t n) const
     {
         uint64_t bits_required = 32 + n * 128; // upper bound
         os.expand_if_needed(bits_required);
@@ -231,7 +252,7 @@ public:
 
         /* decode */
         auto in_buf = is.cur_data8();
-        uint64_t out_size = zlib_buf_len * sizeof(T);
+        uint64_t out_size = n * sizeof(T);
 
         istrm.avail_in = in_size;
         istrm.next_in = (uint8_t*) in_buf;
@@ -260,12 +281,6 @@ public:
         }
 
         is.skip(in_size * 8); // skip over the read content
-
-        /* output the data from the buffer */
-        for (size_t i = 0; i < n; i++) {
-            *it = buf[i];
-            ++it;
-        }
     }
 };
 
@@ -294,7 +309,7 @@ public:
     }
 
     template <class t_bit_ostream,class T>
-    inline void encode(t_bit_ostream& os,T* in_buf,size_t n) const
+    inline void encode(t_bit_ostream& os,const T* in_buf,size_t n) const
     {
         uint64_t bits_required = 32 + n * 128; // upper bound
         os.expand_if_needed(bits_required);
@@ -332,9 +347,6 @@ public:
     template <class t_bit_istream,class T>
     inline void decode(const t_bit_istream& is,T* out_buf, size_t n) const
     {
-        if (n > lzma_buf_len) {
-            LOG(FATAL) << "lzma-decode: lzma_buf_len < n!";
-        }
         is.align8(); // align to bytes if needed
 
         /* read the encoding size */
@@ -344,7 +356,7 @@ public:
 
         /* setup decoder */
         auto in_buf = is.cur_data8();
-        uint64_t out_size = lzma_buf_len * sizeof(T);
+        uint64_t out_size = n * sizeof(T);
 
         strm.next_in = in_buf;
         strm.avail_in = in_size;
@@ -404,12 +416,9 @@ public:
     template <class t_bit_istream,class T>
     inline void decode(const t_bit_istream& is,T* out_buf, size_t n) const
     {
-        auto itr = out_buf;
-        next_stage_coder.decode(is,it,n);
+        next_stage_coder.decode(is,out_buf,n);
         for (size_t i = 0; i < n; i++) {
-            auto elem = *itr;
-            *itr = lm * elem;
-            ++itr;
+            out_buf[i] = out_buf[i] * lm;
         }
     }
 };
