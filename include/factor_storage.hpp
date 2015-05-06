@@ -22,7 +22,6 @@ struct factor_storage {
     uint64_t block_size;
     uint64_t total_encoded_factors = 0;
     uint64_t total_encoded_blocks = 0;
-    uint64_t cur_factors_in_block = 0;
     hrclock::time_point encoding_start;
     block_factor_data tmp_block_factor_data;
     sdsl::int_vector_mapper<1> factored_text;
@@ -55,8 +54,8 @@ struct factor_storage {
     void encode_current_block(t_coder& coder)
     {
         block_offsets.push_back(factor_stream.tellp());
-        block_factors.push_back(cur_factors_in_block);
-        total_encoded_factors += cur_factors_in_block;
+        block_factors.push_back(tmp_block_factor_data.num_factors);
+        total_encoded_factors += tmp_block_factor_data.num_factors;
         total_encoded_blocks++;
         coder.encode_block(factor_stream, tmp_block_factor_data);
     }

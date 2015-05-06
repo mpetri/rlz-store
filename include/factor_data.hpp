@@ -34,7 +34,7 @@ struct block_factor_data {
     {
         assert(len > 0); // we define len to be larger than 0 even for unknown syms.
         
-        if (coder.literal_threshold <= len) {
+        if (len <= coder.literal_threshold)  {
             std::copy(text_itr, text_itr + len, literals.begin() + num_literals);
             num_literals += len;
         } else {
@@ -43,5 +43,6 @@ struct block_factor_data {
         }
         lengths[num_factors] = len;
         num_factors++;
+
     }
 };

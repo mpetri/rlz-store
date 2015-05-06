@@ -20,8 +20,8 @@ int main(int argc, const char* argv[])
     /* create rlz index */
     {
         const uint32_t dictionary_mem_budget_mb = 32;
-        const uint32_t factorization_block_size = 2048;
-        using dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb, 1024>;
+        const uint32_t factorization_block_size = DEFAULT_FACTORIZATION_BLOCK_SIZE;
+        using dict_creation_strategy = dict_random_sample_budget<dictionary_mem_budget_mb, DEFAULT_DICTIONARY_BLOCK_SIZE>;
         using rlz_type = rlz_store_static<dict_creation_strategy,
                                           default_dict_pruning_strategy,
                                           default_dict_index_type,

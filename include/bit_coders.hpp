@@ -127,7 +127,7 @@ public:
     template <class t_bit_ostream>
     inline void encode(t_bit_ostream& os, const t_int_type* in_buf, size_t n) const
     {
-        os.expand_if_needed(8 + sizeof(t_int_type) * n);
+        os.expand_if_needed(8 + 8*sizeof(t_int_type) * n);
         os.align8();
         uint8_t* out = os.cur_data8();
         t_int_type* outA = (t_int_type*)out;
