@@ -17,7 +17,7 @@ const uint32_t default_factorization_block_size = 32768;
 using default_dict_creation_strategy = dict_random_sample_budget<1024>;
 using default_dict_pruning_strategy = dict_prune_none;
 using default_factor_selection_strategy = factor_select_first;
-using default_factor_encoder = factor_coder_blocked<1,coder::fixed<32>,coder::aligned_fixed<uint32_t>, coder::vbyte>;
+using default_factor_encoder = factor_coder_blocked<1, coder::fixed<32>, coder::aligned_fixed<uint32_t>, coder::vbyte>;
 using default_block_map = block_map_uncompressed;
 
 /* dict type = csa */
@@ -31,4 +31,3 @@ using rlz_type_standard = rlz_store_static<default_dict_creation_strategy,
                                            default_factor_selection_strategy,
                                            default_factor_encoder,
                                            default_block_map>;
-

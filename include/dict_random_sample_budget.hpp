@@ -12,20 +12,20 @@ public:
                + std::to_string(t_block_size_bytes);
     }
 
-    static std::string file_name(collection& col,uint64_t size_in_bytes)
+    static std::string file_name(collection& col, uint64_t size_in_bytes)
     {
-        auto size_in_mb = size_in_bytes / (1024*1024);
-        return col.path + "/index/" + type()+"-"+std::to_string(size_in_mb) + ".sdsl";
+        auto size_in_mb = size_in_bytes / (1024 * 1024);
+        return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + ".sdsl";
     }
 
 public:
-    static void create(collection& col, bool rebuild,size_t size_in_bytes)
+    static void create(collection& col, bool rebuild, size_t size_in_bytes)
     {
         const uint32_t block_size = t_block_size_bytes;
         uint64_t budget_bytes = size_in_bytes;
-        uint64_t budget_mb = budget_bytes / (1024*1024);
+        uint64_t budget_mb = budget_bytes / (1024 * 1024);
         // check if we store it already and load it
-        auto fname = file_name(col,size_in_bytes);
+        auto fname = file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
         if (!utils::file_exists(fname) || rebuild) { // construct
             LOG(INFO) << "\tCreate dictionary with budget " << budget_mb << " MiB";
@@ -48,9 +48,10 @@ public:
                 dict.push_back(0); // zero terminate for SA construction
             }
             /* store to disk */
-            LOG(INFO) << "\t" << "Writing dictionary.";
+            LOG(INFO) << "\t"
+                      << "Writing dictionary.";
             auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
-            std::copy(dict.begin(),dict.end(),std::back_inserter(wdict));
+            std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
         } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";

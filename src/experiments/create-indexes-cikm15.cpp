@@ -32,7 +32,7 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         if (args.verify)
-            verify_index(col,rlz_store);
+            verify_index(col, rlz_store);
     }
     {
         auto rlz_store = rlz_type_uv_greedy_sp::builder{}
@@ -42,16 +42,7 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         if (args.verify)
-            verify_index(col,rlz_store);
-
-        auto zz_store = rlz_type_zz_greedy_sp::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
-                             .reencode(col,rlz_store);
-
-        if (args.verify)
-            verify_index(col,zz_store);
+            verify_index(col, rlz_store);
     }
     {
         auto rlz_store = rlz_type_zz_lenmul2::builder{}
@@ -61,7 +52,7 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         if (args.verify)
-            verify_index(col,rlz_store);
+            verify_index(col, rlz_store);
     }
     {
         auto rlz_store = rlz_type_zz_lenmul3::builder{}
@@ -71,7 +62,7 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         if (args.verify)
-            verify_index(col,rlz_store);
+            verify_index(col, rlz_store);
     }
 
     return EXIT_SUCCESS;

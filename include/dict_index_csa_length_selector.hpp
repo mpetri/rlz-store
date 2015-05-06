@@ -17,7 +17,7 @@ struct factor_itr_csa_len_select {
     size_t len;
     uint8_t sym;
     bool done;
-    factor_itr_csa_len_select(const t_csa& _csa, t_itr begin, t_itr _end,uint32_t lm)
+    factor_itr_csa_len_select(const t_csa& _csa, t_itr begin, t_itr _end, uint32_t lm)
         : sa(_csa)
         , len_multiplier(lm)
         , factor_start(begin)
@@ -41,7 +41,10 @@ struct factor_itr_csa_len_select {
     {
         sp = 0;
         ep = sa.size() - 1;
-        size_t lm_sp = 0; size_t lm_ep = 0; size_t lm_len = 0; t_itr lm_pos = itr;
+        size_t lm_sp = 0;
+        size_t lm_ep = 0;
+        size_t lm_len = 0;
+        t_itr lm_pos = itr;
         while (itr != end) {
             sym = *itr;
             auto mapped_sym = sa.char2comp[sym];
@@ -59,37 +62,37 @@ struct factor_itr_csa_len_select {
             if (!sym_exists_in_dict || res_ep < res_sp) {
                 // FOUND FACTOR
                 len = std::distance(factor_start, itr);
-                if(len % len_multiplier == 0) {
-	                if (len == 0) { // unknown symbol factor found
-	                    ++itr;
-	                } else {
-	                    // substring not found. but we found a factor!
-	                }
-                	factor_start = itr;
+                if (len % len_multiplier == 0) {
+                    if (len == 0) { // unknown symbol factor found
+                        ++itr;
+                    } else {
+                        // substring not found. but we found a factor!
+                    }
+                    factor_start = itr;
                 } else {
-                	if(lm_len != 0) {
-                		// fall back to the last good factor length
-                		sp = lm_sp;
-                		ep = lm_ep;
-                		len = lm_len;
-                		itr = lm_pos + 1;
-                	} else {
-                		// nothing to fall back on. encode a singleton
-                		len = 0;
-                		sym = *lm_pos;
-                		itr = lm_pos + 1;
-                	}
-                	factor_start = itr;
+                    if (lm_len != 0) {
+                        // fall back to the last good factor length
+                        sp = lm_sp;
+                        ep = lm_ep;
+                        len = lm_len;
+                        itr = lm_pos + 1;
+                    } else {
+                        // nothing to fall back on. encode a singleton
+                        len = 0;
+                        sym = *lm_pos;
+                        itr = lm_pos + 1;
+                    }
+                    factor_start = itr;
                 }
                 return;
             } else { // found substring
-            	auto l = std::distance(factor_start, itr) + 1;
-            	if(l % len_multiplier == 0) {
-            		lm_sp = res_sp;
-            		lm_ep = res_ep;
-            		lm_len = l;
-            		lm_pos = itr;
-            	}
+                auto l = std::distance(factor_start, itr) + 1;
+                if (l % len_multiplier == 0) {
+                    lm_sp = res_sp;
+                    lm_ep = res_ep;
+                    lm_len = l;
+                    lm_pos = itr;
+                }
                 sp = res_sp;
                 ep = res_ep;
                 ++itr;
@@ -98,21 +101,21 @@ struct factor_itr_csa_len_select {
         /* end of block handling: are we in a substring? encode the rest */
         if (factor_start != itr) {
             len = std::distance(factor_start, itr);
-            if(len % len_multiplier == 0) {
+            if (len % len_multiplier == 0) {
                 // encode the last factor as normal
             } else {
-            	if(lm_len != 0) {
-            		// fall back to the last good factor length
-            		sp = lm_sp;
-            		ep = lm_ep;
-            		len = lm_len;
-            		itr = lm_pos + 1;
-            	} else {
-            		// nothing to fall back on. encode a singleton
-            		len = 0;
-            		sym = *lm_pos;
-            		itr = lm_pos + 1;
-            	}
+                if (lm_len != 0) {
+                    // fall back to the last good factor length
+                    sp = lm_sp;
+                    ep = lm_ep;
+                    len = lm_len;
+                    itr = lm_pos + 1;
+                } else {
+                    // nothing to fall back on. encode a singleton
+                    len = 0;
+                    sym = *lm_pos;
+                    itr = lm_pos + 1;
+                }
             }
             factor_start = itr;
             return;
@@ -125,9 +128,8 @@ struct factor_itr_csa_len_select {
     }
 };
 
-template <
-uint32_t t_len,
-class t_csa = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 4, 4096> >
+template <uint32_t t_len,
+          class t_csa = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 4, 4096> >
 struct dict_index_csa_length_selector {
     typedef typename sdsl::int_vector<>::size_type size_type;
     t_csa sa;
@@ -197,7 +199,7 @@ struct dict_index_csa_length_selector {
     template <class t_itr>
     factor_itr_csa_len_select<t_csa, t_itr> factorize(t_itr itr, t_itr end) const
     {
-        return factor_itr_csa_len_select<t_csa, t_itr>(sa, itr, end,t_len);
+        return factor_itr_csa_len_select<t_csa, t_itr>(sa, itr, end, t_len);
     }
 
     bool is_reverse() const
@@ -205,9 +207,10 @@ struct dict_index_csa_length_selector {
         return true;
     }
 
-    uint64_t find_minimum(size_t sp,size_t ep) const {
-        if(sp != ep) {
-            auto min = rmq(sp,ep);
+    uint64_t find_minimum(size_t sp, size_t ep) const
+    {
+        if (sp != ep) {
+            auto min = rmq(sp, ep);
             return sa[min];
         }
         return sa[sp];

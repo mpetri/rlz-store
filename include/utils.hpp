@@ -103,7 +103,6 @@ remove_all_files_in_dir(std::string dir)
     }
 }
 
-
 template <class t_itr>
 std::string safe_print(t_itr itr, t_itr end)
 {
@@ -158,7 +157,7 @@ parse_args(int argc, const char* argv[])
             args.collection_dir = optarg;
             break;
         case 's':
-            args.dict_size_in_bytes = std::stoul(optarg)*(1024*1024);
+            args.dict_size_in_bytes = std::stoul(optarg) * (1024 * 1024);
             break;
         case 'f':
             args.rebuild = true;
@@ -181,6 +180,5 @@ parse_args(int argc, const char* argv[])
     }
     return args;
 }
-
 
 } // end of util namespace

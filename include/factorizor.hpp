@@ -30,13 +30,13 @@ struct factorizor {
     static std::string boffsets_file_name(collection& col)
     {
         auto dict_hash = col.param_map[PARAM_DICT_HASH];
-        return col.path + "/index/" + KEY_BLOCKOFFSETS + "-fs="+type()+"-dhash=" + dict_hash + ".sdsl";
+        return col.path + "/index/" + KEY_BLOCKOFFSETS + "-fs=" + type() + "-dhash=" + dict_hash + ".sdsl";
     }
 
     static std::string bfactors_file_name(collection& col)
     {
         auto dict_hash = col.param_map[PARAM_DICT_HASH];
-        return col.path + "/index/" + KEY_BLOCKFACTORS + "-fs="+type()+"-dhash=" + dict_hash + ".sdsl";
+        return col.path + "/index/" + KEY_BLOCKFACTORS + "-fs=" + type() + "-dhash=" + dict_hash + ".sdsl";
     }
 
     template <class t_itr>
@@ -47,14 +47,14 @@ struct factorizor {
         size_t syms_encoded = 0;
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
-                fs.add_to_block_factor(coder,itr+syms_encoded,0,1);
+                fs.add_to_block_factor(coder, itr + syms_encoded, 0, 1);
                 syms_encoded++;
             } else {
                 auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
-                fs.add_to_block_factor(coder,itr+syms_encoded,offset, factor_itr.len);
+                fs.add_to_block_factor(coder, itr + syms_encoded, offset, factor_itr.len);
                 syms_encoded += factor_itr.len;
             }
-            
+
             ++factor_itr;
         }
         fs.encode_current_block(coder);
@@ -62,7 +62,7 @@ struct factorizor {
 
     template <class t_itr>
     static factorization_info
-    factorize(collection& col, t_index& idx,t_itr itr, t_itr end, size_t offset = 0)
+    factorize(collection& col, t_index& idx, t_itr itr, t_itr end, size_t offset = 0)
     {
         /* (1) create output files */
         factor_storage fs(col, t_block_size, offset);

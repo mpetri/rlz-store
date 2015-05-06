@@ -6,7 +6,7 @@
 
 using namespace std::chrono;
 
-template<class t_idx>
+template <class t_idx>
 void benchmark_factor_decoding(const t_idx& idx)
 {
     LOG(INFO) << "Measure factor decoding speed (" << idx.type() << ")";
@@ -32,11 +32,11 @@ void benchmark_factor_decoding(const t_idx& idx)
     LOG(INFO) << "num_factors = " << num_factors;
     LOG(INFO) << "total time = " << fact_seconds << " sec";
     LOG(INFO) << "factors per sec = " << num_factors / fact_seconds;
-    auto factors_mb = idx.factor_text.size() / (double)(8*1024*1024); // bits to mb
+    auto factors_mb = idx.factor_text.size() / (double)(8 * 1024 * 1024); // bits to mb
     LOG(INFO) << "decoding speed = " << factors_mb / fact_seconds << " MB/s";
 }
 
-template<class t_idx>
+template <class t_idx>
 void benchmark_text_decoding(const t_idx& idx)
 {
     LOG(INFO) << "Measure text decoding speed (" << idx.type() << ")";
@@ -47,7 +47,7 @@ void benchmark_text_decoding(const t_idx& idx)
     size_t checksum = 0;
     size_t num_syms = 0;
     auto n = idx.size();
-    for(size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         checksum += *itr;
         num_syms++;
         ++itr;
@@ -67,7 +67,8 @@ void benchmark_text_decoding(const t_idx& idx)
 }
 
 template <class t_idx>
-bool verify_index(collection& col,t_idx& idx) {
+bool verify_index(collection& col, t_idx& idx)
+{
     LOG(INFO) << "Verify that factorization is correct.";
     sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
     auto num_blocks = text.size() / idx.factorization_block_size;
@@ -102,8 +103,8 @@ bool verify_index(collection& col,t_idx& idx) {
         if (block_content.size() != left) {
             error = true;
             LOG(ERROR) << "Error in  LAST block "
-                    << " block size = " << block_content.size()
-                    << " left  = " << left;
+                       << " block size = " << block_content.size()
+                       << " left  = " << left;
         }
         auto eq = std::equal(block_content.begin(), block_content.end(), text.begin() + block_start);
         if (!eq) {

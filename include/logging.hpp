@@ -17,4 +17,3 @@ setup_logger(int argc, const char** argv, bool log_stdout = true)
     el::Loggers::reconfigureAllLoggers(el::ConfigurationType::Filename, log_file);
     el::Loggers::setLoggingLevel(el::Level::Fatal);
 }
-

@@ -73,5 +73,4 @@ struct collection {
         auto tmp_folder = path + "/tmp/";
         utils::remove_all_files_in_dir(tmp_folder);
     }
-
 };

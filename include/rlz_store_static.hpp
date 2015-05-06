@@ -34,11 +34,13 @@ public:
     using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_coder_type>;
     using block_map_type = t_block_map;
     using size_type = uint64_t;
+
 private:
     sdsl::int_vector_mapper<1, std::ios_base::in> m_factored_text;
     bit_istream<sdsl::int_vector_mapper<1, std::ios_base::in> > m_factor_stream;
     sdsl::int_vector<8> m_dict;
     block_map_type m_blockmap;
+
 public:
     enum { factorization_bs = t_factorization_block_size };
     uint32_t factorization_block_size = t_factorization_block_size;
@@ -47,15 +49,17 @@ public:
     factor_coder_type factor_coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& factor_text = m_factored_text;
     uint64_t text_size;
+
 public:
     class builder;
 
-    std::string type() const {
-        auto dict_size_mb = dict.size() / (1024*1024);
-        return dictionary_creation_strategy::type() + "-" + std::to_string(dict_size_mb) + "_" 
-            + dictionary_pruning_strategy::type() + "_"
-            + factor_selection_strategy::type() + "_"
-            + factor_coder_type::type();
+    std::string type() const
+    {
+        auto dict_size_mb = dict.size() / (1024 * 1024);
+        return dictionary_creation_strategy::type() + "-" + std::to_string(dict_size_mb) + "_"
+               + dictionary_pruning_strategy::type() + "_"
+               + factor_selection_strategy::type() + "_"
+               + factor_coder_type::type();
     }
 
     rlz_store_static() = delete;
@@ -106,27 +110,27 @@ public:
     }
 
     inline void decode_factors(size_t offset,
-                        block_factor_data& bfd,
-                        size_t num_factors) const
+                               block_factor_data& bfd,
+                               size_t num_factors) const
     {
         m_factor_stream.seek(offset);
         factor_coder.decode_block(m_factor_stream, bfd, num_factors);
     }
 
-    inline uint64_t decode_block(uint64_t block_id,std::vector<uint8_t>& text,block_factor_data& bfd) const
+    inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data& bfd) const
     {
         auto block_start = m_blockmap.block_offset(block_id);
         auto num_factors = m_blockmap.block_factors(block_id);
-        decode_factors(block_start,bfd, num_factors);
+        decode_factors(block_start, bfd, num_factors);
 
         auto out_itr = text.begin();
         size_t literals_used = 0;
         for (size_t i = 0; i < num_factors; i++) {
             const auto& factor_len = bfd.lengths[i];
-            if(factor_len <= factor_coder.literal_threshold) {
+            if (factor_len <= factor_coder.literal_threshold) {
                 /* copy literals */
-                for(size_t i=0;i<factor_len;i++) {
-                    *out_itr = bfd.literals[literals_used+i];
+                for (size_t i = 0; i < factor_len; i++) {
+                    *out_itr = bfd.literals[literals_used + i];
                     out_itr++;
                 }
                 literals_used += factor_len;
@@ -147,7 +151,7 @@ public:
     {
         block_factor_data bfd(factorization_block_size);
         std::vector<uint8_t> block_content(factorization_block_size);
-        auto decoded_syms = decode_block(block_id,block_content, bfd);
+        auto decoded_syms = decode_block(block_id, block_content, bfd);
         block_content.resize(decoded_syms);
         return block_content;
     }

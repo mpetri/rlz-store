@@ -250,9 +250,10 @@ struct dict_index_sa_length_selector {
         return false;
     }
 
-    uint64_t find_minimum(size_t sp,size_t ep) const {
-        if(sp != ep) {
-            auto min_itr = std::min_element(sa.begin()+sp,sa.begin()+ep+1);
+    uint64_t find_minimum(size_t sp, size_t ep) const
+    {
+        if (sp != ep) {
+            auto min_itr = std::min_element(sa.begin() + sp, sa.begin() + ep + 1);
             return *min_itr;
         }
         return sa[sp];

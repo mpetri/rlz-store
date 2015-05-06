@@ -30,7 +30,7 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         if (args.verify)
-            verify_index(col,rlz_store);
+            verify_index(col, rlz_store);
     }
 
     return EXIT_SUCCESS;

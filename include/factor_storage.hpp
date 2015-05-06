@@ -42,10 +42,10 @@ struct factor_storage {
         // save the start of the encoding process
         encoding_start = hrclock::now();
     }
-    template<class t_coder,class t_itr>
-    void add_to_block_factor(t_coder& coder,t_itr text_itr,uint32_t offset, uint32_t len)
+    template <class t_coder, class t_itr>
+    void add_to_block_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
     {
-        tmp_block_factor_data.add_factor(coder,text_itr,offset,len);
+        tmp_block_factor_data.add_factor(coder, text_itr, offset, len);
     }
     void start_new_block()
     {
@@ -58,7 +58,7 @@ struct factor_storage {
         block_factors.push_back(cur_factors_in_block);
         total_encoded_factors += cur_factors_in_block;
         total_encoded_blocks++;
-        coder.encode_block(factor_stream,tmp_block_factor_data);
+        coder.encode_block(factor_stream, tmp_block_factor_data);
     }
     void output_stats(size_t total_blocks) const
     {
@@ -113,7 +113,7 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
     LOG(INFO) << "=====================================================================";
 }
 
-template<class t_fact_strategy>
+template <class t_fact_strategy>
 void
 merge_factor_encodings(collection& col, std::vector<factorization_info>& efs)
 {

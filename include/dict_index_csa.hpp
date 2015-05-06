@@ -159,9 +159,10 @@ struct dict_index_csa {
         return true;
     }
 
-    uint64_t find_minimum(size_t sp,size_t ep) const {
-        if(sp != ep) {
-            auto min = rmq(sp,ep);
+    uint64_t find_minimum(size_t sp, size_t ep) const
+    {
+        if (sp != ep) {
+            auto min = rmq(sp, ep);
             return sa[min];
         }
         return sa[sp];

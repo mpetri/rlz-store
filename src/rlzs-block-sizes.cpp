@@ -5,7 +5,6 @@
 #include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
-
 int main(int argc, const char* argv[])
 {
     setup_logger(argc, argv, false);
@@ -25,15 +24,14 @@ int main(int argc, const char* argv[])
                              .load(col);
 
         size_t prev = 0;
-        for(size_t i=1;i<rlz_store.block_map.num_blocks();i++) {
-        	auto offset = rlz_store.block_map.block_offset(i);
-        	auto size_in_bits = offset - prev;
-        	std::cout << i-1 << ";" << size_in_bits << "\n";
+        for (size_t i = 1; i < rlz_store.block_map.num_blocks(); i++) {
+            auto offset = rlz_store.block_map.block_offset(i);
+            auto size_in_bits = offset - prev;
+            std::cout << i - 1 << ";" << size_in_bits << "\n";
         }
-        std::cout << rlz_store.block_map.num_blocks()-1 << ";"
-        	<< rlz_store.text_size - rlz_store.block_map.block_offset(rlz_store.block_map.num_blocks()-1)
-        	<< "\n";
-
+        std::cout << rlz_store.block_map.num_blocks() - 1 << ";"
+                  << rlz_store.text_size - rlz_store.block_map.block_offset(rlz_store.block_map.num_blocks() - 1)
+                  << "\n";
     }
 
     return EXIT_SUCCESS;
