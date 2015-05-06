@@ -108,6 +108,7 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
     LOG(INFO) << "compression ratio  = " << 100.0 * (((double)nb / (double)n)) << " %";
     LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)nb / (double)n)) << " %";
     LOG(INFO) << "number of factors  = " << num_factors;
+    LOG(INFO) << "bits per factor    = " << (double) (8*nb) / (double) num_factors;
     LOG(INFO) << "number of blocks   = " << num_blocks;
     LOG(INFO) << "avg factors/block  = " << (double)num_factors / (double)num_blocks;
     LOG(INFO) << "=====================================================================";
