@@ -21,7 +21,8 @@ struct factor_coder_blocked {
     t_coder_len len_coder;
     static std::string type()
     {
-        return "factor_coder_blocked-" + t_coder_offset::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
+        return "factor_coder_blocked-t=" + std::to_string(t_literal_threshold) 
+            + "-" + t_coder_offset::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
     }
 
     template <class t_ostream>
@@ -29,8 +30,8 @@ struct factor_coder_blocked {
     {
         std::for_each(bfd.lengths.begin(),bfd.lengths.begin()+bfd.num_factors, [](uint32_t &n){ n--; });
         len_coder.encode(ofs, bfd.lengths.data(), bfd.num_factors);
-        literal_coder.encode(ofs, bfd.literals.data(), bfd.num_literals);
-        offset_coder.encode(ofs, bfd.offsets.data(), bfd.num_offsets);
+        if(bfd.num_literals) literal_coder.encode(ofs, bfd.literals.data(), bfd.num_literals);
+        if(bfd.num_offsets) offset_coder.encode(ofs, bfd.offsets.data(), bfd.num_offsets);
     }
 
     template <class t_istream>
@@ -44,8 +45,8 @@ struct factor_coder_blocked {
           if(bfd.lengths[i] <= literal_threshold)
             bfd.num_literals += bfd.lengths[i];
         }
-        literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
+        if(bfd.num_literals) literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
         bfd.num_offsets = bfd.num_factors - bfd.num_literals;
-        offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);
+        if(bfd.num_offsets) offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);
     }
 };

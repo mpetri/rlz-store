@@ -10,7 +10,15 @@ using rlz_type_uv_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sa
                              dict_index_csa<cikm_csa_type>,
                              cikm_factorization_blocksize,
                              factor_select_first,
-                             factor_coder_blocked<1,coder::fixed<32>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
+                             factor_coder_blocked<4,coder::fixed<32>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
+                             block_map_uncompressed>;
+
+using rlz_type_uuv_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
+                             dict_prune_none,
+                             dict_index_csa<cikm_csa_type>,
+                             cikm_factorization_blocksize,
+                             factor_select_first,
+                             factor_coder_blocked<4,coder::aligned_fixed<uint8_t>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
                              block_map_uncompressed>;
 
 using rlz_type_zz_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
@@ -18,7 +26,7 @@ using rlz_type_zz_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sa
                              dict_index_csa<cikm_csa_type>,
                              cikm_factorization_blocksize,
                              factor_select_first,
-                             factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>, coder::zlib<9> >,
+                             factor_coder_blocked<4,coder::zlib<9>,coder::zlib<9>, coder::zlib<9> >,
                              block_map_uncompressed>;
 
 using rlz_type_zz_greedy_min = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
@@ -26,7 +34,7 @@ using rlz_type_zz_greedy_min = rlz_store_static<dict_random_sample_budget<cikm_s
                               dict_index_csa<cikm_csa_type>,
                               cikm_factorization_blocksize,
                               factor_select_minimum,
-                              factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>, coder::zlib<9> >,
+                              factor_coder_blocked<4,coder::zlib<9>,coder::zlib<9>, coder::zlib<9> >,
                               block_map_uncompressed>;
 
 using rlz_type_zz_lenmul2 = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
@@ -34,7 +42,7 @@ using rlz_type_zz_lenmul2 = rlz_store_static<dict_random_sample_budget<cikm_samp
                                dict_index_csa_length_selector<2, cikm_csa_type>,
                                cikm_factorization_blocksize,
                                factor_select_first,
-                               factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>,coder::length_multiplier<2, coder::zlib<9> > >,
+                               factor_coder_blocked<4,coder::zlib<9>,coder::zlib<9>,coder::length_multiplier<2, coder::zlib<9> > >,
                                block_map_uncompressed>;
 
 using rlz_type_zz_lenmul22 = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
