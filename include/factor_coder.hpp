@@ -41,12 +41,15 @@ struct factor_coder_blocked {
         len_coder.decode(ifs, bfd.lengths.data(), num_factors);
         std::for_each(bfd.lengths.begin(),bfd.lengths.begin()+num_factors, [](uint32_t &n){ n++; });
         bfd.num_literals = 0;
+        auto num_literal_factors = 0;
         for(size_t i=0;i<bfd.num_factors;i++) {
-          if(bfd.lengths[i] <= literal_threshold)
-            bfd.num_literals += bfd.lengths[i];
+            if(bfd.lengths[i] <= literal_threshold) {
+                bfd.num_literals += bfd.lengths[i];
+                num_literal_factors++;
+            }
         }
         if(bfd.num_literals) literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
-        bfd.num_offsets = bfd.num_factors - bfd.num_literals;
+        bfd.num_offsets = bfd.num_factors - num_literal_factors;
         if(bfd.num_offsets) offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);
     }
 };
