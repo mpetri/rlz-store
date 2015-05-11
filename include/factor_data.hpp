@@ -7,6 +7,7 @@ struct block_factor_data {
     size_t num_factors;
     size_t num_literals;
     size_t num_offsets;
+    bool last_factor_was_literal;
 
     block_factor_data() = default;
     block_factor_data(size_t block_size)
@@ -17,6 +18,7 @@ struct block_factor_data {
 
     void reset()
     {
+        last_factor_was_literal = false;
         num_offsets = 0;
         num_factors = 0;
         num_literals = 0;
@@ -33,16 +35,21 @@ struct block_factor_data {
     void add_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
     {
         assert(len > 0); // we define len to be larger than 0 even for unknown syms.
-        
         if (len <= coder.literal_threshold)  {
+            if( last_factor_was_literal && ((lengths[num_factors-1] + len) <= coder.literal_threshold) ) {
+                // extend last literal
+                lengths[num_factors-1] += len;
+            } else {
+                lengths[num_factors++] = len;
+            }
             std::copy(text_itr, text_itr + len, literals.begin() + num_literals);
             num_literals += len;
+            last_factor_was_literal = true;
         } else {
             offsets[num_offsets] = offset;
             num_offsets++;
+            last_factor_was_literal = false;
+            lengths[num_factors++] = len;
         }
-        lengths[num_factors] = len;
-        num_factors++;
-
     }
 };

@@ -42,14 +42,13 @@ private:
     block_map_type m_blockmap;
 
 public:
-    enum { factorization_bs = t_factorization_block_size };
-    uint32_t factorization_block_size = t_factorization_block_size;
+    enum { block_size = t_factorization_block_size };
+    uint64_t encoding_block_size = block_size;
     block_map_type& block_map = m_blockmap;
     sdsl::int_vector<8>& dict = m_dict;
     factor_coder_type factor_coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& factor_text = m_factored_text;
     uint64_t text_size;
-
 public:
     class builder;
 
@@ -151,8 +150,8 @@ public:
     std::vector<uint8_t>
     block(const size_t block_id) const
     {
-        block_factor_data bfd(factorization_block_size);
-        std::vector<uint8_t> block_content(factorization_block_size);
+        block_factor_data bfd(block_size);
+        std::vector<uint8_t> block_content(block_size);
         auto decoded_syms = decode_block(block_id, block_content, bfd);
         block_content.resize(decoded_syms);
         return block_content;

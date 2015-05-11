@@ -17,9 +17,9 @@ const std::string KEY_BLOCKFACTORS = "BLOCKFACTORS";
 
 const std::string PARAM_DICT_HASH = "DICT_HASH";
 
-const std::string KEY_ZLIB = "ZLIB";
-const std::string KEY_ZLIB_OFFSETS = "ZLIB_OFFSETS";
-const std::string KEY_ZLIB_LEN = "ZLIB_LEN";
+const std::string KEY_LZ = "LZ";
+const std::string KEY_LZ_OFFSETS = "LZ_OFFSETS";
+const std::string KEY_LZ_LEN = "LZ_LEN";
 
 struct collection {
     std::string path;

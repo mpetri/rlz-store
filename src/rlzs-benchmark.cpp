@@ -28,32 +28,31 @@ int main(int argc, const char* argv[])
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
                              .set_dict_size(args.dict_size_in_bytes)
-                             .build_or_load(col);
+                             .load(col);
 
-        if(args.verify) verify_index(col, lz_store);
+        
+        benchmark_text_decoding(lz_store);
     }
 
     {
-        const uint32_t cikm_sample_block_size = 1024;
-        using cikm_csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-        using rlz_type_uuv_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
-                                     dict_prune_none,
-                                     dict_index_csa<cikm_csa_type>,
-                                     cikm_factorization_blocksize,
-                                     factor_select_first,
-                                     factor_coder_blocked<4,coder::aligned_fixed<uint8_t>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
-                                     block_map_uncompressed>;
-        auto rlz_store = rlz_type_uuv_greedy_sp::builder{}
+		const uint32_t cikm_sample_block_size = 1024;
+		using cikm_csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
+		using rlz_type_uuv_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
+		                             dict_prune_none,
+		                             dict_index_csa<cikm_csa_type>,
+		                             cikm_factorization_blocksize,
+		                             factor_select_first,
+		                             factor_coder_blocked<4,coder::aligned_fixed<uint8_t>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
+		                             block_map_uncompressed>;
+        auto lz_store = rlz_type_uuv_greedy_sp::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
                              .set_dict_size(args.dict_size_in_bytes)
-                             .build_or_load(col);
+                             .load(col);
 
         
-        if(args.verify) verify_index(col, rlz_store);
+        benchmark_text_decoding(lz_store);
     }
-
-
 
     return EXIT_SUCCESS;
 }

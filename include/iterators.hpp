@@ -35,7 +35,7 @@ public:
         , m_block_offset(block_offset)
         , m_factor_offset(factor_offset)
     {
-        m_block_factor_data.resize(m_idx.factorization_block_size);
+        m_block_factor_data.resize(m_idx.encoding_block_size);
         decode_cur_block();
     }
     void decode_cur_block()
@@ -91,8 +91,6 @@ template <class t_idx>
 class text_iterator {
 public:
     using size_type = uint64_t;
-    using value_type = factor_data;
-
 private:
     t_idx& m_idx;
     size_t m_text_offset;
@@ -110,9 +108,9 @@ public:
     text_iterator(t_idx& idx, size_t text_offset)
         : m_idx(idx)
         , m_text_offset(text_offset)
-        , m_text_block_offset(text_offset % m_idx.factorization_block_size)
-        , m_block_size(m_idx.factorization_block_size)
-        , m_block_offset(text_offset / m_idx.factorization_block_size)
+        , m_text_block_offset(text_offset % m_idx.encoding_block_size)
+        , m_block_size(m_idx.encoding_block_size)
+        , m_block_offset(text_offset / m_idx.encoding_block_size)
     {
         m_block_factor_data.resize(m_block_size);
         m_text_buf.resize(m_block_size);
@@ -137,6 +135,63 @@ public:
         return m_text_offset != b.m_text_offset;
     }
     inline text_iterator& operator++()
+    {
+        if (m_text_block_offset + 1 == m_block_size) {
+            m_text_block_offset = 0;
+            m_block_offset++;
+        } else {
+            m_text_block_offset++;
+        }
+        m_text_offset++;
+        return *this;
+    }
+};
+
+
+template <class t_idx>
+class zlib_text_iterator {
+public:
+    using size_type = uint64_t;
+private:
+    t_idx& m_idx;
+    size_t m_text_offset;
+    size_t m_text_block_offset;
+    size_t m_block_size;
+    size_t m_block_offset;
+    std::vector<uint8_t> m_text_buf;
+public:
+    const size_t& block_id = m_block_offset;
+    const size_t& block_size = m_block_size;
+public:
+    zlib_text_iterator(t_idx& idx, size_t text_offset)
+        : m_idx(idx)
+        , m_text_offset(text_offset)
+        , m_text_block_offset(text_offset % m_idx.encoding_block_size)
+        , m_block_size(m_idx.encoding_block_size)
+        , m_block_offset(text_offset / m_idx.encoding_block_size)
+    {
+        m_text_buf.resize(m_block_size);
+    }
+    inline void decode_cur_block()
+    {
+        m_block_size = m_idx.decode_block(m_block_offset, m_text_buf);
+    }
+    inline uint8_t operator*()
+    {
+        if (m_text_block_offset == 0) {
+            decode_cur_block();
+        }
+        return m_text_buf[m_text_block_offset];
+    }
+    inline bool operator==(const zlib_text_iterator& b) const
+    {
+        return m_text_offset == b.m_text_offset;
+    }
+    inline bool operator!=(const zlib_text_iterator& b) const
+    {
+        return m_text_offset != b.m_text_offset;
+    }
+    inline zlib_text_iterator& operator++()
     {
         if (m_text_block_offset + 1 == m_block_size) {
             m_text_block_offset = 0;

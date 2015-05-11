@@ -20,9 +20,11 @@ struct block_map_uncompressed {
     {
         LOG(INFO) << "\tLoad block offsets from file";
         sdsl::load_from_file(m_block_offsets, col.file_map[KEY_BLOCKOFFSETS]);
-        sdsl::load_from_file(m_block_factors, col.file_map[KEY_BLOCKFACTORS]);
+        if(col.file_map.find(KEY_BLOCKFACTORS) != col.file_map.end()) {
+            sdsl::load_from_file(m_block_factors, col.file_map[KEY_BLOCKFACTORS]);
+            sdsl::util::bit_compress(m_block_factors);
+        }
         sdsl::util::bit_compress(m_block_offsets);
-        sdsl::util::bit_compress(m_block_factors);
     }
 
     inline size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = NULL, std::string name = "") const

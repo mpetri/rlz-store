@@ -62,3 +62,6 @@ target_link_libraries(unit-tests.x sdsl pthread z gtest_main lzma)
 
 add_executable(create-indexes-cikm15.x src/experiments/create-indexes-cikm15.cpp)
 target_link_libraries(create-indexes-cikm15.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
+
+add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
+target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
