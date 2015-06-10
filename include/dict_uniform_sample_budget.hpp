@@ -3,9 +3,7 @@
 #include "utils.hpp"
 #include "collection.hpp"
 
-const int DEFAULT_DICTIONARY_BLOCK_SIZE= 1024;
-
-template <uint32_t t_block_size_bytes = DEFAULT_DICTIONARY_BLOCK_SIZE>
+template <uint32_t t_block_size_bytes>
 class dict_uniform_sample_budget {
 public:
     static std::string type()

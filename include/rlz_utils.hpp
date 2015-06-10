@@ -70,7 +70,7 @@ void benchmark_text_decoding(const t_idx& idx)
 }
 
 template <class t_idx>
-bool print_compressed_size(collection& col,t_idx& idx) 
+void print_compressed_size(collection& col,t_idx& idx) 
 {
     size_t compressed_size = 0;
     {

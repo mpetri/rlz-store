@@ -3,7 +3,7 @@
 #include "utils.hpp"
 #include "collection.hpp"
 
-template <uint32_t t_block_size_bytes = 1024>
+template <uint32_t t_block_size_bytes>
 class dict_hybrid_sample_budget {
 public:
     static std::string type()

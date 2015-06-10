@@ -45,7 +45,7 @@ int main(int argc, const char* argv[])
 
         /* create a new dict */
 		using rlz_type_new = rlz_store_static<
-										 dict_uniform_sample_budget<sample_block_size>,
+										 dict_hybrid_sample_budget<sample_block_size>,
 			                             dict_prune_none,
 			                             dict_index_csa<csa_type>,
 			                             factorization_blocksize,
