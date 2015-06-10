@@ -5,13 +5,12 @@
 
 const int DEFAULT_DICTIONARY_BLOCK_SIZE= 1024;
 
-
 template <uint32_t t_block_size_bytes = DEFAULT_DICTIONARY_BLOCK_SIZE>
-class dict_random_sample_budget {
+class dict_uniform_sample_budget {
 public:
     static std::string type()
     {
-        return "dict_random_sample_budget-"
+        return "dict_uniform_sample_budget-"
                + std::to_string(t_block_size_bytes);
     }
 

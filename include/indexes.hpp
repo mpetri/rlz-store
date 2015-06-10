@@ -16,7 +16,7 @@
 /* parameters */
 const int DEFAULT_FACTORIZATION_BLOCK_SIZE = 2048;
 const uint32_t default_factorization_block_size = 32768;
-using default_dict_creation_strategy = dict_random_sample_budget<DEFAULT_DICTIONARY_BLOCK_SIZE>;
+using default_dict_creation_strategy = dict_uniform_sample_budget<DEFAULT_DICTIONARY_BLOCK_SIZE>;
 using default_dict_pruning_strategy = dict_prune_none;
 using default_factor_selection_strategy = factor_select_first;
 using default_factor_encoder = factor_coder_blocked<1, coder::fixed<32>, coder::aligned_fixed<uint32_t>, coder::vbyte>;

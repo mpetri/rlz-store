@@ -49,6 +49,9 @@ public:
     factor_coder_type factor_coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& factor_text = m_factored_text;
     uint64_t text_size;
+    std::string m_dict_hash;
+    std::string m_dict_file;
+    std::string m_factor_file;
 public:
     class builder;
 
@@ -69,11 +72,14 @@ public:
         , m_factor_stream(m_factored_text) // (1) mmap factored text
     {
         LOG(INFO) << "Loading RLZ store into memory";
+        m_factor_file = col.file_map[KEY_FACTORIZED_TEXT];
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
         // (3) load dictionary from disk
         LOG(INFO) << "\tLoad dictionary";
+        m_dict_hash = col.param_map[PARAM_DICT_HASH];
+        m_dict_file = col.file_map[KEY_DICT];
         sdsl::load_from_file(m_dict, col.file_map[KEY_DICT]);
         {
             LOG(INFO) << "\tDetermine text size";
@@ -156,4 +162,6 @@ public:
         block_content.resize(decoded_syms);
         return block_content;
     }
+
+
 };
