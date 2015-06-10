@@ -64,6 +64,26 @@ void benchmark_text_decoding(const t_idx& idx)
     auto num_blocks = num_syms / t_idx::block_size;
     LOG(INFO) << "num blocks = " << num_blocks;
     LOG(INFO) << "blocks per sec = " << num_blocks / text_seconds;
+    LOG(INFO)<< "text checksum = "<< checksum;
+
+
+}
+
+template <class t_idx>
+bool print_compressed_size(collection& col,t_idx& idx) 
+{
+    size_t compressed_size = 0;
+    {
+	    auto factor_file_name = t_idx::factorization_strategy::factor_file_name(col);
+	    sdsl::read_only_mapper<8> factorfile(factor_file_name);
+	    compressed_size = factorfile.size();	 
+    }
+
+    LOG(INFO)<<" compressed size = "
+	<< compressed_size << " in bytes "
+	<< (double)compressed_size/(1024*1024.0) << " in MiB "
+	<< (double)compressed_size/(1024*1024*1024.0) << "in GiB "
+	;
 }
 
 template <class t_idx>
