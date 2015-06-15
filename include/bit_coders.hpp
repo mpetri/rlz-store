@@ -4,6 +4,8 @@
 #include "bit_streams.hpp"
 #include "zlib.h"
 #include "lzma.h"
+#include "lz4hc.h"
+#include "lz4.h"
 
 #include "logging.hpp"
 
@@ -389,6 +391,53 @@ public:
         is.skip(in_size * 8); // skip over the read content
     }
 };
+
+
+template <uint8_t t_level = 9>
+struct lz4hc {
+private:
+    mutable void* lz4_state = nullptr;
+public:
+    lz4hc()
+    {
+        auto state_size = LZ4_sizeofStateHC();
+        lz4_state = malloc(state_size);
+    }
+    ~lz4hc()
+    {
+        free(lz4_state);
+    }
+
+public:
+    static std::string type()
+    {
+        return "lz4hc-" + std::to_string(t_level);
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
+    {
+        uint64_t bits_required = 32 + n * 128; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+        /* compress */
+        char* out_buf = (char*) os.cur_data8();
+        uint64_t in_size = n * sizeof(T);
+        auto bytes_written = LZ4_compress_HC_extStateHC(lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3,t_level);
+        os.skip(bytes_written * 8); // skip over the written content
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
+    {
+        is.align8(); // align to bytes if needed
+        const char* in_buf = (const char*) is.cur_data8();
+        uint64_t out_size = n * sizeof(T);
+        auto comp_size = LZ4_decompress_fast(in_buf,(char*)out_buf,out_size);
+        is.skip(comp_size * 8); // skip over the read content
+    }
+};
+
 
 //with the dict_index_sa_length_selector strategy - match lengths are a known multiple of LM. This coder simply removes/adds the LM component, before
 // passing on to the next stage of coding say U32 or Zlib (given by t_coder c)

@@ -50,19 +50,27 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/googletest/include
                      ${CMAKE_HOME_DIRECTORY}/external/sdsl-lite/external/FastPFor/headers/
                      ${CMAKE_HOME_DIRECTORY}/external/easyloggingpp/src/
+                     ${CMAKE_HOME_DIRECTORY}/external/lz4/lib
                     )
 
+set(LZ4_DIR  ${CMAKE_HOME_DIRECTORY}/external/lz4/lib/)
+set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4hc.h ${LZ4_DIR}lz4frame.c ${LZ4_DIR}lz4frame.h ${LZ4_DIR}xxhash.c)
+add_library(lz4 ${LZ4_SRCS_LIB})
+
 add_executable(rlzs-create.x src/rlzs-create.cpp)
-target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
+target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma lz4)
 
 add_executable(create-collection.x src/create-collection.cpp)
-target_link_libraries(create-collection.x sdsl pthread z boost_system boost_iostreams boost_filesystem boost_regex)
+target_link_libraries(create-collection.x sdsl pthread z boost_system boost_iostreams boost_filesystem boost_regex lz4 )
 
 add_executable(unit-tests.x src/unit-tests.cpp)
-target_link_libraries(unit-tests.x sdsl pthread z gtest_main lzma)
+target_link_libraries(unit-tests.x sdsl pthread z gtest_main lzma lz4)
 
 add_executable(rlzs-compare-indexes.x src/rlzs-compare-indexes.cpp)
-target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
+target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma lz4)
 
 add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
-target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
+target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma lz4)
+
+add_executable(create-indexes-airs15.x src/experiments/create-indexes-airs15.cpp)
+target_link_libraries(create-indexes-airs15.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma lz4)
