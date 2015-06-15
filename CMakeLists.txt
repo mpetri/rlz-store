@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.7)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include(AppendCompilerFlags)
+find_package(Boost)
 
 project(rlz-docstore CXX C)
 set(CMAKE_BUILD_TYPE "Release")
@@ -54,8 +55,8 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 z FastPFor lzma)
 
-add_executable(create-sdsl-input.x src/create-sdsl-input.cpp)
-target_link_libraries(create-sdsl-input.x sdsl pthread z)
+add_executable(create-collection.x src/create-collection.cpp)
+target_link_libraries(create-collection.x sdsl pthread z boost_system boost_iostreams boost_filesystem boost_regex)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread z gtest_main lzma)

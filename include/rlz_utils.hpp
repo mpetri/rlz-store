@@ -325,6 +325,8 @@ void compare_indexes(collection& col, t_idx_base& baseline,t_idx_new& new_idx)
         std::cout << "==================================================\n";
         std::cout << "compress new_idx with baseline\n";
         std::cout << "    num_literals = " << num_literals << "\n";
+        std::cout << "    non_literals = " << non_literals << "\n";
+        std::cout << "    num_factors = " << num_factors << "\n";
         std::cout << "    percent_literals = " << 100.0*num_literals / num_factors << " %\n";
 
         uint64_t flen_sum = 0;
@@ -379,7 +381,8 @@ void compare_indexes(collection& col, t_idx_base& baseline,t_idx_new& new_idx)
             if(cnt) std::cout << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
             thres *= 2;
         }
-        std::cout << "\n";    
+        std::cout << "\n";
+        std::cout << "    estimated compressed size = " << (num_factors*5)/(1024*1024) << " MiB\n";
     }
     /* (4) compress baseline with new_idx */
     {

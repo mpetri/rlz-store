@@ -44,22 +44,22 @@ int main(int argc, const char* argv[])
 
 
         /* create a new dict */
-		using rlz_type_new = rlz_store_static<
-										 dict_hybrid_sample_budget<sample_block_size>,
-			                             dict_prune_none,
-			                             dict_index_csa<csa_type>,
-			                             factorization_blocksize,
-			                             factor_select_first,
-			                             fcoder_type,
-			                             block_map_uncompressed>;
-		auto rlz_store_new = rlz_type_new::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
-                             .build_or_load(col);
+		// using rlz_type_new = rlz_store_static<
+		// 								 dict_sketch_topk_scan<sample_block_size,16>,
+		// 	                             dict_prune_none,
+		// 	                             dict_index_csa<csa_type>,
+		// 	                             factorization_blocksize,
+		// 	                             factor_select_first,
+		// 	                             fcoder_type,
+		// 	                             block_map_uncompressed>;
+		// auto rlz_store_new = rlz_type_new::builder{}
+  //                            .set_rebuild(args.rebuild)
+  //                            .set_threads(args.threads)
+  //                            .set_dict_size(args.dict_size_in_bytes)
+  //                            .build_or_load(col);
 
         /* compare dicts */
-        compare_indexes(col,rlz_store,rlz_store_new);
+        // compare_indexes(col,rlz_store,rlz_store_new);
     }
 
     return EXIT_SUCCESS;

@@ -28,12 +28,8 @@ public:
 	    return col.path + "/index/" + type()+"-"+std::to_string(size_in_mb) +".mb."+ timestamp +".sdsl";
     }
 
-
-
 public:
 	
-
-
     static void create(collection& col, bool rebuild,size_t size_in_bytes)
     {
         const uint32_t block_size = t_block_size_bytes;
@@ -63,15 +59,15 @@ public:
 		sample_ids.resize(num_samples);
 		std::sort(sample_ids.begin(), sample_ids.end());
 
-                LOG(INFO) << "\tSample steps = " << sample_step;
+        LOG(INFO) << "\tSample steps = " << sample_step;
 		LOG(INFO) << "\t\t few sample blocks="<< sample_ids[0]<<","<<sample_ids[1]<<sample_ids[2]<<","<<sample_ids[3];
 		for( auto sample_iterator= sample_ids.begin(); sample_iterator != sample_ids.end(); sample_iterator++)
 		{
 		    size_t i = (*sample_iterator)*block_size;
-                    for (size_t j = 0; j < block_size; j++) 
+            for (size_t j = 0; j < block_size; j++) 
 		    {
                         //if (i + j >= n){   break;}
-			assert( i+j < n );
+			         assert( i+j < n );
                         dict.push_back(text[i + j]);
                     }
                 }
@@ -84,7 +80,7 @@ public:
             std::copy(dict.begin(),dict.end(),std::back_inserter(wdict));
         }
 	
-	// compute a hash of the dict so we don't reconstruct things
+	    // compute a hash of the dict so we don't reconstruct things
         // later when we don't have to.
         col.compute_dict_hash();
     }
