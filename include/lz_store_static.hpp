@@ -50,7 +50,7 @@ public:
         : m_compressed_text(col.file_map[KEY_LZ])
         , m_compressed_stream(m_compressed_text) // (1) mmap factored text
     {
-        LOG(INFO) << "Loading Zlib store into memory";
+        LOG(INFO) << "Loading Zlib store into memory (" << type() << ")";
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
@@ -59,7 +59,7 @@ public:
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
             text_size = text.size();
         }
-        LOG(INFO) << "Zlib store ready";
+        LOG(INFO) << "Zlib store ready (" << type() << ")";
     }
 
     auto begin() const -> zlib_text_iterator<decltype(*this)>
