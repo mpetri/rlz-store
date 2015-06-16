@@ -294,16 +294,18 @@ public:
     static const uint32_t lzma_max_mem_limit = 1024 * 1024 * 1024;
 
 private:
-    mutable lzma_stream strm;
-
+    mutable lzma_stream strm_enc;
+    mutable lzma_stream strm_dec;
 public:
     lzma()
     {
-        strm = LZMA_STREAM_INIT;
+        strm_enc = LZMA_STREAM_INIT;
+        strm_dec = LZMA_STREAM_INIT;
     }
     ~lzma()
     {
-        lzma_end(&strm);
+        lzma_end(&strm_enc);
+        lzma_end(&strm_dec);
     }
 
 public:
@@ -315,7 +317,7 @@ public:
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
     {
-        uint64_t bits_required = 32 + n * 128; // upper bound
+        uint64_t bits_required = 2048 + n * 256; // upper bound
         os.expand_if_needed(bits_required);
         os.align8(); // align to bytes if needed
 
@@ -324,28 +326,35 @@ public:
         os.skip(32);
 
         /* init compressor */
+        uint32_t osize = bits_required >> 3;
         uint8_t* out_buf = os.cur_data8();
         uint64_t in_size = n * sizeof(T);
-        strm.next_in = (uint8_t*)in_buf;
-        strm.avail_in = in_size;
-        strm.next_out = out_buf;
-        strm.avail_out = bits_required >> 3;
+        strm_enc.next_in = (uint8_t*)in_buf;
+        strm_enc.avail_in = in_size;
+        strm_enc.total_out = 0;
+        strm_enc.total_in = 0;
 
         /* compress */
         int res;
-        if ((res = lzma_easy_encoder(&strm, t_level, LZMA_CHECK_NONE)) != LZMA_OK) {
+        if ((res = lzma_easy_encoder(&strm_enc, t_level, LZMA_CHECK_NONE)) != LZMA_OK) {
             LOG(FATAL) << "lzma-encode: error init LMZA encoder < n!";
         }
-        if ((res = lzma_code(&strm, LZMA_RUN)) != LZMA_OK) {
-            LOG(FATAL) << "lzma-encode: error init LZMA_RUN < n!";
+
+        auto total_written_bytes = 0ULL;
+        while(res != LZMA_STREAM_END) {
+            strm_enc.next_out = out_buf;
+            strm_enc.avail_out = osize;
+            if ((res = lzma_code(&strm_enc, LZMA_FINISH)) != LZMA_OK && res != LZMA_STREAM_END ) {
+                LOG(FATAL) << "lzma-encode: error code LZMA_FINISH < n!: " << res;
+            }
+            auto written_bytes = osize - strm_enc.avail_out;
+            total_written_bytes += written_bytes;
+            osize -= written_bytes;
+            out_buf += written_bytes;
         }
 
-        if ((res = lzma_code(&strm, LZMA_FINISH)) != LZMA_STREAM_END && res != LZMA_OK) {
-            LOG(FATAL) << "lzma-encode: error init LZMA_FINISH < n!";
-        }
-
-        *out_size = (uint32_t)strm.total_out;
-        os.skip(strm.total_out * 8); // skip over the written content
+        *out_size = (uint32_t)total_written_bytes;
+        os.skip(total_written_bytes * 8); // skip over the written content
     }
 
     template <class t_bit_istream, class T>
@@ -361,33 +370,36 @@ public:
         /* setup decoder */
         auto in_buf = is.cur_data8();
         uint64_t out_size = n * sizeof(T);
-
-        strm.next_in = in_buf;
-        strm.avail_in = in_size;
-        strm.next_out = (uint8_t*)out_buf;
-        strm.avail_out = out_size;
-
         int res;
-        uint32_t cur_mem_limit = lzma_mem_limit;
-        if ((res = lzma_auto_decoder(&strm, cur_mem_limit, 0)) != LZMA_OK) {
-            lzma_end(&strm);
-            LOG(FATAL) << "lzma-encode: error init LMZA decoder";
+        if ((res = lzma_auto_decoder(&strm_dec, lzma_mem_limit, 0)) != LZMA_OK) {
+            LOG(FATAL) << "lzma-decode: error init LMZA decoder:" << res;
+        }
+        
+        strm_dec.next_in = in_buf;
+        strm_dec.avail_in = in_size;
+        auto total_decoded = 0ULL;
+        while(res != LZMA_STREAM_END) {
+            strm_dec.next_out = (uint8_t*)out_buf;
+            strm_dec.avail_out = out_size;
+            /* decode */
+            res = lzma_code (&strm_dec, LZMA_RUN);
+            auto decoded = out_size - strm_dec.avail_out;
+            total_decoded += decoded;
+            out_buf += decoded;
+            out_size -= decoded;
+            if(res != LZMA_OK && res != LZMA_STREAM_END) {
+                lzma_end(&strm_dec);
+                LOG(FATAL) << "lzma-decode: error decoding LZMA_RUN: " << res;
+            }
+            if(res == LZMA_STREAM_END) break;
+        }
+        
+        if(total_decoded != n * sizeof(T)) {
+            LOG(ERROR) << "lzma-decode: decoded bytes = " << total_decoded << " should be = " << n * sizeof(T);
         }
 
-        /* decode */
-        do {
-            if ((res = lzma_code(&strm, LZMA_RUN)) != LZMA_STREAM_END) {
-                if (res == LZMA_MEMLIMIT_ERROR) {
-                    cur_mem_limit *= 2; // double mem limit
-                } else {
-                    lzma_end(&strm);
-                    LOG(FATAL) << "lzma-encode: error decoding LZMA_RUN";
-                }
-            }
-        } while ((res == LZMA_MEMLIMIT_ERROR) && (cur_mem_limit < lzma_max_mem_limit));
-
         /* finish decoding */
-        lzma_end(&strm);
+        // lzma_end(&strm);
         is.skip(in_size * 8); // skip over the read content
     }
 };
