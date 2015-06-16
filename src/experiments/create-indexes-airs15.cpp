@@ -120,24 +120,24 @@ void create_indexes(collection& col,utils::cmdargs_t& args,uint32_t dict_size_in
 
         if(args.verify) verify_index(col, rlz_store);
     }
-    {
-    	/* RLZ-XXX */
-        using rlz_type_xxx_greedy_sp = rlz_store_static<dict_uniform_sample_budget<airs_sample_block_size>,
-                                     dict_prune_none,
-                                     dict_index_csa<airs_csa_type>,
-                                     t_factorization_blocksize,
-                                     factor_select_first,
-                                     factor_coder_blocked<1,coder::lzma<6>,coder::lzma<6>,coder::lzma<6>>,
-                                     block_map_uncompressed>;
-        auto rlz_store = typename 
-        rlz_type_xxx_greedy_sp::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(dict_size_in_bytes)
-                             .build_or_load(col);
+    // {
+    // 	/* RLZ-XXX */
+    //     using rlz_type_xxx_greedy_sp = rlz_store_static<dict_uniform_sample_budget<airs_sample_block_size>,
+    //                                  dict_prune_none,
+    //                                  dict_index_csa<airs_csa_type>,
+    //                                  t_factorization_blocksize,
+    //                                  factor_select_first,
+    //                                  factor_coder_blocked<1,coder::lzma<6>,coder::lzma<6>,coder::lzma<6>>,
+    //                                  block_map_uncompressed>;
+    //     auto rlz_store = typename 
+    //     rlz_type_xxx_greedy_sp::builder{}
+    //                          .set_rebuild(args.rebuild)
+    //                          .set_threads(args.threads)
+    //                          .set_dict_size(dict_size_in_bytes)
+    //                          .build_or_load(col);
 
-        if(args.verify) verify_index(col, rlz_store);
-    }
+    //     if(args.verify) verify_index(col, rlz_store);
+    // }
 }
 
 int main(int argc, const char* argv[])
