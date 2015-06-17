@@ -128,7 +128,8 @@ public:
     static std::string blockmap_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_BLOCKMAP + "-"
-               + block_map_type::type() + "-" + coder_type::type()+".sdsl";
+               + block_map_type::type() + "-" + std::to_string(t_block_size) 
+               + "-" + coder_type::type()+".sdsl";
     }
 
     static std::string blockoffsets_file_name(collection& col)
