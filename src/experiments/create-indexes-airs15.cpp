@@ -153,7 +153,7 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    std::vector<uint32_t> dict_sizes{128,64,16,4};
+    std::vector<uint32_t> dict_sizes{128,64,16,4,1};
     for(auto ds_mb : dict_sizes) {
 	    create_indexes<1024>(col,args,ds_mb*1024*1024);
 	    create_indexes<2*1024>(col,args,ds_mb*1024*1024);

@@ -159,6 +159,7 @@ private:
     size_t m_block_size;
     size_t m_block_offset;
     std::vector<uint8_t> m_text_buf;
+    block_factor_data m_block_factor_data;
 public:
     const size_t& block_id = m_block_offset;
     const size_t& block_size = m_block_size;
@@ -174,7 +175,7 @@ public:
     }
     inline void decode_cur_block()
     {
-        m_block_size = m_idx.decode_block(m_block_offset, m_text_buf);
+        m_block_size = m_idx.decode_block(m_block_offset, m_text_buf,m_block_factor_data);
     }
     inline uint8_t operator*()
     {

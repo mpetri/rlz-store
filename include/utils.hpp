@@ -21,6 +21,33 @@ using hrclock = std::chrono::high_resolution_clock;
 
 namespace utils {
 
+
+bool is_root()
+{
+    return getuid() == 0;
+}
+
+void flush_cache() /* requires root */
+{
+    if(is_root()) {
+        sync();
+        {
+            std::ofstream ofs("/proc/sys/vm/drop_caches");
+            ofs << "3" << std::endl;
+        }
+        {
+            std::ofstream ofs("/proc/sys/vm/drop_caches");
+            ofs << "3" << std::endl;
+        }
+        {
+            std::ofstream ofs("/proc/sys/vm/drop_caches");
+            ofs << "3" << std::endl;
+        }
+    } else {
+        throw std::runtime_error("need to be root to flush cache!");
+    }
+}
+
 uint32_t
 crc(const uint8_t* buf, size_t len)
 {

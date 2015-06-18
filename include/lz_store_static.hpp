@@ -77,7 +77,7 @@ public:
         return text_size;
     }
 
-    inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text) const
+    inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data&) const
     {
         auto offset = m_blockmap.block_offset(block_id);
         m_compressed_stream.seek(offset);
