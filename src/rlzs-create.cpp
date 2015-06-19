@@ -36,7 +36,7 @@ int main(int argc, const char* argv[])
     {
         const uint32_t cikm_sample_block_size = 1024;
         using cikm_csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-        using rlz_type_uuv_greedy_sp = rlz_store_static<dict_random_sample_budget<cikm_sample_block_size>,
+        using rlz_type_uuv_greedy_sp = rlz_store_static<dict_uniform_sample_budget<cikm_sample_block_size>,
                                      dict_prune_none,
                                      dict_index_csa<cikm_csa_type>,
                                      cikm_factorization_blocksize,
