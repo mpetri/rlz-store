@@ -65,14 +65,15 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
 	block_ids.resize(num_blocks);
 
 	std::vector<uint8_t> block_content(idx.encoding_block_size);
-	block_factor_data bfd;
+	block_factor_data bfd(idx.encoding_block_size);
 
 	auto start = hrclock::now();
 	size_t checksum = 0;
 	size_t num_syms = 0;
 	for(const auto bid: block_ids) {
-		num_syms += idx.decode_block(bid,block_content,bfd);
-		for (size_t i = 0; i < idx.encoding_block_size; i++) {
+        auto decoded_syms = idx.decode_block(bid,block_content,bfd);
+		num_syms += decoded_syms;
+		for (size_t i = 0; i < decoded_syms; i++) {
 			checksum += block_content[i];
 		}
 	}
@@ -110,14 +111,15 @@ void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
 	std::sort(block_ids.begin(),block_ids.end());
 
 	std::vector<uint8_t> block_content(idx.encoding_block_size);
-	block_factor_data bfd;
+	block_factor_data bfd(idx.encoding_block_size);
 
 	auto start = hrclock::now();
 	size_t checksum = 0;
 	size_t num_syms = 0;
 	for(const auto bid: block_ids) {
-		num_syms += idx.decode_block(bid,block_content,bfd);
-		for (size_t i = 0; i < idx.encoding_block_size; i++) {
+        auto decoded_syms = idx.decode_block(bid,block_content,bfd);
+		num_syms += decoded_syms;
+		for (size_t i = 0; i < decoded_syms; i++) {
 			checksum += block_content[i];
 		}
 	}
@@ -501,6 +503,7 @@ int main(int argc, const char* argv[])
 
     /* create rlz index */
     std::vector<uint32_t> dict_sizes{128,64,16,4,1,0};
+    /*
     for(auto ds_mb : dict_sizes) {
 	    bench_indexes_full<1024>(col,args,ds_mb*1024*1024);
 	    bench_indexes_full<2*1024>(col,args,ds_mb*1024*1024);
@@ -510,7 +513,7 @@ int main(int argc, const char* argv[])
 	    bench_indexes_full<32*1024>(col,args,ds_mb*1024*1024);
 	    bench_indexes_full<64*1024>(col,args,ds_mb*1024*1024);
 	    bench_indexes_full<128*1024>(col,args,ds_mb*1024*1024);
-	}
+	}*/
     for(auto ds_mb : dict_sizes) {
 	    bench_indexes_rand<1024>(col,args,ds_mb*1024*1024);
 	    bench_indexes_rand<2*1024>(col,args,ds_mb*1024*1024);

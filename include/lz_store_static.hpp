@@ -35,6 +35,7 @@ public:
     coder_type coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& compressed_text = m_compressed_text;
     uint64_t text_size;
+    mutable block_factor_data dummy;
 public:
     class builder;
 
@@ -95,7 +96,7 @@ public:
     block(const size_t block_id) const
     {
         std::vector<uint8_t> block_content(block_size);
-        auto out_size = decode_block(block_id,block_content);
+        auto out_size = decode_block(block_id,block_content,dummy);
         if(out_size != block_size) block_content.resize(out_size);
         return block_content;
     }
