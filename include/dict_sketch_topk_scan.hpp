@@ -37,7 +37,7 @@ public:
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			double threshold = 0.0f;
 			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
-			chunk_freq_estimator_topk<16,50000,sketch_type> cfe_topk;
+			chunk_freq_estimator_topk<16,500000,sketch_type> cfe_topk;
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
 			LOG(INFO) << "\t" << "Block size = " << t_block_size; 
 			LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required; 
@@ -64,82 +64,47 @@ public:
 				LOG(INFO) << "\t" << "Threshold freq = " << threshold;
 			}
 
+
 			// (2) write dict 
 			LOG(INFO) << "\t" << "Writing dictionary"; 
 			auto dict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
-			LOG(INFO) << "\t" << "Performing second pass over text"; 
-			bool done = false;
-			while(!done) {
-				size_t dict_written = 0;
-				rabin_karp_hasher<t_estimator_block_size> rk;
-				std::unordered_set<uint64_t> dict_hashes_used;
-				auto not_found = dict_hashes_used.end();
-				bool in_chunk = false;
-				size_t chunk_len = 0;
-				size_t chunk_start = 0;
-				size_t blocks_added = 0;
-				size_t last_chunk_end = 0;
-				size_t cur_block_len = 0;
-				size_t max_block_len = 0;
-				auto text_begin = text.begin();
-				
+			size_t dict_written = 0;
 
-				for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
-				for(size_t i=t_estimator_block_size-1;i<text.size();i++) {
-					auto sym = text[i];
-					auto hash = rk.update(sym);
-					auto est = cfe_topk.estimate(hash);
-					auto itr = dict_hashes_used.find(hash);
-					if( est >= threshold || itr == not_found ) {
-						if(in_chunk) chunk_len++;
-						else {
-							in_chunk = true;
-							chunk_start = i - (t_estimator_block_size-1);
-							chunk_len = t_block_size;
-						}
-						dict_hashes_used.insert(hash);
+			std::unordered_set<uint64_t> dict_blocks;
+			size_t blocks_found = 0; size_t len = 0;
+			rabin_karp_hasher<t_estimator_block_size> rk;
+			for(size_t i=0;i<t_estimator_block_size;i++) rk.update(text[i]); // init RKH
+				
+			for(size_t i=t_estimator_block_size;i<text.size();i++) {
+				auto sym = text[i];
+				auto hash = rk.update(sym);
+				auto est_freq = cfe_topk.estimate(hash);
+				if(est_freq > 1) {
+					if( dict_blocks.find(hash) == dict_blocks.end() ) {
+						len++;
+						dict_blocks.insert(hash);
 					} else {
-						if(in_chunk) {
-							auto begin = text.begin() + chunk_start;
-							if(last_chunk_end > chunk_start ) {
-								begin = text.begin() + last_chunk_end;
-								chunk_len -= (last_chunk_end - chunk_start);
-								cur_block_len += chunk_len;
-							} else {
-								cur_block_len = chunk_len;
-								blocks_added++;
-							}
-							max_block_len = std::max(cur_block_len,max_block_len);
-							auto end = begin + chunk_len;
-							std::copy(begin,end,std::back_inserter(dict));
-							dict_written += chunk_len;
-							last_chunk_end = std::distance(text_begin,end);
-							in_chunk = false;
-						}
+						len = 0;
 					}
-					if(dict_written >= budget_bytes) {
-						auto percent = 100* (double)i / (double)text.size();
-						if(percent < 80) {
-							dict.resize(0);
-							threshold *= 2;
-							LOG(INFO) << "Processed " 
-									  << percent
-									  << "% of the text. Not enough. try again with threshold="
-									  << threshold;
-						} else {
-							done = true;
-							LOG(INFO) << "Found enough frequent content. Processed " 
-									  << percent
-									  << "% of the text";
-							LOG(INFO) << "\t" << "Blocks found = " << blocks_added;
-							LOG(INFO) << "\t" << "Max block len = " << max_block_len;
-							LOG(INFO) << "\t" << "Average block len = " << dict_written / blocks_added;
-							LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
-						}
-						break;
+				} else {
+					if(len) {
+						auto begin = text.begin() + i - len;
+						auto end = begin + t_block_size + len;
+						dict_written += t_block_size+len;
+						len = 0;
+						std::copy(begin,end,std::back_inserter(dict));
+						blocks_found++;
 					}
 				}
+
+				if(dict_written > budget_bytes) {
+					LOG(INFO) << "\t" << "Text scanned = " << 100*(float)i / (float)text.size();
+					break;
+				}
 			}
+			LOG(INFO) << "\t" << "Blocks found = " << blocks_found;
+			LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
+
 			dict.push_back(0); // zero terminate for SA construction
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
