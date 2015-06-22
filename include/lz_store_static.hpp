@@ -73,7 +73,7 @@ public:
         return zlib_text_iterator<decltype(*this)>(*this, size());
     }
 
-    size_type size() const
+    inline size_type size() const
     {
         return text_size;
     }
