@@ -10,9 +10,9 @@ struct factor_itr_csa {
     t_itr factor_start;
     t_itr itr;
     t_itr end;
-    size_t sp;
-    size_t ep;
-    size_t len;
+    uint64_t sp;
+    uint64_t ep;
+    uint64_t len;
     uint8_t sym;
     bool done;
     factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end)
@@ -41,7 +41,7 @@ struct factor_itr_csa {
             sym = *itr;
             auto mapped_sym = sa.char2comp[sym];
             bool sym_exists_in_dict = mapped_sym != 0;
-            size_t res_sp, res_ep;
+            uint64_t res_sp, res_ep;
             if (sym_exists_in_dict) {
                 if (sp == 0 && ep == sa.size() - 1) {
                     // small optimization
@@ -159,7 +159,7 @@ struct dict_index_csa {
         return true;
     }
 
-    uint64_t find_minimum(size_t sp, size_t ep) const
+    uint64_t find_minimum(uint64_t sp, uint64_t ep) const
     {
         if (sp != ep) {
             auto min = rmq(sp, ep);
