@@ -145,6 +145,15 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args,uint32_t dict_siz
 	/* raw compression */
 	if(dict_size_in_bytes == 0) {
 	    {
+	        auto lz_store = typename lz_store_static<coder::bzip2<9>,t_factorization_blocksize>::builder{}
+	                             .set_rebuild(args.rebuild)
+	                             .set_threads(args.threads)
+	                             .set_dict_size(dict_size_in_bytes)
+	                             .load(col);
+
+	        bench_index_full(lz_store,dict_size_in_bytes);
+	    }
+	    {
 	        auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
 	                             .set_rebuild(args.rebuild)
 	                             .set_threads(args.threads)
@@ -260,6 +269,15 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args,uint32_t dict_si
 {
 	/* raw compression */
 	if(dict_size_in_bytes == 0) {
+	    {
+	        auto lz_store = typename lz_store_static<coder::bzip2<9>,t_factorization_blocksize>::builder{}
+	                             .set_rebuild(args.rebuild)
+	                             .set_threads(args.threads)
+	                             .set_dict_size(dict_size_in_bytes)
+	                             .load(col);
+
+	        bench_index_batch(lz_store,dict_size_in_bytes);
+	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
 	                             .set_rebuild(args.rebuild)
@@ -377,6 +395,15 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args,uint32_t dict_siz
 {
 	/* raw compression */
 	if(dict_size_in_bytes == 0) {
+	    {
+	        auto lz_store = typename lz_store_static<coder::bzip2<9>,t_factorization_blocksize>::builder{}
+	                             .set_rebuild(args.rebuild)
+	                             .set_threads(args.threads)
+	                             .set_dict_size(dict_size_in_bytes)
+	                             .load(col);
+
+	        bench_index_rand(lz_store,dict_size_in_bytes);
+	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
 	                             .set_rebuild(args.rebuild)

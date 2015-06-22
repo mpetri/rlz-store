@@ -14,6 +14,15 @@ void create_indexes(collection& col,utils::cmdargs_t& args,uint32_t dict_size_in
 {
 	/* raw compression */
     {
+        auto lz_store = typename lz_store_static<coder::bzip2<9>,t_factorization_blocksize>::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(dict_size_in_bytes)
+                             .build_or_load(col);
+
+        if(args.verify) verify_index(col, lz_store);
+    }
+    {
         auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
