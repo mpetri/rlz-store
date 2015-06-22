@@ -52,29 +52,33 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
 
-	auto bytes_to_decode = idx.text_size * 0.05;
-	auto num_blocks = bytes_to_decode / idx.encoding_block_size;
-	auto total_num_blocks = idx.text_size / idx.encoding_block_size;
+	auto blocks_to_decode = 10000;
+	auto block_ret_size = 16*1024*1024;
+	auto total_ret_blocks = idx.text_size / block_ret_size;
 
-	std::vector<uint32_t> block_ids(total_num_blocks);
-	for(size_t i=0;i<total_num_blocks;i++) {
+
+	std::vector<uint32_t> block_ids(total_ret_blocks);
+	for(size_t i=0;i<total_ret_blocks;i++) {
 		block_ids[i] = i;
 	}
 	std::mt19937 g(1234);
 	std::shuffle(block_ids.begin(),block_ids.end(), g);
-	block_ids.resize(num_blocks);
+	block_ids.resize(blocks_to_decode);
 
 	std::vector<uint8_t> block_content(idx.encoding_block_size);
 	block_factor_data bfd(idx.encoding_block_size);
 
+	auto itr = idx.begin();
 	auto start = hrclock::now();
 	size_t checksum = 0;
 	size_t num_syms = 0;
 	for(const auto bid: block_ids) {
-        auto decoded_syms = idx.decode_block(bid,block_content,bfd);
-		num_syms += decoded_syms;
-		for (size_t i = 0; i < decoded_syms; i++) {
-			checksum += block_content[i];
+		auto text_ret_offset = bid*block_ret_size;
+		itr.seek(text_ret_offset);
+		num_syms += block_ret_size;
+		for (size_t i = 0; i < block_ret_size; i++) {
+			checksum += *itr;
+			++itr;
 		}
 	}
     auto stop = hrclock::now();
@@ -88,7 +92,8 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
     		  << idx.encoding_block_size << ";"
     		  << time_ms.count() << ";"
     		  << num_syms << ";"
-    		  << num_blocks << ";"
+    		  << blocks_to_decode << ";"
+    		  << block_ret_size << ";"
     		  << checksum << ";"
     		  << "RAND";
 }
@@ -97,30 +102,34 @@ template <class t_idx>
 void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
-	auto bytes_to_decode = idx.text_size * 0.05;
-	auto num_blocks = bytes_to_decode / idx.encoding_block_size;
-	auto total_num_blocks = idx.text_size / idx.encoding_block_size;
 
-	std::vector<uint32_t> block_ids(total_num_blocks);
-	for(size_t i=0;i<total_num_blocks;i++) {
+	auto blocks_to_decode = 10000;
+	auto block_ret_size = 16*1024*1024;
+	auto total_ret_blocks = idx.text_size / block_ret_size;
+
+	std::vector<uint32_t> block_ids(total_ret_blocks);
+	for(size_t i=0;i<total_ret_blocks;i++) {
 		block_ids[i] = i;
 	}
 	std::mt19937 g(1234);
 	std::shuffle(block_ids.begin(),block_ids.end(), g);
-	block_ids.resize(num_blocks);
+	block_ids.resize(blocks_to_decode);
 	std::sort(block_ids.begin(),block_ids.end());
 
 	std::vector<uint8_t> block_content(idx.encoding_block_size);
 	block_factor_data bfd(idx.encoding_block_size);
 
+	auto itr = idx.begin();
 	auto start = hrclock::now();
 	size_t checksum = 0;
 	size_t num_syms = 0;
 	for(const auto bid: block_ids) {
-        auto decoded_syms = idx.decode_block(bid,block_content,bfd);
-		num_syms += decoded_syms;
-		for (size_t i = 0; i < decoded_syms; i++) {
-			checksum += block_content[i];
+		auto text_ret_offset = bid*block_ret_size;
+		itr.seek(text_ret_offset);
+		num_syms += block_ret_size;
+		for (size_t i = 0; i < block_ret_size; i++) {
+			checksum += *itr;
+			++itr;
 		}
 	}
     auto stop = hrclock::now();
@@ -134,7 +143,8 @@ void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
     		  << idx.encoding_block_size << ";"
     		  << time_ms.count() << ";"
     		  << num_syms << ";"
-    		  << num_blocks << ";"
+    		  << blocks_to_decode << ";"
+    		  << block_ret_size << ";"
     		  << checksum << ";"
     		  << "BATCH";
 }
@@ -529,7 +539,7 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    std::vector<uint32_t> dict_sizes{128,64,16,4,1,0};
+    std::vector<uint32_t> dict_sizes{64,16,4,0};
     /*
     for(auto ds_mb : dict_sizes) {
 	    bench_indexes_full<1024>(col,args,ds_mb*1024*1024);

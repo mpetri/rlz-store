@@ -145,6 +145,15 @@ public:
         m_text_offset++;
         return *this;
     }
+
+    void seek(size_type new_text_offset) {
+        auto new_block_offset = new_text_offset / m_block_size;
+        m_text_block_offset = new_text_offset % m_block_size;
+        if(new_block_offset != m_block_offset) {
+            m_block_offset = new_block_offset;
+            if(m_text_block_offset != 0) decode_cur_block();
+        }
+    }
 };
 
 
@@ -202,5 +211,14 @@ public:
         }
         m_text_offset++;
         return *this;
+    }
+
+    void seek(size_type new_text_offset) {
+        auto new_block_offset = new_text_offset / m_block_size;
+        m_text_block_offset = new_text_offset % m_block_size;
+        if(new_block_offset != m_block_offset) {
+            m_block_offset = new_block_offset;
+            if(m_text_block_offset != 0) decode_cur_block();
+        }
     }
 };
