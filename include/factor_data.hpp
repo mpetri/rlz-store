@@ -4,9 +4,11 @@ struct block_factor_data {
     std::vector<uint8_t> literals;
     std::vector<uint32_t> offsets;
     std::vector<uint32_t> lengths;
+    std::vector<uint32_t> offset_literals; // combined offsets and literals for two-stream decoding
     size_t num_factors;
     size_t num_literals;
     size_t num_offsets;
+    size_t num_offset_literals;
     bool last_factor_was_literal;
 
     block_factor_data() = default;
@@ -22,6 +24,7 @@ struct block_factor_data {
         num_offsets = 0;
         num_factors = 0;
         num_literals = 0;
+        num_offset_literals = 0;
     }
 
     void resize(size_t block_size)
@@ -29,6 +32,7 @@ struct block_factor_data {
         literals.resize(block_size);
         offsets.resize(block_size);
         lengths.resize(block_size);
+        offset_literals.resize(block_size);
     }
 
     template <class t_coder, class t_itr>
@@ -45,11 +49,15 @@ struct block_factor_data {
             std::copy(text_itr, text_itr + len, literals.begin() + num_literals);
             num_literals += len;
             last_factor_was_literal = true;
+            // for two stream encoding we need both things combined!
+            std::copy(text_itr,text_itr + len,offset_literals.begin() + num_offset_literals);
+            num_offset_literals += len;
         } else {
             offsets[num_offsets] = offset;
             num_offsets++;
             last_factor_was_literal = false;
             lengths[num_factors++] = len;
+            offset_literals[num_offset_literals++] = offset;
         }
     }
 };
