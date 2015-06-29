@@ -114,6 +114,12 @@ public:
         return text_size;
     }
 
+    size_type size_in_bytes() const {
+        return m_dict.size() +
+            (m_factored_text.size()>>3)+
+            m_blockmap.size_in_bytes();
+    }
+
     inline void decode_factors(size_t offset,
                                block_factor_data& bfd,
                                size_t num_factors) const

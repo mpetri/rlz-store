@@ -44,6 +44,8 @@ void bench_index_full(const t_idx& idx,size_t dict_size_in_bytes)
     		  << num_syms << ";"
     		  << num_blocks << ";"
     		  << checksum << ";"
+              << idx.size_in_bytes() << ";"
+              << idx.size() << ";"
     		  << "FULL";
 }
 
@@ -53,7 +55,7 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
 	utils::flush_cache();
 
 	uint64_t blocks_to_decode = 10000ULL;
-	uint64_t block_ret_size = 16*1024*1024;
+	uint64_t block_ret_size = 16*1024;
 	auto total_ret_blocks = idx.text_size / block_ret_size;
 
 
@@ -95,6 +97,8 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
     		  << blocks_to_decode << ";"
     		  << block_ret_size << ";"
     		  << checksum << ";"
+              << idx.size_in_bytes() << ";"
+              << idx.size() << ";"
     		  << "RAND";
 }
 
@@ -104,7 +108,7 @@ void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
 	utils::flush_cache();
 
 	uint64_t blocks_to_decode = 10000;
-	uint64_t block_ret_size = 16*1024*1024;
+	uint64_t block_ret_size = 16*1024;
 	auto total_ret_blocks = idx.text_size / block_ret_size;
 
 	std::vector<uint32_t> block_ids(total_ret_blocks);
@@ -146,6 +150,8 @@ void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
     		  << blocks_to_decode << ";"
     		  << block_ret_size << ";"
     		  << checksum << ";"
+              << idx.size_in_bytes() << ";"
+              << idx.size() << ";"
     		  << "BATCH";
 }
 
