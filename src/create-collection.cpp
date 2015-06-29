@@ -53,7 +53,7 @@ parse_args(int argc, const char* argv[])
     args.input_file = "";
     args.format = data_format::invalid;
     args.max_num_files = 99999999;
-    while ((op = getopt(argc, (char* const*)argv, "c:t:w:n:")) != -1) {
+    while ((op = getopt(argc, (char* const*)argv, "c:t:w:n:i:")) != -1) {
         switch (op) {
         case 'c':
             args.collection_dir = optarg;
