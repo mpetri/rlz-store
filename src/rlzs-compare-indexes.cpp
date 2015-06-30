@@ -1,4 +1,5 @@
 #define ELPP_THREAD_SAFE
+#define ELPP_STL_LOGGING
 
 #include "utils.hpp"
 #include "collection.hpp"
@@ -37,13 +38,13 @@ int main(int argc, const char* argv[])
 			                             fcoder_type,
 			                             block_map_uncompressed>;
         auto rlz_store = rlz_type_uv_greedy_sp::builder{}
-                             .set_rebuild(args.rebuild)
+                             .set_rebuild(false)
                              .set_threads(args.threads)
                              .set_dict_size(args.dict_size_in_bytes)
                              .build_or_load(col);
 
         using rlz_type_new = rlz_store_static<
-                                         dict_random_uniform_hash<16>,
+                                         dict_sketch_topk_cover<1024,16,2500000>,
                                          dict_prune_none,
                                          dict_index_csa<csa_type>,
                                          factorization_blocksize,

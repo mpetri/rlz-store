@@ -35,6 +35,17 @@ public:
 
             sdsl::int_vector<8> text;
             sdsl::load_from_file(text,col.file_map[KEY_TEXT]);
+
+            std::hash<std::string> shash;
+            using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
+            sketch_type cm;
+            for(size_t i=0;i<text.size();i+=block_size) {
+				std::string current_block(text.begin()+i,text.begin()+i+block_size);
+				auto hash = shash(current_block);
+				cm.update(hash,1);
+            }
+
+
             auto num_samples = budget_bytes / block_size;
             auto n = text.size();
             LOG(INFO) << "\tDictionary samples = " << num_samples;
@@ -75,7 +86,7 @@ public:
 				auto end = beg + block_size;
 				 std::copy(beg,end,std::back_inserter(wdict));
 			}
-			dict.push_back(0);           
+			wdict.push_back(0);           
         }
 	
 	    // compute a hash of the dict so we don't reconstruct things

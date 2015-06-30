@@ -10,6 +10,7 @@
 
 #include <sdsl/int_vector.hpp>
 
+
 struct hash_params {
 	uint64_t a;
 	uint64_t b;
@@ -20,14 +21,20 @@ class t_epsilon = std::ratio<1, 20000>, // default settings ~ 2.5MB
 class t_delta = std::ratio<1, 1000>
 >
 struct count_min_sketch {
+public:
+    std::string type()
+    {
+        return "count_min_sketch-" + std::to_string(epsilon) + "-" + std::to_string(delta);
+    }
 private:
-	sdsl::int_vector<32> m_table;
+	using size_type = uint64_t;
+	std::vector<uint32_t> m_table;
 	std::vector<hash_params> m_hash_params;
 private:
 	inline void pick_hash_params() {
 		std::random_device rd;
 		std::mt19937 gen(rd());
-		std::uniform_int_distribution<uint64_t> param_dist(1, prime);
+		std::uniform_int_distribution<uint32_t> param_dist(1, prime);
 		for(size_t i=0;i<d;i++) {
 			auto a = param_dist(gen); 
 			auto b = param_dist(gen);
@@ -35,9 +42,9 @@ private:
 		}
 	}
 	inline uint32_t compute_hash(uint64_t x,size_t row) const {
-		uint64_t hash = (m_hash_params[row].a*x) + m_hash_params[row].b;
+		uint64_t hash = (m_hash_params[row].a*x);// + m_hash_params[row].b;
 		hash = ((hash >> 31) + hash) & prime;
-		return hash & w;
+		return (((uint32_t)hash) & w);
 	}
 public:
 	double epsilon = (double) t_epsilon::num / (double) t_epsilon::den;
@@ -49,7 +56,7 @@ public:
 	uint64_t total_count = 0;
 
 	count_min_sketch() {
-		m_table = sdsl::int_vector<32>((w+1)*d);
+		m_table = std::vector<uint32_t>((w+1)*d);
 		pick_hash_params();
 	} 
 	uint64_t update(uint64_t item,size_t count = 1) {
@@ -99,95 +106,48 @@ public:
 		}
 		return noise_overall - 1;
 	}
+
+    size_type serialize(std::ostream& out,sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
+	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+	    size_type written_bytes = 0;
+	    // written_bytes += m_table.serialize(out, child, "m_table");
+	    uint64_t num_hash_params = m_hash_params.size();
+	    sdsl::int_vector<64> hparams(num_hash_params*2);
+	    for(size_t i=0;i<m_hash_params.size();i++) {
+	    	hparams[2*i] = m_hash_params[i].a;
+	    	hparams[2*i+1] = m_hash_params[i].b;
+	    }
+	    written_bytes += hparams.serialize(out, child, "hash_params");
+	    written_bytes += sdsl::write_member(total_count,out,child,"total_count");
+	    sdsl::structure_tree::add_size(child, written_bytes);
+    	return written_bytes;
+    }
+
+    void load(std::istream& in) {
+    	// m_table.load(in);
+    	sdsl::int_vector<64> hparams;
+    	hparams.load(in);
+    	uint64_t num_hash_params = hparams.size()/2;
+    	m_hash_params.resize(num_hash_params);
+    	for(size_t i=0;i<hparams.size();i+=2) {
+    		size_t j = i>>1;
+    		m_hash_params[j].a = hparams[i];
+    		m_hash_params[j].b = hparams[i+1];
+    	}
+    	sdsl::read_member(total_count,in);
+    }
 };
-
-template<
-class t_epsilon = std::ratio<1, 20000>, // default settings ~ 2.5MB 
-class t_delta = std::ratio<1, 1000>
->
-struct count_sketch {
-private:
-	sdsl::int_vector<32> m_table;
-	std::vector<hash_params> m_hash_params;
-	std::vector<uint64_t> median_buf;
-private:
-	inline void pick_hash_params() {
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<uint64_t> param_dist(1, prime);
-		for(size_t i=0;i<d;i++) {
-			auto a = param_dist(gen); 
-			auto b = param_dist(gen);
-			m_hash_params.push_back({a,b});
-		}
-	}
-	inline uint32_t compute_hash(uint64_t x,size_t row) const {
-		uint64_t hash = (m_hash_params[row].a*x);// + m_hash_params[row].b; pair-wise independence not needed
-		hash = ((hash >> 31) + hash) & prime;
-		return hash & w;
-	}
-public:
-	double epsilon = (double) t_epsilon::num / (double) t_epsilon::den;
-	double delta = (double) t_delta::num / (double) t_delta::den;
-	uint64_t w_real = std::ceil(2.0 / epsilon);
-	uint64_t w = (1ULL << (sdsl::bits::hi(w_real)+1ULL))-1ULL; // smallest power of 2 larger than w -1
-	uint64_t d = std::ceil(std::log(1.0/delta)/std::log(2.0));
-	uint64_t prime = 2147483647; // largest prime <2^32
-	uint64_t total_count = 0;
-
-	count_sketch() {
-		m_table = sdsl::int_vector<32>(w*d);
-		pick_hash_params();
-		median_buf.resize(d);
-	} 
-	uint64_t update(uint64_t item,size_t count = 1) {
-		total_count += count;
-		for(size_t i=0;i<d;i++) {
-			auto row_offset = compute_hash(item,i);
-			auto col_offset = w*i;
-			uint64_t new_count = m_table[row_offset+col_offset] + count;
-			m_table[row_offset+col_offset] = new_count;
-			if(row_offset == 0 || row_offset&1ULL)
-				median_buf[i] = std::abs((int64_t)m_table[row_offset+col_offset] - (int64_t)m_table[row_offset+1+col_offset]);
-			else
-				median_buf[i] = std::abs((int64_t)m_table[row_offset+col_offset] - (int64_t)m_table[row_offset-1+col_offset]);
-		}
-		std::nth_element(median_buf.begin(),median_buf.begin() + median_buf.size()/2, median_buf.end());
-		return median_buf[median_buf.size()/2];
-	}
-	uint64_t estimate(uint64_t item) const {
-		for(size_t i=0;i<d;i++) {
-			auto row_offset = compute_hash(item,i);
-			auto col_offset = w*i;
-			uint64_t val = m_table[row_offset+col_offset];
-			if(row_offset == 0 || row_offset&1ULL)
-				median_buf[i] = std::abs(m_table[row_offset+col_offset] - m_table[row_offset+1+col_offset]);
-			else
-				median_buf[i] = std::abs(m_table[row_offset+col_offset] - m_table[row_offset-1+col_offset]);
-		}
-		std::nth_element(median_buf.begin(),median_buf.begin() + median_buf.size()/2, median_buf.end());
-		return median_buf[median_buf.size()/2];
-	}
-	uint64_t size_in_bytes() const {
-		uint64_t bytes = 0;
-		bytes += sdsl::size_in_bytes(m_table);
-		bytes += d*sizeof(hash_params);
-		return bytes;
-	}
-	double estimation_error() const {
-		return epsilon * total_count;
-	}
-	double estimation_probability() const {
-		return 1.0 - delta;
-	}
-};
-
 
 template<
 class T,
 class t_cms = count_min_sketch<>
 >
 struct sketch_topk {
+	using size_type = uint64_t;
+    std::string type()
+    {
+        return "sketch_topk-" + std::to_string(m_k) + "-" + m_sketch.type();
+    }
 private:
 	struct topk_item {
 		T item;
@@ -276,6 +236,44 @@ public:
 	double estimation_probability() const {
 		return sketch.estimation_probability();
 	}
+
+	double noise_estimate() const {
+		return sketch.noise_estimate();
+	}
+
+    size_type serialize(std::ostream& out,sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
+	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+	    size_type written_bytes = 0;
+	    written_bytes += m_sketch.serialize(out, child, "m_sketch");
+
+	    sdsl::int_vector<64> ests(m_topk_set.size());
+	    std::vector<T> items(m_topk_set.size());
+	    size_t nitems = 0;
+	    for(const auto& tkitems : m_topk_set) {
+	    	ests[nitems] = (*tkitems.second).estimate;
+	    	items[nitems] = tkitems.first;
+	    	nitems++;
+	    }
+	    written_bytes += ests.serialize(out,child,"topk_estimates");
+	    written_bytes += sdsl::serialize(items,out,child,"topk_items");
+	    sdsl::structure_tree::add_size(child, written_bytes);
+    	return written_bytes;
+    }
+
+    void load(std::istream& in) {
+    	m_sketch.load(in);
+    	sdsl::int_vector<64> ests;
+    	ests.load(in);
+    	std::vector<T> items;
+    	sdsl::load(items,in);
+    	for(size_t i=0;i<ests.size();i++) {
+    		auto cest = ests[i];
+    		auto citem = items[i];
+    		auto handle = m_topk_pq.emplace(citem,cest);
+    		m_topk_set[citem] = handle;
+    	}
+    }
+
 };
 
 
