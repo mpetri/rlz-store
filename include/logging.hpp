@@ -1,6 +1,7 @@
 #pragma once
 
 #define ELPP_THREAD_SAFE
+#define ELPP_STL_LOGGING
 
 #include "easylogging++.h"
 

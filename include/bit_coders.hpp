@@ -6,6 +6,7 @@
 #include "lzma.h"
 #include "lz4hc.h"
 #include "lz4.h"
+#include "bzlib.h"
 
 #include "logging.hpp"
 
@@ -447,6 +448,73 @@ public:
         uint64_t out_size = n * sizeof(T);
         auto comp_size = LZ4_decompress_fast(in_buf,(char*)out_buf,out_size);
         is.skip(comp_size * 8); // skip over the read content
+    }
+};
+
+template <uint8_t t_level = 6>
+struct bzip2 {
+public:
+    static const int bzip_verbose_level = 0;
+    static const int bzip_work_factor = 0;
+    static const int bzip_use_small_mem = 0;
+public:
+    static std::string type()
+    {
+        return "bzip2-" + std::to_string(t_level);
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
+    {
+        uint64_t bits_required = 32 + n * 512; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+
+        /* space for writing the encoding size */
+        uint32_t* out_size = (uint32_t*)os.cur_data8();
+        os.skip(32);
+
+        /* encode */
+        uint8_t* out_buf = os.cur_data8();
+        uint64_t in_size = n * sizeof(T);
+
+        uint32_t written_bytes = bits_required >> 3;
+        auto ret = BZ2_bzBuffToBuffCompress((char*)out_buf,&written_bytes,
+            (char*)in_buf,in_size,t_level,bzip_verbose_level,bzip_work_factor);
+
+        if(ret != BZ_OK) {
+            LOG(FATAL) << "bzip2-encode: encoding error: " << ret;
+        }
+
+        // write the len. assume it fits in 32bits
+        *out_size = (uint32_t)written_bytes;
+        os.skip(written_bytes * 8); // skip over the written content
+    }
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
+    {
+        is.align8(); // align to bytes if needed
+
+        /* read the encoding size */
+        uint32_t* pin_size = (uint32_t*)is.cur_data8();
+        uint32_t in_size = *pin_size;
+        is.skip(32);
+
+        /* decode */
+        auto in_buf = is.cur_data8();
+        uint32_t out_size = n * sizeof(T);
+
+        auto ret = BZ2_bzBuffToBuffDecompress((char*)out_buf,
+            &out_size,(char*)in_buf,in_size,bzip_use_small_mem,bzip_verbose_level);
+
+        if(ret != BZ_OK) {
+            LOG(FATAL) << "bzip2-decode: decode error: " << ret;
+        }
+
+        if (n * sizeof(T) != out_size) {
+            LOG(FATAL) << "bzip2-decode: not everything was decode!";
+        }
+        is.skip(in_size * 8); // skip over the read content
     }
 };
 

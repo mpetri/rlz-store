@@ -38,6 +38,10 @@ struct block_map_uncompressed {
         return written_bytes;
     }
 
+    size_type size_in_bytes() const {
+        return sdsl::size_in_bytes(*this);
+    }
+
     inline void load(std::istream& in)
     {
         m_block_offsets.load(in);
