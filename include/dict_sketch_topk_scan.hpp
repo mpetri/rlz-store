@@ -110,7 +110,7 @@ public:
 			LOG(INFO) << "\t" << "Blocks found = " << blocks_found;
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
 
-			wdict.push_back(0); // zero terminate for SA construction
+			dict.push_back(0); // zero terminate for SA construction
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
 		}
