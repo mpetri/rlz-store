@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 2.8.7)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include(AppendCompilerFlags)
+
 find_package(Boost)
+
 
 project(rlz-docstore CXX C)
 set(CMAKE_BUILD_TYPE "Release")
@@ -62,7 +64,7 @@ set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4
 add_library(lz4 ${LZ4_SRCS_LIB})
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
-target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib FastPFor lzma lz4 bzip2)
+target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
 
 add_executable(create-collection.x src/create-collection.cpp)
 target_link_libraries(create-collection.x sdsl pthread zlib boost_system boost_iostreams boost_filesystem boost_regex lz4 bzip2)
@@ -71,13 +73,13 @@ add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lzma lz4 bzip2)
 
 add_executable(rlzs-compare-indexes.x src/rlzs-compare-indexes.cpp)
-target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 zlib FastPFor lzma lz4 bzip2)
+target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
 
 add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
-target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 zlib FastPFor lzma lz4 bzip2)
+target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
 
 add_executable(create-indexes-airs15.x src/experiments/create-indexes-airs15.cpp)
-target_link_libraries(create-indexes-airs15.x sdsl pthread divsufsort divsufsort64 zlib FastPFor lzma lz4 bzip2)
+target_link_libraries(create-indexes-airs15.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
 
 add_executable(bench-indexes-airs15.x src/experiments/bench-indexes-airs15.cpp)
-target_link_libraries(bench-indexes-airs15.x sdsl pthread divsufsort divsufsort64 zlib FastPFor lzma lz4 bzip2)
+target_link_libraries(bench-indexes-airs15.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)

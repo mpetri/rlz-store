@@ -11,7 +11,6 @@
 #include "lz_store_static.hpp"
 
 #include <sdsl/bit_vectors.hpp>
-#include <sdsl/optpfor_vector.hpp>
 
 /* parameters */
 const uint32_t default_factorization_block_size = 32768;
