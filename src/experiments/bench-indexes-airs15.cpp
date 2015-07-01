@@ -25,7 +25,7 @@ constexpr typename std::enable_if<!(N <= 1), size_t>::type CLog2()
 
 
 template <class t_idx>
-void bench_index_full(const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_full(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
 
@@ -55,14 +55,16 @@ void bench_index_full(const t_idx& idx,size_t dict_size_in_bytes)
     		  << time_ms.count() << ";"
     		  << num_syms << ";"
     		  << num_blocks << ";"
+    		  << idx.encoding_block_size << ";"
     		  << checksum << ";"
               << idx.size_in_bytes() << ";"
               << idx.size() << ";"
+              << col.path << ";"
     		  << "FULL";
 }
 
 template <class t_idx>
-void bench_index_rand_aligned(const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_rand_aligned(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
 
@@ -111,20 +113,21 @@ void bench_index_rand_aligned(const t_idx& idx,size_t dict_size_in_bytes)
     		  << checksum << ";"
               << idx.size_in_bytes() << ";"
               << idx.size() << ";"
+              << col.path << ";"
     		  << "RAND-ALIGNED";
 }
 
 template <class t_idx>
-void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_rand(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
 
 	uint64_t blocks_to_decode = 10000ULL;
 	uint64_t block_ret_size = 16*1024;
 
-	std::vector<uint32_t> byte_offsets(blocks_to_decode);
+	std::vector<uint64_t> byte_offsets(blocks_to_decode);
 	std::mt19937 g(1234);
-	std::uniform_int_distribution<> dis(0, idx.text_size - 1);
+	std::uniform_int_distribution<uint64_t> dis(0, idx.text_size - 1 - block_ret_size);
 	for(size_t i=0;i<blocks_to_decode;i++) {
 		byte_offsets[i] = dis(g);
 	}
@@ -150,6 +153,7 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
         LOG(ERROR) << "text decoding speed checksum error";
     }
 
+
     auto time_ms = duration_cast<milliseconds>(stop - start);
     LOG(INFO) << idx.type() << ";"
     		  << dict_size_in_bytes << ";"
@@ -161,12 +165,13 @@ void bench_index_rand(const t_idx& idx,size_t dict_size_in_bytes)
     		  << checksum << ";"
               << idx.size_in_bytes() << ";"
               << idx.size() << ";"
+              << col.path << ";"
     		  << "RAND";
 }
 
 
 template <class t_idx>
-void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
 {
 	utils::flush_cache();
 
@@ -215,6 +220,7 @@ void bench_index_batch(const t_idx& idx,size_t dict_size_in_bytes)
     		  << checksum << ";"
               << idx.size_in_bytes() << ";"
               << idx.size() << ";"
+              << col.path << ";"
     		  << "BATCH";
 }
 
@@ -239,7 +245,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(lz_store,dict_size_in_bytes);
+	        bench_index_full(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
@@ -248,7 +254,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(lz_store,dict_size_in_bytes);
+	        bench_index_full(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
@@ -257,7 +263,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(lz_store,dict_size_in_bytes);
+	        bench_index_full(col,lz_store,dict_size_in_bytes);
 	    }
 	} else {
 	    /* rlz compression */
@@ -280,7 +286,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(rlz_store,dict_size_in_bytes);
+	        bench_index_full(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-U32V */
@@ -290,7 +296,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(rlz_store,dict_size_in_bytes);
+	        bench_index_full(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-ZZ */
@@ -300,7 +306,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(rlz_store,dict_size_in_bytes);
+	        bench_index_full(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-LL */
@@ -310,7 +316,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_full(rlz_store,dict_size_in_bytes);
+	        bench_index_full(col,rlz_store,dict_size_in_bytes);
 	    }
 	}
 }
@@ -336,7 +342,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(lz_store,dict_size_in_bytes);
+	        bench_index_batch(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
@@ -345,7 +351,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(lz_store,dict_size_in_bytes);
+	        bench_index_batch(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
@@ -354,7 +360,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(lz_store,dict_size_in_bytes);
+	        bench_index_batch(col,lz_store,dict_size_in_bytes);
 	    }
 	} else {
 	    /* rlz compression */
@@ -377,7 +383,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(rlz_store,dict_size_in_bytes);
+	        bench_index_batch(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-U32V */
@@ -387,7 +393,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(rlz_store,dict_size_in_bytes);
+	        bench_index_batch(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-ZZ */
@@ -397,7 +403,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(rlz_store,dict_size_in_bytes);
+	        bench_index_batch(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-LL */
@@ -407,7 +413,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_batch(rlz_store,dict_size_in_bytes);
+	        bench_index_batch(col,rlz_store,dict_size_in_bytes);
 	    }
 	}
 }
@@ -433,8 +439,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_threads(args.threads)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
-
-	        bench_index_rand(lz_store,dict_size_in_bytes);
+	        bench_index_rand(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
@@ -443,7 +448,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(lz_store,dict_size_in_bytes);
+	        bench_index_rand(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
@@ -452,7 +457,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(lz_store,dict_size_in_bytes);
+	        bench_index_rand(col,lz_store,dict_size_in_bytes);
 	    }
 	} else {
 	    /* rlz compression */
@@ -475,7 +480,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(rlz_store,dict_size_in_bytes);
+	        bench_index_rand(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-U32V */
@@ -485,7 +490,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(rlz_store,dict_size_in_bytes);
+	        bench_index_rand(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-ZZ */
@@ -495,7 +500,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(rlz_store,dict_size_in_bytes);
+	        bench_index_rand(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-LL */
@@ -505,7 +510,7 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(rlz_store,dict_size_in_bytes);
+	        bench_index_rand(col,rlz_store,dict_size_in_bytes);
 	    }
 	}
 }
@@ -532,7 +537,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(lz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
@@ -541,7 +546,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(lz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,lz_store,dict_size_in_bytes);
 	    }
 	    {
 	        auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
@@ -550,7 +555,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(lz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,lz_store,dict_size_in_bytes);
 	    }
 	} else {
 	    /* rlz compression */
@@ -573,7 +578,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(rlz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-U32V */
@@ -583,7 +588,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(rlz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-ZZ */
@@ -593,7 +598,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(rlz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,rlz_store,dict_size_in_bytes);
 	    }
 	    {
 	    	/* RLZ-LL */
@@ -603,7 +608,7 @@ void bench_indexes_rand_aligned(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand_aligned(rlz_store,dict_size_in_bytes);
+	        bench_index_rand_aligned(col,rlz_store,dict_size_in_bytes);
 	    }
 	}
 }
@@ -622,72 +627,72 @@ int main(int argc, const char* argv[])
 
     /* create rlz index */
     {
-	    bench_indexes_rand_aligned<4*1024,0>(col,args);
-	    bench_indexes_rand_aligned<16*1024,0>(col,args);
-	    bench_indexes_rand_aligned<64*1024,0>(col,args);
-
-	    bench_indexes_rand_aligned<4*1024,4*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<16*1024,4*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,4*1024*1024>(col,args);
-
-	    bench_indexes_rand_aligned<4*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<16*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,16*1024*1024>(col,args);
-
-	    bench_indexes_rand_aligned<4*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,64*1024*1024>(col,args);
-	}
-    {
-	    bench_indexes_rand<4*1024,0>(col,args);
 	    bench_indexes_rand<16*1024,0>(col,args);
 	    bench_indexes_rand<64*1024,0>(col,args);
+	    bench_indexes_rand<256*1024,0>(col,args);
 
-	    bench_indexes_rand<4*1024,4*1024*1024>(col,args);
-	    bench_indexes_rand<16*1024,4*1024*1024>(col,args);
-	    bench_indexes_rand<64*1024,4*1024*1024>(col,args);
+	    bench_indexes_rand<16*1024,256*1024*1024>(col,args);
+	    bench_indexes_rand<64*1024,256*1024*1024>(col,args);
+	    bench_indexes_rand<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_rand<4*1024,16*1024*1024>(col,args);
 	    bench_indexes_rand<16*1024,16*1024*1024>(col,args);
 	    bench_indexes_rand<64*1024,16*1024*1024>(col,args);
+	    bench_indexes_rand<256*1024,16*1024*1024>(col,args);
 
-	    bench_indexes_rand<4*1024,64*1024*1024>(col,args);
 	    bench_indexes_rand<16*1024,64*1024*1024>(col,args);
 	    bench_indexes_rand<64*1024,64*1024*1024>(col,args);
+	    bench_indexes_rand<256*1024,64*1024*1024>(col,args);
 	}
     {
-	    bench_indexes_batch<4*1024,0>(col,args);
+	    bench_indexes_rand_aligned<16*1024,0>(col,args);
+	    bench_indexes_rand_aligned<64*1024,0>(col,args);
+	    bench_indexes_rand_aligned<256*1024,0>(col,args);
+
+	    bench_indexes_rand_aligned<16*1024,256*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<64*1024,256*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<256*1024,256*1024*1024>(col,args);
+
+	    bench_indexes_rand_aligned<16*1024,16*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<64*1024,16*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<256*1024,16*1024*1024>(col,args);
+
+	    bench_indexes_rand_aligned<16*1024,64*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<64*1024,64*1024*1024>(col,args);
+	    bench_indexes_rand_aligned<256*1024,64*1024*1024>(col,args);
+	}
+    {
 	    bench_indexes_batch<16*1024,0>(col,args);
 	    bench_indexes_batch<64*1024,0>(col,args);
+	    bench_indexes_batch<256*1024,0>(col,args);
 
-	    bench_indexes_batch<4*1024,4*1024*1024>(col,args);
-	    bench_indexes_batch<16*1024,4*1024*1024>(col,args);
-	    bench_indexes_batch<64*1024,4*1024*1024>(col,args);
+	    bench_indexes_batch<16*1024,256*1024*1024>(col,args);
+	    bench_indexes_batch<64*1024,256*1024*1024>(col,args);
+	    bench_indexes_batch<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_batch<4*1024,16*1024*1024>(col,args);
 	    bench_indexes_batch<16*1024,16*1024*1024>(col,args);
 	    bench_indexes_batch<64*1024,16*1024*1024>(col,args);
+	    bench_indexes_batch<256*1024,16*1024*1024>(col,args);
 
-	    bench_indexes_rand<4*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand<64*1024,64*1024*1024>(col,args);
+	    bench_indexes_batch<16*1024,64*1024*1024>(col,args);
+	    bench_indexes_batch<64*1024,64*1024*1024>(col,args);
+	    bench_indexes_batch<256*1024,64*1024*1024>(col,args);
 	}
     {
-	    bench_indexes_full<4*1024,0>(col,args);
 	    bench_indexes_full<16*1024,0>(col,args);
 	    bench_indexes_full<64*1024,0>(col,args);
+	    bench_indexes_full<256*1024,0>(col,args);
 
-	    bench_indexes_full<4*1024,4*1024*1024>(col,args);
-	    bench_indexes_full<16*1024,4*1024*1024>(col,args);
-	    bench_indexes_full<64*1024,4*1024*1024>(col,args);
+	    bench_indexes_full<16*1024,256*1024*1024>(col,args);
+	    bench_indexes_full<64*1024,256*1024*1024>(col,args);
+	    bench_indexes_full<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_full<4*1024,16*1024*1024>(col,args);
 	    bench_indexes_full<16*1024,16*1024*1024>(col,args);
 	    bench_indexes_full<64*1024,16*1024*1024>(col,args);
+	    bench_indexes_full<256*1024,16*1024*1024>(col,args);
 
-	    bench_indexes_full<4*1024,64*1024*1024>(col,args);
 	    bench_indexes_full<16*1024,64*1024*1024>(col,args);
 	    bench_indexes_full<64*1024,64*1024*1024>(col,args);
+	    bench_indexes_full<256*1024,64*1024*1024>(col,args);
 	}
 
 

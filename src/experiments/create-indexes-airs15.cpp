@@ -130,21 +130,21 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    create_indexes<4*1024,4*1024*1024>(col,args);
-    create_indexes<16*1024,4*1024*1024>(col,args);
-    create_indexes<64*1024,4*1024*1024>(col,args);
-
-    create_indexes<4*1024,16*1024*1024>(col,args);
+    create_indexes<256*1024,16*1024*1024>(col,args);
     create_indexes<16*1024,16*1024*1024>(col,args);
     create_indexes<64*1024,16*1024*1024>(col,args);
 
-    create_indexes<4*1024,64*1024*1024>(col,args);
+    create_indexes<256*1024,64*1024*1024>(col,args);
     create_indexes<16*1024,64*1024*1024>(col,args);
     create_indexes<64*1024,64*1024*1024>(col,args);
 
-    create_indexes<4*1024,0*1024*1024>(col,args);
+    create_indexes<256*1024,0*1024*1024>(col,args);
     create_indexes<16*1024,0*1024*1024>(col,args);
     create_indexes<64*1024,0*1024*1024>(col,args);
+
+    create_indexes<16*1024,256*1024*1024>(col,args);
+    create_indexes<64*1024,256*1024*1024>(col,args);
+    create_indexes<256*1024,256*1024*1024>(col,args);
 
     return EXIT_SUCCESS;
 }
