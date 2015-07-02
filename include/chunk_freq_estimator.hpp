@@ -183,12 +183,25 @@ public:
 	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
 	    size_type written_bytes = 0;
 	    written_bytes += m_freq_sketch.serialize(out, child, "m_sketch");
+	    written_bytes += sdsl::write_member(m_max_freq,out,child,"m_max_freq");
 	    sdsl::structure_tree::add_size(child, written_bytes);
     	return written_bytes;
 	}
 
 	void load(std::istream& in) {
 		m_freq_sketch.load(in);
+		sdsl::read_member(m_max_freq,in);
+	}
+
+	chunk_freq_estimator() = default;
+
+	template<class t_itr>
+	chunk_freq_estimator(t_itr beg,t_itr end) {
+		auto itr = beg;
+		while(itr != end) {
+			update(*itr);
+			++itr;
+		}
 	}
 };
 
@@ -244,84 +257,16 @@ public:
 	void load(std::istream& in) {
 		m_freq_sketch.load(in);
 	}
-};
 
+	chunk_freq_estimator_topk() = default;
 
-struct var_chunk_info {
-	uint64_t start;
-	uint64_t len;
-	uint64_t est;
-	uint64_t pos_in_dict;
-	var_chunk_info() : start(0), len(0), est(0), pos_in_dict(0) {}
-	var_chunk_info(uint64_t a,uint64_t b,uint64_t e) : start(a), len(b), est(e) {}
-	bool operator==(const var_chunk_info& ci) const {
-		return start == ci.start;
-	}
-	bool operator<(const var_chunk_info& ci) const {
-		return len < ci.len;
-	}
-	bool operator>(const var_chunk_info& ci) const {
-		return len > ci.len;
-	}
-};
-
-namespace std
-{
-    template<>
-    struct hash<var_chunk_info>
-    {
-        typedef chunk_info argument_type;
-        typedef std::size_t result_type;
-        std::hash<uint64_t> hash_fn;
-        result_type operator()(argument_type const& s) const
-        {
-            return hash_fn(s.start);
-        }
-    };
-}
-
-template<
-uint32_t t_k = 1000
->
-struct var_chunk_topk {
-private:
-	using boost_heap = boost::heap::fibonacci_heap<var_chunk_info, boost::heap::compare<std::greater<var_chunk_info>>>;
-	boost_heap m_topk_pq;
-	std::unordered_map<uint64_t,typename boost_heap::handle_type> m_topk_set;
-public:
-	inline void update(uint64_t start,uint64_t len,uint64_t est) {
-		auto itr = m_topk_set.find(start);
-		if(itr != m_topk_set.end()) {
-			auto handle = itr->second;
-			(*handle).len = len;
-			(*handle).est += est;
-			m_topk_pq.decrease(handle);
-		} else {
-			bool insert = false;
-			if( m_topk_set.size() < t_k ) {
-				insert = true;
-			}
-			
-			if( m_topk_pq.size() && m_topk_pq.top().len < len ) {
-				auto smallest = m_topk_pq.top();
-				insert = true;
-				m_topk_set.erase(smallest.start);
-                m_topk_pq.pop();
-			}
-
-			if(insert) {
-				auto handle = m_topk_pq.emplace(start,len,est);
-				m_topk_set[start] = handle;
-			}
+	template<class t_itr>
+	chunk_freq_estimator_topk(t_itr beg,t_itr end) {
+		auto itr = beg;
+		while(itr != end) {
+			update(*itr);
+			++itr;
 		}
 	}
-	std::vector<var_chunk_info> topk() const {
-		std::vector<var_chunk_info> cur_topk;
-		for(const auto& pqi : m_topk_pq) {
-			cur_topk.emplace_back(pqi);
-		}
-		std::sort(cur_topk.begin(),cur_topk.end(),std::less<var_chunk_info>());
-		return cur_topk;
-	}
-
 };
+
