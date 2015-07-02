@@ -110,7 +110,7 @@ public:
     size_type serialize(std::ostream& out,sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
 	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
 	    size_type written_bytes = 0;
-	    // written_bytes += m_table.serialize(out, child, "m_table");
+	    written_bytes += m_table.serialize(out, child, "m_table");
 	    uint64_t num_hash_params = m_hash_params.size();
 	    sdsl::int_vector<64> hparams(num_hash_params*2);
 	    for(size_t i=0;i<m_hash_params.size();i++) {
@@ -124,7 +124,7 @@ public:
     }
 
     void load(std::istream& in) {
-    	// m_table.load(in);
+    	m_table.load(in);
     	sdsl::int_vector<64> hparams;
     	hparams.load(in);
     	uint64_t num_hash_params = hparams.size()/2;
