@@ -153,27 +153,26 @@ public:
 	using sketch_type = t_sketch;
 private:
 	fixed_hasher<t_chunk_size> rk_hash;
-	sketch_type m_freq_sketch;
+	sketch_type sketch;
 	uint64_t m_cur_offset = 0;
 	uint64_t m_max_freq = 0;
 public:
     std::string type()
     {
-        return "chunk_freq_estimator-" + std::to_string(t_chunk_size) + "-" + m_freq_sketch.type();
+        return "chunk_freq_estimator-" + std::to_string(t_chunk_size) + "-" + sketch.type();
     }
 
 	uint32_t chunk_size = t_chunk_size;
-	const sketch_type& sketch = m_freq_sketch;
 	inline void update(uint8_t sym) {
 		auto hash = rk_hash.update(sym);
 		if(m_cur_offset >= t_chunk_size) {
-			uint64_t freq = m_freq_sketch.update(hash);
+			uint64_t freq = sketch.update(hash);
 			m_max_freq = std::max(freq,m_max_freq);
 		}
 		m_cur_offset++;
 	}
 	uint64_t estimate(uint64_t hash) const {
-		return m_freq_sketch.estimate(hash);
+		return sketch.estimate(hash);
 	}
 	uint64_t max_freq() const {
 		return m_max_freq;
@@ -182,14 +181,14 @@ public:
 	size_type serialize(std::ostream& out, sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
 	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
 	    size_type written_bytes = 0;
-	    written_bytes += m_freq_sketch.serialize(out, child, "m_sketch");
+	    written_bytes += sketch.serialize(out, child, "m_sketch");
 	    written_bytes += sdsl::write_member(m_max_freq,out,child,"m_max_freq");
 	    sdsl::structure_tree::add_size(child, written_bytes);
     	return written_bytes;
 	}
 
 	void load(std::istream& in) {
-		m_freq_sketch.load(in);
+		sketch.load(in);
 		sdsl::read_member(m_max_freq,in);
 	}
 
@@ -217,45 +216,44 @@ public:
 
     std::string type()
     {
-        return "chunk_freq_estimator_topk-" + std::to_string(t_chunk_size) + "-" + std::to_string(t_k) + "-" + m_freq_sketch.type();
+        return "chunk_freq_estimator_topk-" + std::to_string(t_chunk_size) + "-" + std::to_string(t_k) + "-" + sketch.type();
     }
 
-private:
-	fixed_hasher<t_chunk_size> rk_hash;
-	topk_sketch_type m_freq_sketch = topk_sketch_type(t_k);
-	uint64_t m_cur_offset = 0;
 public:
+	fixed_hasher<t_chunk_size> rk_hash;
+	topk_sketch_type sketch = topk_sketch_type(t_k);
+	uint64_t m_cur_offset = 0;
+
 	uint32_t chunk_size = t_chunk_size;
-	const topk_sketch_type& sketch = m_freq_sketch;
 	inline void update(uint8_t sym) {
 		auto hash = rk_hash.update(sym);
 		if(m_cur_offset >= (t_chunk_size -1) ) {
 			chunk_info ci{m_cur_offset-(t_chunk_size-1),hash};
-			m_freq_sketch.update(ci);
+			sketch.update(ci);
 		}
 		m_cur_offset++;
 	}
 	uint64_t estimate(uint64_t hash) const {
 		chunk_info ci{0,hash};
-		return m_freq_sketch.estimate(ci);
+		return sketch.estimate(ci);
 	}
-	auto topk() -> decltype(m_freq_sketch.topk()) const {
-		return m_freq_sketch.topk();
+	auto topk() -> decltype(sketch.topk()) const {
+		return sketch.topk();
 	}
 	uint64_t topk_threshold() const {
-		return m_freq_sketch.topk_threshold();
+		return sketch.topk_threshold();
 	}
 
 	size_type serialize(std::ostream& out, sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
 	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
 	    size_type written_bytes = 0;
-	    written_bytes += m_freq_sketch.serialize(out, child, "m_sketch");
+	    written_bytes += sketch.serialize(out, child, "m_sketch");
 	    sdsl::structure_tree::add_size(child, written_bytes);
     	return written_bytes;
 	}
 
 	void load(std::istream& in) {
-		m_freq_sketch.load(in);
+		sketch.load(in);
 	}
 
 	chunk_freq_estimator_topk() = default;

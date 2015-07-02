@@ -30,6 +30,7 @@ private:
 	using size_type = uint64_t;
 	sdsl::int_vector<32> m_table;
 	std::vector<hash_params> m_hash_params;
+	uint64_t m_total_count = 0;
 private:
 	inline void pick_hash_params() {
 		std::mt19937 gen(4711);
@@ -46,20 +47,19 @@ private:
 		return (((uint32_t)hash) & w);
 	}
 public:
-	double epsilon = (double) t_epsilon::num / (double) t_epsilon::den;
-	double delta = (double) t_delta::num / (double) t_delta::den;
-	uint64_t w_real = std::ceil(2.0 / epsilon);
-	uint64_t w = (1ULL << (sdsl::bits::hi(w_real)+1ULL))-1ULL; // smallest power of 2 larger than w -1
-	uint64_t d = std::ceil(std::log(1.0/delta)/std::log(2.0));
-	uint64_t prime = 2147483647; // largest prime <2^32
-	uint64_t total_count = 0;
+	const double epsilon = (double) t_epsilon::num / (double) t_epsilon::den;
+	const double delta = (double) t_delta::num / (double) t_delta::den;
+	const uint64_t w_real = std::ceil(2.0 / epsilon);
+	const uint64_t w = (1ULL << (sdsl::bits::hi(w_real)+1ULL))-1ULL; // smallest power of 2 larger than w -1
+	const uint64_t d = std::ceil(std::log(1.0/delta)/std::log(2.0));
+	const uint64_t prime = 2147483647; // largest prime <2^32
 
 	count_min_sketch() {
 		m_table = sdsl::int_vector<32>((w+1)*d);
 		pick_hash_params();
 	} 
 	uint64_t update(uint64_t item,size_t count = 1) {
-		total_count += count;
+		m_total_count += count;
 		uint64_t new_est = std::numeric_limits<uint64_t>::max();
 		for(size_t i=0;i<d;i++) {
 			auto row_offset = compute_hash(item,i);
@@ -87,7 +87,7 @@ public:
 		return bytes;
 	}
 	double estimation_error() const {
-		return epsilon * total_count;
+		return epsilon * m_total_count;
 	}
 	double estimation_probability() const {
 		return 1.0 - delta;
@@ -117,7 +117,7 @@ public:
 	    	hparams[2*i+1] = m_hash_params[i].b;
 	    }
 	    written_bytes += hparams.serialize(out, child, "hash_params");
-	    written_bytes += sdsl::write_member(total_count,out,child,"total_count");
+	    written_bytes += sdsl::write_member(m_total_count,out,child,"total_count");
 	    sdsl::structure_tree::add_size(child, written_bytes);
     	return written_bytes;
     }
@@ -133,7 +133,7 @@ public:
     		m_hash_params[j].a = hparams[i];
     		m_hash_params[j].b = hparams[i+1];
     	}
-    	sdsl::read_member(total_count,in);
+    	sdsl::read_member(m_total_count,in);
     }
 };
 
