@@ -28,12 +28,11 @@ public:
     }
 private:
 	using size_type = uint64_t;
-	std::vector<uint32_t> m_table;
+	sdsl::int_vector<32> m_table;
 	std::vector<hash_params> m_hash_params;
 private:
 	inline void pick_hash_params() {
-		std::random_device rd;
-		std::mt19937 gen(rd());
+		std::mt19937 gen(4711);
 		std::uniform_int_distribution<uint32_t> param_dist(1, prime);
 		for(size_t i=0;i<d;i++) {
 			auto a = param_dist(gen); 
@@ -56,7 +55,7 @@ public:
 	uint64_t total_count = 0;
 
 	count_min_sketch() {
-		m_table = std::vector<uint32_t>((w+1)*d);
+		m_table = sdsl::int_vector<32>((w+1)*d);
 		pick_hash_params();
 	} 
 	uint64_t update(uint64_t item,size_t count = 1) {
