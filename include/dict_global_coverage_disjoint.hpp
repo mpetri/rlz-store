@@ -5,6 +5,7 @@
 
 #include "count_min_sketch.hpp"
 #include "chunk_freq_estimator.hpp"
+#include "set_cover.hpp"
 
 #include <unordered_set>
 
@@ -85,67 +86,66 @@ public:
 
 			// (2) compute uniform max coverage with sketches and write dict 
 			rabin_karp_hasher<t_estimator_block_size> rk;
-			for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
-				
-			uint64_t sum_weights = 0;	
-			uint32_t block_no = 0;
 
 			struct block_cover {
 				uint32_t id;
-				uint64_t weight;
-				sdsl::bit_vector bitmask; 
-				// block_cover(uint32_t size) {
-				// 	bitmask.resize(size);
-				// }
+				uint64_t val;
+				std::unordered_set<uint64_t> contents;
+
+				uint64_t weight() const {
+					return val;
+				}
 				bool operator<(const block_cover& bc) const {
-					return weight < bc.weight;
+					return val < bc.val;
 				}
 				bool operator>(const block_cover& bc) const {
-					return weight > bc.weight;
+					return val > bc.val;
 				}
 				bool operator==(const block_cover& bc) const {
 					return bc.id == id;
 				}
 			};
 			using boost_heap = boost::heap::fibonacci_heap<block_cover, boost::heap::compare<std::less<block_cover>>>;
-			boost_heap cover_pq;
-			std::unordered_map<uint64_t,uint64_t> small_blocks;
-			size_t j=0; //index to bit vector map
-			sdsl::bit_vector submask(num_subblocks);
+			boost_heap c_pq;
+			// cover_pq<block_cover> c_pq;
+			std::unordered_map<uint64_t,uint32_t> small_blocks;
+
+			size_t k=0; //index to bit vector map	
+			// uint32_t block_no = 0;
 			uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
+
 			//First pass, build pq
 			//note the code might have the non-divisible issue, memeroy issue is block size are small
+			for(size_t i=0;i<text.size();i = i+t_block_size) { 
+				uint64_t sum_weights = 0;
+				std::unordered_set<uint64_t> local_hashes; //store hashes of local big block contents
+				auto old_size = local_hashes.size();
 
-			for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
-				auto sym = text[i];
-				auto hash = rk.update(sym);
-
-				if(i % t_block_size > t_block_size - t_estimator_block_size) continue; //skip the last few rolling subblocks
-
-				//dealing with disjoint sub-blocks, rolling after the first block
-				auto est_freq = cfe.estimate(hash);
-				// LOG(INFO) << "\t" << est_freq;
-				// LOG(INFO) << est_freq;
-				if(est_freq >= threshold) { 
-					sum_weights += est_freq;
-					if(small_blocks.find(hash) == small_blocks.end()) {
-						small_blocks[hash] = j++;
-					} 
-				} else {
-					submask[i%num_subblocks] = 1; //not to be considered in future
-				}
+				for(size_t j=0;j<t_block_size;j++) { 
+					auto sym = text[i+j];
+					auto hash = rk.update(sym);
+					if(j < t_estimator_block_size-1) continue;
 					
-				if((i+t_estimator_block_size)%t_block_size == 0) {
-					block_cover cov;
-					cov.id = block_no;
-					cov.weight = sum_weights;
-					cov.bitmask = submask;
-					cover_pq.push(cov);
-					//update
-					block_no++;
-					sum_weights = 0;
-					submask = sdsl::bit_vector(num_subblocks);
+					auto est_freq = cfe.estimate(hash);
+					if(est_freq >= threshold) { 
+						local_hashes.insert(hash);
+						auto new_size = local_hashes.size();
+						if(new_size > old_size) {
+							sum_weights += est_freq;
+							old_size = new_size;
+						}
+						//build global binary cover indices
+						if(small_blocks.find(hash) == small_blocks.end()) {
+							small_blocks[hash] = k++;
+						} 
+					} 
 				}
+				block_cover cov;
+				cov.id = i;
+				cov.val = sum_weights;
+				cov.contents = local_hashes;
+				c_pq.push(cov);
+				// LOG(INFO) << "\t" << "Local hash size = " << local_hashes.size();
 			}
 			LOG(INFO) << "\t" << "Top items = " << small_blocks.size();
 
@@ -153,64 +153,50 @@ public:
 			LOG(INFO) << "\t" << "Perform maximum coverage";
 			std::vector<uint64_t> picked_blocks;
 			{
-				LOG(INFO) << "cover_pq.size() = " << cover_pq.size();
-				LOG(INFO) << "small_blocks.size() = " << small_blocks.size();
+				LOG(INFO) << "big block heap size = " << c_pq.size();
+				LOG(INFO) << "small blocks to cover size = " << small_blocks.size();
  
 				sdsl::bit_vector covered(small_blocks.size()); //ordered
-				uint32_t need_to_cover = small_blocks.size();
+				uint64_t need_to_cover = small_blocks.size();
 
-				while(need_to_cover > 0 && ! cover_pq.empty() && num_samples > 0) {
+				while(need_to_cover > 0 && ! c_pq.empty() && num_samples > 0) {
 					//get the most weighted block
-					auto most_weighted_block = cover_pq.top(); cover_pq.pop();
+					auto most_weighted_block = c_pq.top(); c_pq.pop();
 					//check if the weight order is correct
 					bool needed_update = false;
-					std::vector<uint64_t> hashes; //store small block hashes in order
-					uint32_t content_uncovered = 0;
-					for (size_t i = 0; i < num_subblocks;i++) {
-						if(!most_weighted_block.bitmask[i]) {
-							auto id = most_weighted_block.id * num_subblocks + i;
-							auto hash = rk.compute_hash(text.begin() + id * t_estimator_block_size);
-							hashes.push_back(hash);
-							content_uncovered++;
-						} else {
-							hashes.push_back(2147483648ULL);//placeholder for covered small blocks
-						}
-					}
 
-					for (size_t i = 0; i < hashes.size();i++) {
-						auto hash = hashes[i];
-						if(hash == 2147483648ULL) continue;
-
+					auto itr = most_weighted_block.contents.begin();
+					while(itr != most_weighted_block.contents.end()) {
+						auto hash = *itr;
 						if( covered[small_blocks[hash]] == 1 ) {
-							//update weight
+							itr = most_weighted_block.contents.erase(itr);
 							auto est_freq = cfe.estimate(hash);
-							most_weighted_block.weight -= est_freq;
-							most_weighted_block.bitmask[i] = 1;
-							content_uncovered--;
+							most_weighted_block.val -= est_freq;
 							needed_update = true;
+						} else {
+							itr++;
 						}
 					}
-					// LOG(INFO) << "\t" << most_weighted_block.bitmask;
+				
 					if(needed_update) {
 						/* needed update */
 						//LOG(INFO) << "\t" << "Needed Update!";
-						if(most_weighted_block.weight > 0)
-							cover_pq.push(most_weighted_block);
+						if(most_weighted_block.weight() > 0) c_pq.push(most_weighted_block);
 					} else {
 						/* add to picked blocks */				
 						picked_blocks.push_back(most_weighted_block.id);
-						need_to_cover -= content_uncovered;
-						for(const auto& hash : hashes) {
-							if(hash != 2147483648ULL)
-								covered[small_blocks[hash]] = 1;
+						need_to_cover -= most_weighted_block.contents.size();
+						for(const auto& hash : most_weighted_block.contents) {
+							covered[small_blocks[hash]] = 1;
 						}
 						num_samples--;
+						//c_pq.pop();
 						// LOG(INFO) << "\t" << "Blocks left to pick: " << num_samples;
-						LOG(INFO) << "\t" << "Blocks weight: " << most_weighted_block.weight;
+						LOG(INFO) << "\t" << "Blocks weight: " << most_weighted_block.val;
 					}
 				}
 				LOG(INFO) << "\t" << "Covered small blocks: " << small_blocks.size() - need_to_cover;
-				LOG(INFO) << "\t" << "Covered in heap: " << text.size()/t_block_size-cover_pq.size();
+				LOG(INFO) << "\t" << "Covered in heap: " << text.size()/t_block_size-c_pq.size();
 			}
 			std::sort(picked_blocks.begin(),picked_blocks.end());
 			LOG(INFO) << "picked blocks = " << picked_blocks;
@@ -219,7 +205,7 @@ public:
             {
 			    sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
 			    for(const auto& block_offset : picked_blocks) {
-				    auto beg = text.begin()+block_offset*t_block_size;
+				    auto beg = text.begin()+block_offset;
 				    auto end = beg + t_block_size;
 				    std::copy(beg,end,std::back_inserter(dict));
 			    }
