@@ -41,7 +41,7 @@ public:
 			//chunk_freq_estimator_topk<16,500000,sketch_type> cfe_topk;
 			chunk_freq_estimator<t_estimator_block_size,sketch_type> cfe; //build sketches cfe
 			auto num_samples = budget_bytes / t_block_size;
-			auto num_subblocks = t_block_size - t_estimator_block_size;
+			auto num_subblocks = t_block_size - t_estimator_block_size + 1;
             LOG(INFO) << "\tDictionary samples = " << num_samples;
             LOG(INFO) << "\tNum subblocks = " << num_subblocks;
             sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
