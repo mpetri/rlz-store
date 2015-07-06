@@ -97,64 +97,108 @@ public:
 			std::unordered_set<uint64_t> dict_blocks;
 			//size_t blocks_found = 0; size_t len = 0;
 			rabin_karp_hasher<t_estimator_block_size> rk;
+			
 			for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
 				
 			uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
 			uint64_t sum_weights_current = 0;	
-			uint32_t block_no = 0;
-			uint32_t best_block_idx = 0;
-			// uint32_t threshold = 100000;//change it later to quantile threshold as a parameter, simulating top k
+			uint64_t block = 0;
+			uint64_t best_block = 0;
+			// uint32_t threshold = 10000;//change it later to quantile threshold as a parameter, simulating top k
 			std::unordered_set<uint64_t> step_blocks;
 
-			//assumsing that sub_blocksize is smaller
-			for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
-				auto sym = text[i];
-				auto hash = rk.update(sym);
+			//First pass, build pq
+			//note the code might have the non-divisible issue, memeroy issue is block size are small
+			for(size_t i=0;i<text.size();i = i+sample_step) { 
+				for(size_t j=0;j<sample_step;j = j+t_block_size) { 
+					for(size_t k=0;k<t_block_size;k++) {
+						auto sym = text[i+j+k];
+						auto hash = rk.update(sym);
+						if(j+k < t_estimator_block_size-1) continue;
 
-				//dealing with disjoint sub-blocks, rolling after the first block
-				if((i+1)%t_estimator_block_size == 0) {
-					if(step_blocks.find(hash) == step_blocks.end())
-					{
-						auto est_freq = cfe.estimate(hash);
-						// if(est_freq >= threshold) //remove weight impact
-						// sum_weights_current++;
-						sum_weights_current += est_freq;
-					}
-
-					if((i+1)%t_block_size == 0) {
-						if(sum_weights_current >= sum_weights_max)
+						if(step_blocks.find(hash) == step_blocks.end() && (k-t_estimator_block_size+1)%(t_estimator_block_size/2) == 0)
 						{
-							sum_weights_max = sum_weights_current;
-							best_block_idx = block_no;
+							auto est_freq = cfe.estimate(hash);
+							// if(est_freq >= threshold) //remove weight impact
+							// sum_weights_current++;
+							sum_weights_current += est_freq;
 						}
-						block_no++;
-						sum_weights_current = 0;
-					}
 
-					//dealing with sample_steps, pick the best and write to step_blocks and dic, resetting
-					if((i+1)%sample_step == 0) { 
-						auto start = text.begin() + best_block_idx * t_block_size;
-						auto end = start + t_block_size;
-						uint32_t k = 0;
-						
-						while(k < t_block_size / t_estimator_block_size) {
-							step_blocks.insert(rk.compute_hash(start + k * t_estimator_block_size));
-							k++;
-						}
-						std::copy(start,end,std::back_inserter(dict));
-						dict_written += t_block_size;
-						//LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
-
-						//resetting for the next step
-						sum_weights_max = std::numeric_limits<uint64_t>::min();
 					}
+					if(sum_weights_current >= sum_weights_max)
+					{
+						sum_weights_max = sum_weights_current;
+						best_block = block_no;
+					}
+					block += ;
+					sum_weights_current = 0;
 				}
-				// if(dict_written > budget_bytes) {
-				// 	LOG(INFO) << "\t" << "Text scanned = " << 100*(float)i / (float)text.size();
-				// 	break;
-				// }
-				//
-			}
+				auto start = text.begin() + best_block_idx * t_block_size;
+				auto end = start + t_block_size;
+				double h = 0;
+				// LOG(INFO) << "\t" << "IN while loop!";
+				while(h < t_block_size / t_estimator_block_size - 0.5) {
+					step_blocks.insert(rk.compute_hash(start + h * t_estimator_block_size));
+					h = h + 0.5;
+				}
+				std::copy(start,end,std::back_inserter(dict));
+				dict_written += t_block_size;
+				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
+
+				//resetting for the next step
+				sum_weights_max = std::numeric_limits<uint64_t>::min();
+			} 
+
+			// for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
+			// //assumsing that sub_blocksize is smaller
+			// for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
+			// 	auto sym = text[i];
+			// 	auto hash = rk.update(sym);
+
+			// 	//dealing with disjoint sub-blocks, rolling after the first block
+			// 	if((i+1)%t_estimator_block_size == 0) {
+			// 		if(step_blocks.find(hash) == step_blocks.end())
+			// 		{
+			// 			auto est_freq = cfe.estimate(hash);
+			// 			// if(est_freq >= threshold) //remove weight impact
+			// 			// sum_weights_current++;
+			// 			sum_weights_current += est_freq;
+			// 		}
+
+			// 		if((i+1)%t_block_size == 0) {
+			// 			if(sum_weights_current >= sum_weights_max)
+			// 			{
+			// 				sum_weights_max = sum_weights_current;
+			// 				best_block_idx = block_no;
+			// 			}
+			// 			block_no++;
+			// 			sum_weights_current = 0;
+			// 		}
+
+			// 		//dealing with sample_steps, pick the best and write to step_blocks and dic, resetting
+			// 		if((i+1)%sample_step == 0) { 
+			// 			auto start = text.begin() + best_block_idx * t_block_size;
+			// 			auto end = start + t_block_size;
+			// 			uint32_t k = 0;
+						
+			// 			while(k < t_block_size / t_estimator_block_size) {
+			// 				step_blocks.insert(rk.compute_hash(start + k * t_estimator_block_size));
+			// 				k++;
+			// 			}
+			// 			std::copy(start,end,std::back_inserter(dict));
+			// 			dict_written += t_block_size;
+			// 			//LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
+
+			// 			//resetting for the next step
+			// 			sum_weights_max = std::numeric_limits<uint64_t>::min();
+			// 		}
+			// 	}
+			// 	// if(dict_written > budget_bytes) {
+			// 	// 	LOG(INFO) << "\t" << "Text scanned = " << 100*(float)i / (float)text.size();
+			// 	// 	break;
+			// 	// }
+			// 	//
+			// }
 
 			//LOG(INFO) << "\t" << "Blocks found = " << blocks_found;
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
