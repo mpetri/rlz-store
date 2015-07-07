@@ -53,23 +53,40 @@ public:
             LOG(INFO) << "\tSample steps = " << sample_step;
 
 			// (1) create frequency estimates
-			{
-				LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
-				LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
-				LOG(INFO) << "\t" << "Estimating block frequencies";
-				auto est_start = hrclock::now();
-				for(size_t i=0;i<text.size();i++) {
-					auto sym = text[i];
-					cfe.update(sym);
+			// try to load the estimates instead of recomputing
+			auto sketch_name = file_name(col,size_in_bytes) + "-sketch-" + cfe.type();
+			if (! utils::file_exists(sketch_name) || rebuild ) {
+				LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
+				LOG(INFO) << "\t" << "Block size = " << t_block_size; 
+				LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required;
+				{
+					LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
+					LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
+					LOG(INFO) << "\t" << "Estimating block frequencies";
+					auto est_start = hrclock::now();
+			        // sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+					for(size_t i=0;i<text.size();i++) {
+						auto sym = text[i];
+						cfe.update(sym);
+					}
+					auto est_stop = hrclock::now();
+					auto est_error = cfe.sketch.estimation_error();
+					LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(est_stop-est_start).count() / 1000.0f << " sec";
+					LOG(INFO) << "\t" << "Sketch estimation error = " << est_error;
+					LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
+					LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
+					LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
+					// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
+					sdsl::store_to_file(cfe,sketch_name);
 				}
-				auto est_stop = hrclock::now();
-				auto est_error = cfe.sketch.estimation_error();
-				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(est_stop-est_start).count() / 1000.0f << " sec";
-				LOG(INFO) << "\t" << "Sketch estimation error = " << est_error;
+			} else {
+				LOG(INFO) << "\t" << "Load sketch from file " << sketch_name;
+				sdsl::load_from_file(cfe,sketch_name);
+				LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
 				LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
-				//auto topk_blocks = cfe_topk.topk();
-				//threshold = topk_blocks.back().first;
-				//LOG(INFO) << "\t" << "Threshold freq = " << threshold;
+				LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
+				LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
+				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
 			}
 
 			// (2) compute uniform max coverage with sketches and write dict 
@@ -85,72 +102,125 @@ public:
 			uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
 			uint64_t sum_weights_current = 0;	
 			uint32_t block_no = 0;
-			uint32_t best_block_idx = 0;
-
+			uint32_t best_block_no = 0;
+			uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
 			uint32_t skip_size = 0;
 			std::unordered_set<uint64_t> step_blocks;
 
-			//assumsing that sub_blocksize is smaller
-			for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
-				auto sym = text[i];
-				auto hash = rk.update(sym);
+			for(size_t i=0;i<text.size();i = i+sample_step) { 
+				for(size_t j=0;j<sample_step;j++) {
+					auto sym = text[i+j];
+					auto hash = rk.update(sym);
+					if(j < t_estimator_block_size-1) continue;
 
-				//dealing with disjoint sub-blocks, rolling after the first block
-				if((i+1)%t_estimator_block_size == 0) {
 					auto est_freq = cfe.estimate(hash);
-
-					if(skip_size < t_block_size) {
-						skip_size+=t_estimator_block_size;				
+					if(j < t_block_size) {	
 						sum_weights_current += est_freq;
+						if(j == t_block_size - 1 && sum_weights_current >= sum_weights_max) {
+							sum_weights_max = sum_weights_current;
+							block_no++;
+						} 
 					}
 					else {//start rolling until a step is reached
-						sum_weights_current -= rk.compute_hash(text.begin() + (block_no - 1) * t_estimator_block_size);
+						sum_weights_current -= rk.compute_hash(text.begin() + (block_no - 1));
 						if(step_blocks.find(hash) == step_blocks.end())
 							sum_weights_current += est_freq;
 
 						if(sum_weights_current >= sum_weights_max)
 						{
 							sum_weights_max = sum_weights_current;
-							best_block_idx = block_no;
+							best_block_no = block_no;
 						}
 						block_no++;
-					}
-
-					//passing the first block of each step_block
-					if(skip_size == t_block_size) {
-						if (sum_weights_current >= sum_weights_max)
-							sum_weights_max = sum_weights_current;
-						skip_size++; //make skip_size not valid to start rolling 
-						block_no++;
-					}
-
-					//dealing with sample_steps, pick the best and write to step_blocks and dic, resetting
-					if((i+1)%sample_step == 0) { 
-						auto start = text.begin() + best_block_idx * t_estimator_block_size;
-						auto end = start + t_block_size;
-						uint32_t k = 0;
-						// LOG(INFO) << "\t" << "Best block Idx: " << best_block_idx; 
-
-						while(k < t_block_size / t_estimator_block_size) {
-							step_blocks.insert(rk.compute_hash(start + k * t_estimator_block_size));
-							k++;
-						}
-						std::copy(start,end,std::back_inserter(dict));
-						dict_written += t_block_size;
-						//LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
-
-						//resetting for the next step
-						sum_weights_max = std::numeric_limits<uint64_t>::min();
-						sum_weights_current = 0;
-						skip_size = 0;
-					}
+					}				
 				}
-				// if(dict_written > budget_bytes) {
-				// 	LOG(INFO) << "\t" << "Text scanned = " << 100*(float)i / (float)text.size();
-				// 	break;
-				// }
-				//
+
+				auto start = text.begin() + best_block_no * t_block_size;
+				auto end = start + t_block_size;
+				uint64_t h = 0;
+				while(h <= t_block_size - t_estimator_block_size) {
+					step_blocks.insert(rk.compute_hash(start + h));
+					h++;
+				}
+				std::copy(start,end,std::back_inserter(dict));
+				dict_written += t_block_size;
+				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
+
+				//resetting for the next step
+				sum_weights_max = std::numeric_limits<uint64_t>::min();
 			}
+
+			// //assumsing that sub_blocksize is smaller
+			// for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
+			// 	auto sym = text[i];
+			// 	auto hash = rk.update(sym);
+
+			// 	//dealing with disjoint sub-blocks, rolling after the first block
+			// 	if((i+1)%t_estimator_block_size == 0) {
+			// 		auto est_freq = cfe.estimate(hash);
+
+			// 		if(skip_size < t_block_size) {
+			// 			skip_size+=t_estimator_block_size;		
+			// 			local_blocks.insert(hash);
+			// 			if(local_size > local_blocks.size()) {		
+			// 				sum_weights_current += est_freq;
+			// 				local_size = local_blocks.size();
+			// 			} 
+			// 		}
+			// 		else {//start rolling until a step is reached
+			// 			local_blocks.erase(local_blocks.begin());
+			// 			sum_weights_current -= rk.compute_hash(text.begin() + (block_no - 1) * t_estimator_block_size);
+			// 			local_blocks.insert(hash);
+			// 			if(step_blocks.find(hash) == step_blocks.end() && local_size > local_blocks.size())
+			// 			{	
+			// 				sum_weights_current += est_freq;
+			// 				local_size = local_blocks.size();
+			// 			} 
+
+			// 			if(sum_weights_current >= sum_weights_max)
+			// 			{
+			// 				sum_weights_max = sum_weights_current;
+			// 				best_block_idx = block_no;
+			// 			}
+			// 			block_no++;
+			// 		}
+
+			// 		//passing the first block of each step_block
+			// 		if(skip_size == t_block_size) {
+			// 			if (sum_weights_current >= sum_weights_max)
+			// 				sum_weights_max = sum_weights_current;
+			// 			skip_size++; //make skip_size not valid to start rolling 
+			// 			block_no++;
+			// 		}
+
+			// 		//dealing with sample_steps, pick the best and write to step_blocks and dic, resetting
+			// 		if((i+1)%sample_step == 0) { 
+			// 			auto start = text.begin() + best_block_idx * t_estimator_block_size;
+			// 			auto end = start + t_block_size;
+			// 			uint32_t k = 0;
+			// 			// LOG(INFO) << "\t" << "Best block Idx: " << best_block_idx; 
+
+			// 			while(k < t_block_size / t_estimator_block_size) {
+			// 				step_blocks.insert(rk.compute_hash(start + k * t_estimator_block_size));
+			// 				k++;
+			// 			}
+			// 			std::copy(start,end,std::back_inserter(dict));
+			// 			dict_written += t_block_size;
+			// 			//LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
+
+			// 			//resetting for the next step
+			// 			sum_weights_max = std::numeric_limits<uint64_t>::min();
+			// 			sum_weights_current = 0;
+			// 			skip_size = 0;
+			// 			local_blocks.clear();
+			// 		}
+			// 	}
+			// 	// if(dict_written > budget_bytes) {
+			// 	// 	LOG(INFO) << "\t" << "Text scanned = " << 100*(float)i / (float)text.size();
+			// 	// 	break;
+			// 	// }
+			// 	//
+			// }
 
 			//LOG(INFO) << "\t" << "Blocks found = " << blocks_found;
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
