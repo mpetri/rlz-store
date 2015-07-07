@@ -97,19 +97,19 @@ public:
 			std::unordered_set<uint64_t> dict_blocks;
 			//size_t blocks_found = 0; size_t len = 0;
 			rabin_karp_hasher<t_estimator_block_size> rk;
-			
-			for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
 				
-			uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
-			uint64_t sum_weights_current = 0;	
 			uint32_t block_no = 0;
 			uint32_t best_block_no = 0;
 			// uint32_t threshold = 10000;//change it later to quantile threshold as a parameter, simulating top k
 			std::unordered_set<uint64_t> step_blocks;
+			std::vector<uint64_t> picked_blocks;
 
 			//First pass, build pq
 			//note the code might have the non-divisible issue, memeroy issue is block size are small
 			for(size_t i=0;i<text.size();i = i+sample_step) { 
+				uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
+				uint64_t sum_weights_current = 0;	
+				
 				for(size_t j=0;j<sample_step;j = j+t_block_size) { 
 					for(size_t k=0;k<t_block_size;k++) {
 						auto sym = text[i+j+k];
@@ -134,6 +134,7 @@ public:
 					block_no++;
 					sum_weights_current = 0;
 				}
+				picked_blocks.push_back(best_block_no * t_block_size);
 				auto start = text.begin() + best_block_no * t_block_size;
 				auto end = start + t_block_size;
 				uint64_t h = 0;
@@ -148,11 +149,10 @@ public:
 				}
 				std::copy(start,end,std::back_inserter(dict));
 				dict_written += t_block_size;
-				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
-
-				//resetting for the next step
-				sum_weights_max = std::numeric_limits<uint64_t>::min();
-			} 
+				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 		
+			}
+			LOG(INFO) << "\t" << "blocks size to check = " << step_blocks.size(); 
+			LOG(INFO) << "\t" << "picked blocks = " << picked_blocks; 
 
 			// for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
 			// //assumsing that sub_blocksize is smaller

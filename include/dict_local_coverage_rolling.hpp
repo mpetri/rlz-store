@@ -7,6 +7,7 @@
 #include "chunk_freq_estimator.hpp"
 
 #include <unordered_set>
+#include <iostream>
 
 using namespace std::chrono;
 
@@ -97,17 +98,20 @@ public:
 			std::unordered_set<uint64_t> dict_blocks;
 			//size_t blocks_found = 0; size_t len = 0;
 			rabin_karp_hasher<t_estimator_block_size> rk;
-			for(size_t i=0;i<t_estimator_block_size-1;i++) rk.update(text[i]); // init RKH
 				
-			uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
-			uint64_t sum_weights_current = 0;	
-			uint32_t block_no = 0;
-			uint32_t best_block_no = 0;
-			uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
-			uint32_t skip_size = 0;
-			std::unordered_set<uint64_t> step_blocks;
+			// uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
+			// uint32_t skip_size = 0;
 
-			for(size_t i=0;i<text.size();i = i+sample_step) { 
+			std::unordered_set<uint64_t> step_blocks;
+			std::vector<uint64_t> picked_blocks;
+
+			for(size_t i=0;i<text.size();i += sample_step) { 
+				uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
+				uint64_t sum_weights_current = 0;	
+				uint64_t block_no = i;
+				uint64_t best_block_no = block_no;
+				std::unordered_set<uint64_t> skip_list; //store the small blocks without effective weight contribution
+
 				for(size_t j=0;j<sample_step;j++) {
 					auto sym = text[i+j];
 					auto hash = rk.update(sym);
@@ -115,16 +119,26 @@ public:
 
 					auto est_freq = cfe.estimate(hash);
 					if(j < t_block_size) {	
-						sum_weights_current += est_freq;
-						if(j == t_block_size - 1 && sum_weights_current >= sum_weights_max) {
+						if(step_blocks.find(hash) == step_blocks.end())
+							sum_weights_current += est_freq;
+						else
+							skip_list.insert(i+j-t_estimator_block_size+1);
+
+						if(j == t_block_size - 1) {
 							sum_weights_max = sum_weights_current;
 							block_no++;
 						} 
 					}
 					else {//start rolling until a step is reached
-						sum_weights_current -= rk.compute_hash(text.begin() + (block_no - 1));
+						if(skip_list.find(block_no - 1) == skip_list.end())
+							sum_weights_current -= rk.compute_hash(text.begin() + (block_no - 1));
+						else
+							skip_list.erase(block_no - 1);
+
 						if(step_blocks.find(hash) == step_blocks.end())
 							sum_weights_current += est_freq;
+						else
+							skip_list.insert(i+j-t_estimator_block_size+1);
 
 						if(sum_weights_current >= sum_weights_max)
 						{
@@ -132,10 +146,16 @@ public:
 							best_block_no = block_no;
 						}
 						block_no++;
-					}				
+					}			
 				}
-
-				auto start = text.begin() + best_block_no * t_block_size;
+				// LOG(INFO) << "\t" << "skip_list size = " << skip_list.size(); 
+				// for(auto iter=skip_list.begin(); iter!=skip_list.end();++iter) {
+				// 	std::cout  << *iter << " "; 
+				// }
+				// std::cout << "\n";
+				// LOG(INFO) << "\t" << "step blocks = " << step_blocks; 
+				picked_blocks.push_back(best_block_no);
+				auto start = text.begin() + best_block_no;	
 				auto end = start + t_block_size;
 				uint64_t h = 0;
 				while(h <= t_block_size - t_estimator_block_size) {
@@ -145,10 +165,9 @@ public:
 				std::copy(start,end,std::back_inserter(dict));
 				dict_written += t_block_size;
 				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 
-
-				//resetting for the next step
-				sum_weights_max = std::numeric_limits<uint64_t>::min();
 			}
+			LOG(INFO) << "\t" << "blocks size to check = " << step_blocks.size(); 
+			LOG(INFO) << "\t" << "picked blocks = " << picked_blocks; 
 
 			// //assumsing that sub_blocksize is smaller
 			// for(size_t i=t_estimator_block_size-1;i<text.size();i++) { //the actual max-cov computation
