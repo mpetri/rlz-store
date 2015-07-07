@@ -102,8 +102,8 @@ public:
 				
 			uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
 			uint64_t sum_weights_current = 0;	
-			uint64_t block = 0;
-			uint64_t best_block = 0;
+			uint32_t block_no = 0;
+			uint32_t best_block_no = 0;
 			// uint32_t threshold = 10000;//change it later to quantile threshold as a parameter, simulating top k
 			std::unordered_set<uint64_t> step_blocks;
 
@@ -116,7 +116,8 @@ public:
 						auto hash = rk.update(sym);
 						if(j+k < t_estimator_block_size-1) continue;
 
-						if(step_blocks.find(hash) == step_blocks.end() && (k-t_estimator_block_size+1)%(t_estimator_block_size/2) == 0)
+						// if(step_blocks.find(hash) == step_blocks.end() && (k-t_estimator_block_size+1)%(t_estimator_block_size/2) == 0)
+						if(step_blocks.find(hash) == step_blocks.end()) //continues rolling
 						{
 							auto est_freq = cfe.estimate(hash);
 							// if(est_freq >= threshold) //remove weight impact
@@ -128,18 +129,22 @@ public:
 					if(sum_weights_current >= sum_weights_max)
 					{
 						sum_weights_max = sum_weights_current;
-						best_block = block_no;
+						best_block_no = block_no;
 					}
-					block += ;
+					block_no++;
 					sum_weights_current = 0;
 				}
-				auto start = text.begin() + best_block_idx * t_block_size;
+				auto start = text.begin() + best_block_no * t_block_size;
 				auto end = start + t_block_size;
-				double h = 0;
+				uint64_t h = 0;
 				// LOG(INFO) << "\t" << "IN while loop!";
-				while(h < t_block_size / t_estimator_block_size - 0.5) {
-					step_blocks.insert(rk.compute_hash(start + h * t_estimator_block_size));
-					h = h + 0.5;
+				// while(h < t_block_size - t_estimator_block_size / 2) {
+				// 	step_blocks.insert(rk.compute_hash(start + h));
+				// 	h = h + t_estimator_block_size / 2;
+				// }
+				while(h <= t_block_size - t_estimator_block_size) {
+					step_blocks.insert(rk.compute_hash(start + h));
+					h++;
 				}
 				std::copy(start,end,std::back_inserter(dict));
 				dict_written += t_block_size;
