@@ -22,9 +22,9 @@ class t_delta = std::ratio<1, 1000>
 >
 struct count_min_sketch {
 public:
-    std::string type()
+    static std::string type()
     {
-        return "count_min_sketch-" + std::to_string(epsilon) + "-" + std::to_string(delta);
+        return "count_min_sketch-" + std::to_string(t_epsilon::den) + "-" + std::to_string(t_delta::den);
     }
 private:
 	using size_type = uint64_t;
@@ -53,7 +53,30 @@ public:
 	const uint64_t w = (1ULL << (sdsl::bits::hi(w_real)+1ULL))-1ULL; // smallest power of 2 larger than w -1
 	const uint64_t d = std::ceil(std::log(1.0/delta)/std::log(2.0));
 	const uint64_t prime = 2147483647; // largest prime <2^32
-
+public:
+	count_min_sketch<t_epsilon,t_delta>& operator=(const count_min_sketch<t_epsilon,t_delta>& cms) {
+		m_table = cms.m_table;
+		m_hash_params = cms.m_hash_params;
+		m_total_count = cms.m_total_count;
+		return *this;
+	} 
+	count_min_sketch<t_epsilon,t_delta>& operator=(count_min_sketch<t_epsilon,t_delta>&& cms) {
+		m_table = std::move(cms.m_table);
+		m_hash_params = std::move(cms.m_hash_params);
+		m_total_count = cms.m_total_count;
+		return *this;
+	}
+	count_min_sketch(count_min_sketch<t_epsilon,t_delta>&& cms) {
+		m_table = std::move(cms.m_table);
+		m_hash_params = std::move(cms.m_hash_params);
+		m_total_count = cms.m_total_count;
+	}
+	count_min_sketch(const count_min_sketch<t_epsilon,t_delta>& cms) {
+		m_table = cms.m_table;
+		m_hash_params = cms.m_hash_params;
+		m_total_count = cms.m_total_count;
+	}
+public:
 	count_min_sketch() {
 		m_table = sdsl::int_vector<32>((w+1)*d);
 		pick_hash_params();
@@ -91,6 +114,10 @@ public:
 	}
 	double estimation_probability() const {
 		return 1.0 - delta;
+	}
+
+	uint64_t total_count() const {
+		return m_total_count;
 	}
 
 	double noise_estimate() const {
@@ -134,6 +161,13 @@ public:
     		m_hash_params[j].b = hparams[i+1];
     	}
     	sdsl::read_member(m_total_count,in);
+    }
+
+    void merge(const count_min_sketch<t_epsilon,t_delta>& cms) {
+    	for(size_t i=0;i<m_table.size();i++) {
+    		m_table[i] += cms.m_table[i];
+    	}
+    	m_total_count += cms.m_total_count;
     }
 };
 
@@ -235,7 +269,9 @@ public:
 	double estimation_probability() const {
 		return sketch.estimation_probability();
 	}
-
+	uint64_t total_count() const {
+		return sketch.total_count();
+	}
 	double noise_estimate() const {
 		return sketch.noise_estimate();
 	}
