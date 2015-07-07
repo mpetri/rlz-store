@@ -2,6 +2,10 @@
 
 #include "count_min_sketch.hpp"
 
+#include <future>
+#include <thread>
+
+
 /* The MIT License
 
    Copyright (C) 2012 Zilong Tan (eric.zltan@gmail.com)
@@ -69,6 +73,12 @@ struct fixed_hasher {
 		cur_pos_in_buf++;
 		return hash;
 	}
+
+    static std::string type()
+    {
+        return "fixed_hasher";
+    }
+	
 };
 
 template<uint32_t t_block_size>
@@ -84,6 +94,11 @@ private:
 		}
 	}
 public:
+    static std::string type()
+    {
+        return "rabin_karp_hasher";
+    }
+
 	rabin_karp_hasher() : hash(0) {
 		compute_nk();
 	}
@@ -145,62 +160,118 @@ namespace std
 
 template<
 uint32_t t_chunk_size = 16,
+class t_hasher = fixed_hasher<t_chunk_size>,
 class t_sketch = count_min_sketch<>
 >
 struct chunk_freq_estimator {
 public:
 	using size_type = uint64_t;
 	using sketch_type = t_sketch;
+	using hasher_type = t_hasher;
 private:
-	fixed_hasher<t_chunk_size> rk_hash;
-	sketch_type sketch;
+	hasher_type hasher;
 	uint64_t m_cur_offset = 0;
-	uint64_t m_max_freq = 0;
 public:
-    std::string type()
+	sketch_type sketch;
+public:
+    static std::string type()
     {
-        return "chunk_freq_estimator-" + std::to_string(t_chunk_size) + "-" + sketch.type();
+        return "chunk_freq_estimator-" + std::to_string(t_chunk_size) + "-" + hasher_type::type() 
+        		+ "-" + sketch_type::type();
     }
 
 	uint32_t chunk_size = t_chunk_size;
 	inline void update(uint8_t sym) {
-		auto hash = rk_hash.update(sym);
+		auto hash = hasher.update(sym);
 		if(m_cur_offset >= t_chunk_size) {
-			uint64_t freq = sketch.update(hash);
-			m_max_freq = std::max(freq,m_max_freq);
+			sketch.update(hash);
 		}
 		m_cur_offset++;
 	}
+
+	template<class t_itr>
+	inline void process(t_itr beg,t_itr end) {
+		auto itr = beg;
+		while(itr != end) {
+			update(*itr);
+			++itr;
+		}
+	}
+
 	uint64_t estimate(uint64_t hash) const {
 		return sketch.estimate(hash);
 	}
-	uint64_t max_freq() const {
-		return m_max_freq;
-	}
-
 	size_type serialize(std::ostream& out, sdsl::structure_tree_node* v=nullptr,std::string name = "") const {
 	    sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
 	    size_type written_bytes = 0;
 	    written_bytes += sketch.serialize(out, child, "m_sketch");
-	    written_bytes += sdsl::write_member(m_max_freq,out,child,"m_max_freq");
 	    sdsl::structure_tree::add_size(child, written_bytes);
     	return written_bytes;
 	}
 
 	void load(std::istream& in) {
 		sketch.load(in);
-		sdsl::read_member(m_max_freq,in);
 	}
 
 	chunk_freq_estimator() = default;
+	chunk_freq_estimator(const chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>& cfe) {
+		sketch = cfe.sketch;
+	}
+	chunk_freq_estimator(chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>&& cfe) {
+		sketch = std::move(cfe.sketch);
+	}
 
 	template<class t_itr>
 	chunk_freq_estimator(t_itr beg,t_itr end) {
+		process(beg,end);
+	}
+
+	chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>& operator=(const chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>& cfe) {
+		sketch = cfe.sketch;
+		return (*this);
+	}
+
+	chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>& operator=(chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>&& cfe) {
+		sketch = std::move(cfe.sketch);
+		return (*this);
+	}
+
+	void merge(const chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>& cfe) {
+		sketch.merge(cfe.sketch);
+	}
+
+	template<class t_itr>
+	static chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch> parallel_sketch(t_itr beg,t_itr end,size_t num_threads = 0) {
+		chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch> cfe;
+		if(num_threads == 0) num_threads = std::thread::hardware_concurrency();
+
+		auto n = std::distance(beg,end);
+		auto total_chunks = n / t_chunk_size;
+		auto chunks_per_thread = total_chunks / num_threads;
+		LOG(INFO) << "\t" << "Text size = " << n;
+		LOG(INFO) << "\t" << "chunk_size = " << t_chunk_size;
+		LOG(INFO) << "\t" << "total_chunks = " << total_chunks;
+		LOG(INFO) << "\t" << "chunks_per_thread = " << chunks_per_thread;
+		std::vector<std::future<chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>> > fcfes;
+
 		auto itr = beg;
-		while(itr != end) {
-			update(*itr);
-			++itr;
+		for(size_t i=0;i<(num_threads-1);i++) {
+			auto syms_per_chunk = chunks_per_thread * t_chunk_size;
+			auto cbeg = itr;
+			auto cend = cbeg + syms_per_chunk;
+			fcfes.push_back(std::async(std::launch::async, [syms_per_chunk,cbeg,cend] {
+				return chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>(cbeg,cend);
+			}));
+			itr += syms_per_chunk;
 		}
+		/* last thread */
+		cfe.process(itr,end);
+		/* merge results */
+        for (auto& fcfe : fcfes) {
+            auto pcfe = fcfe.get();
+            cfe.merge(pcfe);
+        }
+		return cfe;
 	}
 };
 

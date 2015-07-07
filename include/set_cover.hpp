@@ -70,4 +70,26 @@ public:
 	bool empty() const {
 		return size() == 0;
 	}
+
+    uint64_t clear_lowest() {
+        for(size_t i=0;i<m_data.size();i++) {
+            auto& list = m_data[i];
+            if(! list.empty() ) {
+                list.clear();
+                return i+1;
+            }
+
+        }
+        return 0;
+    }
+
+    void prune(sdsl::bit_vector& covered) {
+
+    }
+
+    void print_stats() {
+    	for(size_t i=0;i<m_data.size();i++) {
+    		if(!m_data[i].empty()) LOG(INFO) << "(" << i << ") = " << m_data[i].size();
+    	}
+    }
 };
