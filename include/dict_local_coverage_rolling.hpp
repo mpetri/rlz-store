@@ -7,7 +7,6 @@
 #include "chunk_freq_estimator.hpp"
 
 #include <unordered_set>
-#include <iostream>
 
 using namespace std::chrono;
 
@@ -39,8 +38,11 @@ public:
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			//double threshold = 0.0f;
 			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
+			using hasher_type = rabin_karp_hasher<t_estimator_block_size>;
+			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
+			cfe_type cfe;
 			//chunk_freq_estimator_topk<16,500000,sketch_type> cfe_topk;
-			chunk_freq_estimator<t_estimator_block_size,sketch_type> cfe; //build sketches cfe
+			// chunk_freq_estimator<t_estimator_block_size,sketch_type> cfe; //build sketches cfe
 
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
 			LOG(INFO) << "\t" << "Block size = " << t_block_size; 
@@ -55,40 +57,28 @@ public:
 
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
+			LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
 			auto sketch_name = file_name(col,size_in_bytes) + "-sketch-" + cfe.type();
 			if (! utils::file_exists(sketch_name) || rebuild ) {
-				LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
-				LOG(INFO) << "\t" << "Block size = " << t_block_size; 
-				LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required;
-				{
-					LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
-					LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
-					LOG(INFO) << "\t" << "Estimating block frequencies";
-					auto est_start = hrclock::now();
-			        // sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-					for(size_t i=0;i<text.size();i++) {
-						auto sym = text[i];
-						cfe.update(sym);
-					}
-					auto est_stop = hrclock::now();
-					auto est_error = cfe.sketch.estimation_error();
-					LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(est_stop-est_start).count() / 1000.0f << " sec";
-					LOG(INFO) << "\t" << "Sketch estimation error = " << est_error;
-					LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
-					LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
-					LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
-					// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
-					sdsl::store_to_file(cfe,sketch_name);
-				}
+				LOG(INFO) << "\t" << "Building CM sketch";
+				auto start = hrclock::now();
+				sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+				cfe = cfe_type::parallel_sketch(text.begin(),text.end());
+				auto stop = hrclock::now();
+				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
+				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
+				sdsl::store_to_file(cfe,sketch_name);
 			} else {
 				LOG(INFO) << "\t" << "Load sketch from file " << sketch_name;
 				sdsl::load_from_file(cfe,sketch_name);
-				LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
-				LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
-				LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
-				LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
+				// LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
 				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
 			}
+			LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
+			LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
+			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
+			LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
+			LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.total_count();
 
 			// (2) compute uniform max coverage with sketches and write dict 
 			LOG(INFO) << "\t" << "Writing dictionary"; 
