@@ -37,8 +37,9 @@ public:
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			//double threshold = 0.0f;
-			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
-			using hasher_type = rabin_karp_hasher<t_estimator_block_size>;
+			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
+			using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 20>>; //for 10gb
+			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
 			// chunk_freq_estimator_topk<16,500000,sketch_type> cfe_topk;
@@ -63,7 +64,7 @@ public:
 				LOG(INFO) << "\t" << "Building CM sketch";
 				auto start = hrclock::now();
 				sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-				cfe = cfe_type::parallel_sketch(text.begin(),text.end());
+				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),4);
 				auto stop = hrclock::now();
 				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
@@ -87,7 +88,7 @@ public:
 
 			std::unordered_set<uint64_t> dict_blocks;
 			//size_t blocks_found = 0; size_t len = 0;
-			rabin_karp_hasher<t_estimator_block_size> rk;
+			fixed_hasher<t_estimator_block_size> rk;
 				
 			uint32_t block_no = 0;
 			uint32_t best_block_no = 0;
@@ -100,8 +101,9 @@ public:
 			for(size_t i=0;i<text.size();i = i+sample_step) { 
 				uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
 				uint64_t sum_weights_current = 0;	
-				
+				std::vector<uint64_t> best_local_blocks;
 				for(size_t j=0;j<sample_step;j = j+t_block_size) { 
+					std::vector<uint64_t> local_blocks;
 					for(size_t k=0;k<t_block_size;k++) {
 						auto sym = text[i+j+k];
 						auto hash = rk.update(sym);
@@ -114,6 +116,7 @@ public:
 							// if(est_freq >= threshold) //remove weight impact
 							// sum_weights_current++;
 							sum_weights_current += est_freq;
+							local_blocks.push_back(hash);
 						}
 
 					}
@@ -121,23 +124,29 @@ public:
 					{
 						sum_weights_max = sum_weights_current;
 						best_block_no = block_no;
+						// best_local_blocks.clear();
+						// best_local_blocks =.insert(best_local_blocks.end(), local_blocks.begin(), local_blocks.end());
+						best_local_blocks = local_blocks;
 					}
 					block_no++;
 					sum_weights_current = 0;
 				}
 				picked_blocks.push_back(best_block_no * t_block_size);
-				auto start = text.begin() + best_block_no * t_block_size;
-				auto end = start + t_block_size;
-				uint64_t h = 0;
+				
+				// uint64_t h = 0;
 				// LOG(INFO) << "\t" << "IN while loop!";
 				// while(h < t_block_size - t_estimator_block_size / 2) {
 				// 	step_blocks.insert(rk.compute_hash(start + h));
 				// 	h = h + t_estimator_block_size / 2;
 				// }
-				while(h <= t_block_size - t_estimator_block_size) {
-					step_blocks.insert(rk.compute_hash(start + h));
-					h++;
-				}
+				// while(h <= t_block_size - t_estimator_block_size) {
+				// 	step_blocks.insert(rk.compute_hash(start + h));
+				// 	h++;
+				// }
+				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+
+				auto start = text.begin() + best_block_no * t_block_size;
+				auto end = start + t_block_size;
 				std::copy(start,end,std::back_inserter(dict));
 				dict_written += t_block_size;
 				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 		
