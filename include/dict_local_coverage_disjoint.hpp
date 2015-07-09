@@ -38,8 +38,9 @@ public:
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			//double threshold = 0.0f;
 			// using sketch_type = count_min_sketch<std::ratio<1, 2000000>,std::ratio<1, 5>>;
-			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
-			// using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 20>>; //for 10gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
+			using sketch_type = count_min_sketch<std::ratio<1, 30000000>,std::ratio<1, 10>>; //for 10gb
 			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
@@ -65,7 +66,7 @@ public:
 				LOG(INFO) << "\t" << "Building CM sketch";
 				auto start = hrclock::now();
 				sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),4);
+				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),3);
 				auto stop = hrclock::now();
 				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
@@ -112,7 +113,7 @@ public:
 
 						if(step_blocks.find(hash) == step_blocks.end() && local_blocks.find(hash) == local_blocks.end()) //continues rolling
 						{		
-							local_blocks.insert(hash);				
+							local_blocks.emplace(hash);				
 							auto est_freq = cfe.estimate(hash);
 							if(est_freq >= cfe_error)  //try a bit threshold pruning					
 								sum_weights_current += est_freq;

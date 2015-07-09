@@ -7,7 +7,8 @@
 #include "chunk_freq_estimator.hpp"
 #include "set_cover.hpp"
 
-#include <unordered_set>
+#include <unordered_map>
+#include <queue>
 
 using namespace std::chrono;
 
@@ -15,7 +16,7 @@ template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16
 >
-class dict_global_coverage_disjoint {
+class dict_local_coverage_nobias {
 public:
     static std::string type()
     {
@@ -38,8 +39,10 @@ public:
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			//double threshold = 0.0f;
-			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>;
-			// using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 20>>; //for 10gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 2000000>,std::ratio<1, 5>>;
+			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
+			using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 30000000>,std::ratio<1, 20>>; //for 10gb
 			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
@@ -65,7 +68,7 @@ public:
 				LOG(INFO) << "\t" << "Building CM sketch";
 				auto start = hrclock::now();
 				sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),4);
+				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),3);
 				auto stop = hrclock::now();
 				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
@@ -76,20 +79,24 @@ public:
 				// LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
 				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
 			}
+			double cfe_noise = cfe.sketch.noise_estimate();		
+			double cfe_error = cfe.sketch.estimation_error()*0.1;
 			LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
 			LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
 			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
-			LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe.sketch.noise_estimate();
+			LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe_noise;
 			LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.total_count();
 
+
 			// (2) compute uniform max coverage with sketches and write dict 
+			auto start = hrclock::now();
 			fixed_hasher<t_estimator_block_size> rk;
 
 			struct block_cover {
 				uint32_t block_id;
 				uint32_t step_id;
 				uint64_t val;
-				std::unordered_set<uint64_t> contents;
+				std::unordered_map<uint64_t, uint64_t> contents;
 
 				uint64_t weight() const {
 					return val;
@@ -101,77 +108,83 @@ public:
 					return val > bc.val;
 				}
 				bool operator==(const block_cover& bc) const {
-					return bc.id == id;
+					return (bc.step_id == step_id) && (bc.block_id == block_id);
 				}
 			};
-			using boost_heap = boost::heap::fibonacci_heap<block_cover, boost::heap::compare<std::less<block_cover>>>;
-			boost_heap c_pq;
+
+			// using boost_heap = boost::heap::fibonacci_heap<block_cover, boost::heap::compare<std::less<block_cover>>>;
+			// boost_heap c_pq;
+			using heap = std::priority_queue<block_cover, std::vector<block_cover>, std::less<block_cover> >;
+			heap c_pq;
 			// cover_pq<block_cover> c_pq;
-			std::unordered_map<uint64_t,uint32_t> small_blocks;
+			std::unordered_map<uint64_t,uint64_t> small_blocks;
 
-			size_t k=0; //index to bit vector map	
-			// uint32_t block_no = 0;
-			uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
+			size_t h=0; //index to bit vector map
+			// uint32_t threshold = 1000;//change it later to quantile threshold as a parameter, simulating top k
 
-			//First pass, build pq
+			//1st pass, build pq
 			//note the code might have the non-divisible issue, memeroy issue is block size are small
-			for(size_t i=0;i<text.size();i = i+t_block_size) { 
-				uint64_t sum_weights = 0;
-				std::unordered_set<uint64_t> local_hashes; //store hashes of local big block contents
-				auto old_size = local_hashes.size();
-
-				for(size_t j=0;j<t_block_size;j++) { 
-					auto sym = text[i+j];
-					auto hash = rk.update(sym);
-					if(j < t_estimator_block_size-1) continue;
+			for(size_t i=0;i<text.size();i = i+sample_step) {
+				for(size_t j=0;j<sample_step;j = j+t_block_size) { 
+					std::unordered_map<uint64_t, uint64_t> local_blocks;
+					uint64_t sum_weights = 0;
 					
-					auto est_freq = cfe.estimate(hash);
-					if(est_freq >= threshold) { 
-						local_hashes.insert(hash);
-						auto new_size = local_hashes.size();
-						if(new_size > old_size) {
-							sum_weights += est_freq;
-							old_size = new_size;
-						}
-						//build global binary cover indices
-						if(small_blocks.find(hash) == small_blocks.end()) {
-							small_blocks[hash] = k++;
-						} 
-					} 
-				}
-				block_cover cov;
-				cov.id = i;
-				cov.val = sum_weights;
-				cov.contents = local_hashes;
-				c_pq.push(cov);
-				// LOG(INFO) << "\t" << "Local hash size = " << local_hashes.size();
-			}
-			LOG(INFO) << "\t" << "Top items = " << small_blocks.size();
+					for(size_t k=0;k<t_block_size;k++) {
+						auto sym = text[i+j+k];
+						auto hash = rk.update(sym);
+						if(j+k < t_estimator_block_size-1) continue;
 
-			//second pass, do maximum coverage, simulating the lazy approach for set-cover							
+						auto est_freq = cfe.estimate(hash);
+						if(est_freq >= cfe_error && local_blocks.find(hash) == local_blocks.end()) {
+							local_blocks[hash] = est_freq;
+							sum_weights += est_freq;
+							//build global binary cover indices
+							if(small_blocks.find(hash) == small_blocks.end())
+								small_blocks[hash] = h++;
+						}
+					}
+					block_cover cov;
+					cov.step_id = i/sample_step;
+					cov.block_id = j/t_block_size;
+					cov.val = sum_weights;
+					cov.contents = local_blocks;
+					c_pq.push(cov);	
+				}
+			}	
+			auto stop = hrclock::now();
+			LOG(INFO) << "\t" << "1st pass constructing heap runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
+			LOG(INFO) << "\t" << "Unique items = " << small_blocks.size();
+
+			//2nd pass, do maximum coverage, simulating the lazy approach for set-cover							
 			LOG(INFO) << "\t" << "Perform maximum coverage";
+			start = hrclock::now();
 			std::vector<uint64_t> picked_blocks;
 			{
 				LOG(INFO) << "big block heap size = " << c_pq.size();
 				LOG(INFO) << "small blocks to cover size = " << small_blocks.size();
  
-				sdsl::bit_vector covered(small_blocks.size()); //ordered
+				sdsl::bit_vector covered(small_blocks.size());
+				sdsl::bit_vector step_pos(num_samples); //ordered step positions
 				uint64_t need_to_cover = small_blocks.size();
 
 				while(need_to_cover > 0 && ! c_pq.empty() && num_samples > 0) {
 					//get the most weighted block
-					auto most_weighted_block = c_pq.top(); c_pq.pop();
+					auto most_weighted_block = c_pq.top(); //aiming at the top one that not in a covered step
 					//check if the weight order is correct
 					bool needed_update = false;
-
+					while(step_pos[most_weighted_block.step_id] == 1) {
+						c_pq.pop();
+						most_weighted_block = c_pq.top(); 
+					}
+					c_pq.pop();
 					auto itr = most_weighted_block.contents.begin();
 					while(itr != most_weighted_block.contents.end()) {
-						auto hash = *itr;
+						auto hash = itr->first;
 						if( covered[small_blocks[hash]] == 1 ) {
-							itr = most_weighted_block.contents.erase(itr);
-							auto est_freq = cfe.estimate(hash);
+							auto est_freq = itr->second;			
 							most_weighted_block.val -= est_freq;
 							needed_update = true;
+							itr = most_weighted_block.contents.erase(itr);
 						} else {
 							itr++;
 						}
@@ -180,13 +193,14 @@ public:
 					if(needed_update) {
 						/* needed update */
 						//LOG(INFO) << "\t" << "Needed Update!";
-						if(most_weighted_block.weight() > 0) c_pq.push(most_weighted_block);
+						if(most_weighted_block.contents.size() > 0) c_pq.push(most_weighted_block);
 					} else {
 						/* add to picked blocks */				
-						picked_blocks.push_back(most_weighted_block.id);
+						step_pos[most_weighted_block.step_id] = 1; //set this step
+						picked_blocks.push_back(most_weighted_block.step_id * sample_step + most_weighted_block.block_id * t_block_size);
 						need_to_cover -= most_weighted_block.contents.size();
-						for(const auto& hash : most_weighted_block.contents) {
-							covered[small_blocks[hash]] = 1;
+						for(const auto& content : most_weighted_block.contents) {
+							covered[small_blocks[content.first]] = 1;
 						}
 						num_samples--;
 						//c_pq.pop();
@@ -194,9 +208,11 @@ public:
 						LOG(INFO) << "\t" << "Blocks weight: " << most_weighted_block.val;
 					}
 				}
-				LOG(INFO) << "\t" << "Covered small blocks: " << small_blocks.size() - need_to_cover;
-				LOG(INFO) << "\t" << "Covered in heap: " << text.size()/t_block_size-c_pq.size();
+				// LOG(INFO) << "\t" << "Covered small blocks: " << small_blocks.size() - need_to_cover;
+				// LOG(INFO) << "\t" << "Covered in heap: " << text.size()/t_block_size-c_pq.size();
 			}
+			stop = hrclock::now();
+			LOG(INFO) << "\t" << "2nd pass constructing heap runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 			std::sort(picked_blocks.begin(),picked_blocks.end());
 			LOG(INFO) << "picked blocks = " << picked_blocks;
 			LOG(INFO) << "\t" << "Writing dictionary"; 
