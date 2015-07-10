@@ -14,11 +14,11 @@ template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16
 >
-class dict_local_coverage_disjoint {
+class dict_local_coverage_nobias_sorted{
 public:
     static std::string type()
     {
-        return "dict_local_coverage_disjoint-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return "dict_local_coverage_nobias_sorted-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
 
     static std::string file_name(collection& col, uint64_t size_in_bytes)
@@ -27,6 +27,14 @@ public:
         return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + ".sdsl";
     }
 public:
+	static bool pairCompareSecond(const std::pair<uint32_t,uint64_t>& firstElem, const std::pair<uint32_t,uint64_t>& secondElem) {
+		return firstElem.second < secondElem.second;
+	}
+
+	static bool pairCompareFirst(const std::pair<uint32_t,uint32_t>& firstElem, const std::pair<uint32_t,uint32_t>& secondElem) {
+		return firstElem.first < secondElem.first;
+	}
+
 	static void create(collection& col, bool rebuild,size_t size_in_bytes) {
 		uint32_t budget_bytes = size_in_bytes;
 		uint32_t budget_mb = size_in_bytes / (1024 * 1024);
@@ -38,9 +46,9 @@ public:
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			//double threshold = 0.0f;
 			// using sketch_type = count_min_sketch<std::ratio<1, 2000000>,std::ratio<1, 5>>;
-			using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
-			// using sketch_type = count_min_sketch<std::ratio<1, 30000000>,std::ratio<1, 10>>; //for 10gb
+			using sketch_type = count_min_sketch<std::ratio<1, 30000000>,std::ratio<1, 10>>; //for 10gb
 			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
@@ -84,31 +92,79 @@ public:
 			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
 			LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe_noise;
 			LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.total_count();
+			
 
-			// (2) compute uniform max coverage with sketches and write dict 
-			LOG(INFO) << "\t" << "Performing local max coverage"; 
-			auto dict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
-			size_t dict_written = 0;
-			auto start = hrclock::now();
-
-			std::unordered_set<uint64_t> dict_blocks;
+			//first pass getting densest steps!
+			std::vector<std::pair <uint32_t,uint64_t>> steps;
 			fixed_hasher<t_estimator_block_size> rk;
-				
-			uint32_t block_no = 0;
-			uint32_t best_block_no = 0;
+			LOG(INFO) << "\t" << "First pass: getting the densest steps..."; 
+			auto start = hrclock::now();
+			// for(size_t i=0;i<text.size();i = i+sample_step) { 
+			// 	uint64_t sum_weights_step = 0;	
+			// 	std::unordered_set<uint64_t> step_blocks;
+			// 	for(size_t j=0;j<sample_step;j++) { 				
+			// 		auto sym = text[i+j];
+			// 		auto hash = rk.update(sym);
+			// 		if(j < t_estimator_block_size-1) continue;
+
+			// 		if(step_blocks.find(hash) == step_blocks.end()) //continue rolling
+			// 		{		
+			// 			step_blocks.emplace(hash);				
+			// 			auto est_freq = cfe.estimate(hash);
+			// 			if(est_freq >= cfe_error)  //try a bit threshold pruning					
+			// 				sum_weights_step += est_freq;
+			// 		}
+			// 	}
+			// 	steps.push_back(std::make_pair(i/sample_step,sum_weights_step));	
+			// }
+			// //sort steps
+			// std::sort(steps.begin(), steps.end(), pairCompareSecond);
+
+			// //pull out the indices
+			// std::vector<uint32_t> step_indices;
+			// for(const auto& step : steps) {
+			// 	step_indices.push_back(step.first);
+		 //    }
+		 //    steps.clear(); //save memory
+
+			std::vector<uint32_t> step_indices;
+			//try ordered max cov from front to back, proven to be good for small datasets
+			for (size_t i = 0; i < num_samples; i++) {
+				step_indices.push_back(i);
+			}
+			// //try randomly ordered max cov
+			std::random_shuffle(step_indices.begin(), step_indices.end());
+			
+			// LOG(INFO) << "\t" << "Step indices size = " << step_indices.size(); 
+
+
+		    // LOG(INFO) << "\t" << "ordered step indices = " << step_indices.size(); 
+		    auto stop = hrclock::now();
+		    LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
+
+
+			// 2nd pass: process max coverage using the sorted order by density
 			// uint32_t threshold = 10000;//change it later to quantile threshold as a parameter, simulating top k
 			std::unordered_set<uint64_t> step_blocks;
-			// std::vector<uint64_t> picked_blocks;
+			std::vector<uint64_t> picked_blocks;
+			// fixed_hasher<t_estimator_block_size> rk;
+			LOG(INFO) << "\t" << "Second pass: perform ordered max coverage..."; 
+			start = hrclock::now();
 
-			for(size_t i=0;i<text.size();i = i+sample_step) { 
+			for(const auto& i : step_indices) {//steps
 				uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();
 				uint64_t sum_weights_current = 0;	
+				uint32_t best_block_no = 0;
+				// fixed_hasher<t_estimator_block_size> rk;
 				std::unordered_set<uint64_t> best_local_blocks;
-				for(size_t j=0;j<sample_step;j = j+t_block_size) { 
+
+				for(size_t j=0;j<sample_step;j = j+t_block_size) {//blocks 
 					std::unordered_set<uint64_t> local_blocks;
-					for(size_t k=0;k<t_block_size;k++) {
-						auto sym = text[i+j+k];
+
+					for(size_t k=0;k<t_block_size;k++) {//bytes
+						auto sym = text[i*sample_step+j+k];
 						auto hash = rk.update(sym);
+
 						if(k < t_estimator_block_size-1) continue;
 
 						if(step_blocks.find(hash) == step_blocks.end() && local_blocks.find(hash) == local_blocks.end()) //continues rolling
@@ -123,26 +179,36 @@ public:
 					if(sum_weights_current >= sum_weights_max)
 					{
 						sum_weights_max = sum_weights_current;
-						best_block_no = block_no; 
+						best_block_no = j/t_block_size; 
 						best_local_blocks = local_blocks;
 					}
-					block_no++;
 					sum_weights_current = 0;
 				}
-				// picked_blocks.push_back(best_block_no * t_block_size);
-				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
 
-				auto start = text.begin() + best_block_no * t_block_size;
-				auto end = start + t_block_size;
-				std::copy(start,end,std::back_inserter(dict));
-				dict_written += t_block_size;
-				// LOG(INFO) << "\t" << "Dictionary written = " << dict_written/1024 << " kB"; 		
-			}
-			auto stop = hrclock::now();
+				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+				picked_blocks.push_back(i * sample_step + best_block_no * t_block_size);
+		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
-			LOG(INFO) << "\t" << "Algorithm runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
-			// LOG(INFO) << "\t" << "picked blocks = " << picked_blocks; 
-			LOG(INFO) << "\t" << "Final dictionary size = " << dict_written/(1024*1024) << " MiB"; 
+		    step_blocks.clear(); //save mem
+		    //sort picked blocks
+			std::sort(picked_blocks.begin(), picked_blocks.end());
+			stop = hrclock::now();
+			LOG(INFO) << "\t" << "Picked blocks = " << picked_blocks; 
+			LOG(INFO) << "\t" << "2nd pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
+
+		    // last pass: writing to dict
+			LOG(INFO) << "\t" << "Last: writing dictionary..."; 
+			auto dict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
+            {
+			    sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+			    for(const auto& pb : picked_blocks) {
+				    auto beg = text.begin() + pb;
+				    auto end = beg + t_block_size;
+				    std::copy(beg,end,std::back_inserter(dict));
+			    }
+            }
+	
+			LOG(INFO) << "\t" << "Final dictionary size = " << dict.size()/(1024*1024) << " MiB"; 
 			dict.push_back(0); // zero terminate for SA construction
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";

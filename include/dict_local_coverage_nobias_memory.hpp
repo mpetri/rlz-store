@@ -68,7 +68,7 @@ public:
 				LOG(INFO) << "\t" << "Building CM sketch";
 				auto start = hrclock::now();
 				sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),3);
+				cfe = cfe_type::parallel_sketch(text.begin(),text.end(),5);
 				auto stop = hrclock::now();
 				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
@@ -80,7 +80,7 @@ public:
 				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
 			}
 			double cfe_noise = cfe.sketch.noise_estimate();		
-			double cfe_error = cfe.sketch.estimation_error()*0.2;
+			double cfe_error = cfe.sketch.estimation_error();
 			LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
 			LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
 			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
@@ -136,7 +136,7 @@ public:
 						if(j+k < t_estimator_block_size-1) continue;
 
 						auto est_freq = cfe.estimate(hash);
-						if(est_freq >= cfe_error && local_blocks.find(hash) == local_blocks.end()) {
+						if(est_freq >= cfe_error && local_blocks.find(hash) == local_blocks.end()) {//filter small blocks
 							local_blocks.emplace(hash);
 							sum_weights += est_freq;
 							//build global binary cover indices
@@ -144,13 +144,16 @@ public:
 								small_blocks[hash] = h++;
 						}
 					}
-					block_cover cov;
-					cov.step_id = i/sample_step;
-					cov.block_id = j/t_block_size;
-					cov.val = sum_weights;
-					cov.contents = local_blocks;
-					c_pq.push(cov);	
+					if(sum_weights >= cfe_error * (t_block_size - t_estimator_block_size)) {//filter big blocks
+						block_cover cov;
+						cov.step_id = i/sample_step;
+						cov.block_id = j/t_block_size;
+						cov.val = sum_weights;
+						cov.contents = local_blocks;
+						c_pq.push(cov);	
+					}
 				}
+				LOG(INFO) << "\t" << "done sample step: " << i/sample_step;
 			}	
 			auto stop = hrclock::now();
 			LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
