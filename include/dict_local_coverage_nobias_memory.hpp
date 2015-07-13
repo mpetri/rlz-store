@@ -80,7 +80,7 @@ public:
 				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
 			}
 			double cfe_noise = cfe.sketch.noise_estimate();		
-			double cfe_error = cfe.sketch.estimation_error();
+			double cfe_error = cfe.sketch.estimation_error() * 0.3;
 			LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
 			LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
 			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
@@ -112,10 +112,10 @@ public:
 				}
 			};
 
-			// using boost_heap = boost::heap::fibonacci_heap<block_cover, boost::heap::compare<std::less<block_cover>>>;
-			// boost_heap c_pq;
-			using heap = std::priority_queue<block_cover, std::vector<block_cover>, std::less<block_cover> >;
-			heap c_pq;
+			using boost_heap = boost::heap::fibonacci_heap<block_cover, boost::heap::compare<std::less<block_cover>>>;
+			boost_heap c_pq;
+			// using heap = std::priority_queue<block_cover, std::vector<block_cover>, std::less<block_cover> >;
+			// heap c_pq;
 			// cover_pq<block_cover> c_pq;
 			std::unordered_map<uint64_t,uint32_t> small_blocks;
 
@@ -133,7 +133,7 @@ public:
 					for(size_t k=0;k<t_block_size;k++) {
 						auto sym = text[i+j+k];
 						auto hash = rk.update(sym);
-						if(j+k < t_estimator_block_size-1) continue;
+						if(k < t_estimator_block_size-1) continue;
 
 						auto est_freq = cfe.estimate(hash);
 						if(est_freq >= cfe_error && local_blocks.find(hash) == local_blocks.end()) {//filter small blocks
@@ -144,7 +144,7 @@ public:
 								small_blocks[hash] = h++;
 						}
 					}
-					if(sum_weights >= cfe_error * (t_block_size - t_estimator_block_size)) {//filter big blocks
+					if(sum_weights >= cfe_error * 0.5 * (t_block_size - t_estimator_block_size)) {//filter big blocks
 						block_cover cov;
 						cov.step_id = i/sample_step;
 						cov.block_id = j/t_block_size;
@@ -153,7 +153,7 @@ public:
 						c_pq.push(cov);	
 					}
 				}
-				LOG(INFO) << "\t" << "done sample step: " << i/sample_step;
+				// LOG(INFO) << "\t" << "done sample step: " << i/sample_step;
 			}	
 			auto stop = hrclock::now();
 			LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
@@ -179,6 +179,7 @@ public:
 					while(step_pos[most_weighted_block.step_id] == 1) {
 						c_pq.pop();
 						most_weighted_block = c_pq.top(); 
+						LOG(INFO) << "\t" << "pop";
 					}
 					c_pq.pop();
 					auto itr = most_weighted_block.contents.begin();
@@ -196,7 +197,11 @@ public:
 					if(needed_update) {
 						/* needed update */
 						//LOG(INFO) << "\t" << "Needed Update!";
-						if(most_weighted_block.contents.size() > 0) c_pq.push(most_weighted_block);
+						if(most_weighted_block.contents.size() > 0) {
+							c_pq.push(most_weighted_block);
+							LOG(INFO) << "\t" << "insert";
+						}
+
 					} else {
 						/* add to picked blocks */				
 						step_pos[most_weighted_block.step_id] = 1; //set this step
