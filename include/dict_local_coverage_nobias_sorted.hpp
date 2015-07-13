@@ -47,8 +47,8 @@ public:
 			//double threshold = 0.0f;
 			// using sketch_type = count_min_sketch<std::ratio<1, 2000000>,std::ratio<1, 5>>;
 			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
-			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
-			using sketch_type = count_min_sketch<std::ratio<1, 30000000>,std::ratio<1, 10>>; //for 10gb
+			//  using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
+			 using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 10>>; //for 10gb
 			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
