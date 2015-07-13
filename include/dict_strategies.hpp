@@ -11,4 +11,7 @@
 #include "dict_global_coverage_disjoint.hpp"
 #include "dict_sketch_topk_cover.hpp"
 #include "dict_sketch_cover.hpp"
-//#include "dict_sketch_topk_localcover.hpp"
+#include "dict_sketch_topk_localcover.hpp"
+#include "dict_local_coverage_nobias.hpp"
+#include "dict_local_coverage_nobias_memory.hpp"
+#include "dict_local_coverage_nobias_sorted.hpp"

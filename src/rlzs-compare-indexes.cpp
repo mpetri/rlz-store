@@ -44,7 +44,11 @@ int main(int argc, const char* argv[])
                              .build_or_load(col);
 
         using rlz_type_new = rlz_store_static<
-                                         dict_sketch_topk_cover<1024,16,2500000>,
+                                         // dict_sketch_topk_cover<1024,16,2500000>,
+                                         // dict_local_coverage_disjoint<sample_block_size, 16>,
+                                         // dict_local_coverage_nobias_memory<sample_block_size, 16>,
+                                         dict_local_coverage_nobias_sorted<sample_block_size, 16>,
+                                         // dict_local_coverage_rolling<sample_block_size, 8>,
                                          dict_prune_none,
                                          dict_index_csa<csa_type>,
                                          factorization_blocksize,

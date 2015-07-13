@@ -45,6 +45,7 @@ add_subdirectory(external/sdsl-lite)
 add_subdirectory(external/googletest)
 add_subdirectory(external/zlib)
 add_subdirectory(external/bzip2-1.0.6)
+add_subdirectory(external/stxxl)
 
 include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/include
@@ -56,11 +57,14 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/lz4/lib
                      ${CMAKE_HOME_DIRECTORY}/external/zlib/
                      ${CMAKE_HOME_DIRECTORY}/external/bzip2-1.0.6/
+                     ${STXXL_INCLUDE_DIRS}
                     )
 
 set(LZ4_DIR  ${CMAKE_HOME_DIRECTORY}/external/lz4/lib/)
 set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4hc.h ${LZ4_DIR}lz4frame.c ${LZ4_DIR}lz4frame.h ${LZ4_DIR}xxhash.c)
 add_library(lz4 ${LZ4_SRCS_LIB})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STXXL_CXX_FLAGS}")
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
@@ -72,7 +76,7 @@ add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lzma lz4 bzip2)
 
 add_executable(rlzs-compare-indexes.x src/rlzs-compare-indexes.cpp)
-target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+target_link_libraries(rlzs-compare-indexes.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2 ${STXXL_LIBRARIES})
 
 add_executable(rlzs-benchmark.x src/rlzs-benchmark.cpp)
 target_link_libraries(rlzs-benchmark.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
