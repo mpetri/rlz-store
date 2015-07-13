@@ -157,7 +157,8 @@ public:
 private:
     mutable z_stream dstrm;
     mutable z_stream istrm;
-
+    mutable const uint8_t* dict_ptr = nullptr;
+    mutable uint32_t dict_size = 0;
 public:
     zlib()
     {
@@ -185,6 +186,21 @@ public:
     static std::string type()
     {
         return "zlib-" + std::to_string(t_level);
+    }
+
+    inline void set_deflate_dictionary(const uint8_t* dict_ptr, uint32_t n) const
+    {
+        auto ret = deflateSetDictionary(&dstrm,dict_ptr,n);
+        if (ret != Z_OK) {
+            LOG(FATAL) << "zlib-encode: set dictionary error:" << ret;
+        }
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* dptr, uint32_t n) const
+    {
+        dict_ptr = dptr;
+        dict_size = n;
+
     }
 
     template <class t_bit_ostream, class T>
@@ -263,6 +279,13 @@ public:
         istrm.avail_out = out_size;
         istrm.next_out = (uint8_t*)out_buf;
         auto error = inflate(&istrm, Z_FINISH);
+        if(error == Z_NEED_DICT) {
+            auto sdret = inflateSetDictionary(&istrm,dict_ptr,dict_size);
+            if (sdret != Z_OK) {
+                LOG(FATAL) << "zlib-decode: set dictionary error:" << sdret;
+            }
+        }
+        error = inflate(&istrm, Z_FINISH);
         inflateReset(&istrm); // after finish we need to reset
         if (error != Z_STREAM_END) {
             switch (error) {
@@ -277,6 +300,9 @@ public:
                 break;
             case Z_STREAM_END:
                 LOG(FATAL) << "zlib-decode: Stream end error!";
+                break;
+            case Z_NEED_DICT:
+                LOG(FATAL) << "zlib-decode: NEED DICT!";
                 break;
             default:
                 LOG(FATAL) << "zlib-decode: Unknown error: " << error;
