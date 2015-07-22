@@ -18,16 +18,21 @@
 using namespace std::chrono;
 
 template <class t_coder,
-          uint32_t t_block_size>
+          uint32_t t_block_size,
+          uint32_t t_prime_size = 0,
+          class t_dictionary_creation_strategy = dict_none
+          >
 class lz_store_static {
 public:
     using coder_type = t_coder;
     using block_map_type = block_map_uncompressed;
     using size_type = uint64_t;
+    using dictionary_creation_strategy = t_dictionary_creation_strategy;
 private:
     sdsl::int_vector_mapper<1, std::ios_base::in> m_compressed_text;
     bit_istream<sdsl::int_vector_mapper<1, std::ios_base::in> > m_compressed_stream;
     block_map_type m_blockmap;
+    sdsl::int_vector<8> m_dict;
 public:
     enum { block_size = t_block_size };
     uint64_t encoding_block_size = block_size;
@@ -36,12 +41,15 @@ public:
     sdsl::int_vector_mapper<1, std::ios_base::in>& compressed_text = m_compressed_text;
     uint64_t text_size;
     mutable block_factor_data dummy;
+    std::string m_dict_hash;
+    std::string m_dict_file;
 public:
     class builder;
 
-    std::string type() const
+    static std::string type()
     {
-        return coder_type::type() + "-" + std::to_string(t_block_size);
+        return coder_type::type() + "-" + std::to_string(t_block_size) + "-"+ 
+            std::to_string(t_prime_size) +"-"+ dictionary_creation_strategy::type();
     }
 
     lz_store_static() = delete;
@@ -55,6 +63,13 @@ public:
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
+        // (3) load dictionary from disk
+        if( col.file_map.count(KEY_DICT) != 0) {
+            LOG(INFO) << "\tLoad dictionary";
+            m_dict_hash = col.param_map[PARAM_DICT_HASH];
+            m_dict_file = col.file_map[KEY_DICT];
+            sdsl::load_from_file(m_dict, col.file_map[KEY_DICT]);
+        }
         {
             LOG(INFO) << "\tDetermine text size";
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
@@ -92,6 +107,13 @@ public:
             if(left != 0)
                 out_size = left;
         }
+        if(m_dict.size() != 0) {
+            /* prime */
+            auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(block_id*t_block_size,
+                m_dict.size(),text_size,t_prime_size);
+            auto dict_ptr = (const uint8_t*) (m_dict.data() + dict_offset);
+            coder.set_inflate_dictionary(dict_ptr,t_prime_size);
+        }
         coder.decode(m_compressed_stream,text.data(),out_size);
         return out_size;
     }
@@ -107,14 +129,24 @@ public:
 };
 
 template <class t_coder,
-          uint32_t t_block_size
+          uint32_t t_block_size,
+          uint32_t t_prime_size,
+          class t_dictionary_creation_strategy
           >
 class lz_store_static<t_coder,
-                      t_block_size
+                      t_block_size,
+                      t_prime_size,
+                      t_dictionary_creation_strategy
                       >::builder {
 public:
+    using base_type = lz_store_static<t_coder,
+                      t_block_size,
+                      t_prime_size,
+                      t_dictionary_creation_strategy
+                      >;
     using coder_type = t_coder;
     using block_map_type = block_map_uncompressed;
+    using dictionary_creation_strategy = t_dictionary_creation_strategy;
 public:
     builder& set_rebuild(bool r)
     {
@@ -125,38 +157,47 @@ public:
     {
         return *this;
     };
-    builder& set_dict_size(uint64_t )
+    builder& set_dict_size(uint64_t ds)
     {
+        dict_size_bytes = ds;
         return *this;
     };
 
     static std::string blockmap_file_name(collection& col)
     {
-        return col.path + "/index/" + KEY_BLOCKMAP + "-"
-               + block_map_type::type() + "-" + std::to_string(t_block_size) 
-               + "-" + coder_type::type()+".sdsl";
+        return col.path + "/index/" + KEY_BLOCKMAP + "-" + base_type::type() + "-"
+               + block_map_type::type() +".sdsl";
     }
 
     static std::string blockoffsets_file_name(collection& col)
     {
-        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-"
-               + coder_type::type()+"-"+std::to_string(t_block_size) +".sdsl";
+        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-" + base_type::type() + ".sdsl";
     }
 
     static std::string encoding_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_LZ + "-"
-               + block_map_type::type() + "-" + coder_type::type()+"-"+std::to_string(t_block_size)+".sdsl";
+               + block_map_type::type() + "-" + base_type::type() + ".sdsl";
     }
 
     lz_store_static build_or_load(collection& col) const
     {
         auto start = hrclock::now();
 
+        sdsl::int_vector<8> dict;
+        if(dict_size_bytes != 0) {
+            // (1) create dictionary based on parametrized
+            // dictionary creation strategy if necessary
+            LOG(INFO) << "Create dictionary (" << dictionary_creation_strategy::type() << ")";
+            dictionary_creation_strategy::create(col, rebuild, dict_size_bytes);
+            LOG(INFO) << "Dictionary hash '" << col.param_map[PARAM_DICT_HASH] << "'";
+            sdsl::load_from_file(dict, col.file_map[KEY_DICT]);
+        }
+
         auto lz_file_name = encoding_file_name(col);
         auto bo_file_name = blockoffsets_file_name(col);
         if (rebuild || !utils::file_exists(lz_file_name)) {
-            LOG(INFO) << "Encoding text (" << std::string(coder_type::type()+"-"+std::to_string(t_block_size)) << ")";
+            LOG(INFO) << "Encoding text (" << base_type::type() << ")";
             auto start_enc = hrclock::now();
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
             auto encoded_text = sdsl::write_out_buffer<1>::create(lz_file_name);
@@ -168,11 +209,25 @@ public:
             coder_type coder;
             for(size_t i=0;i<num_blocks;i++) {
                 block_offsets.push_back(encoded_stream.tellp());
+                if(dict_size_bytes != 0) {
+                    /* prime */
+                    auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(i*t_block_size,
+                        dict_size_bytes,text.size(),t_prime_size);
+                    auto dict_ptr = (const uint8_t*) (dict.data() + dict_offset);
+                    coder.set_deflate_dictionary(dict_ptr,t_prime_size);
+                }
                 coder.encode(encoded_stream,data_ptr,t_block_size);
                 data_ptr += t_block_size;
             }
             if(left) {
                 block_offsets.push_back(encoded_stream.tellp());
+                if(dict_size_bytes != 0) {
+                    /* prime */
+                    auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(num_blocks*t_block_size,
+                        dict_size_bytes,text.size(),t_prime_size);
+                    auto dict_ptr = (const uint8_t*) (dict.data() + dict_offset);
+                    coder.set_deflate_dictionary(dict_ptr,t_prime_size);
+                }
                 coder.encode(encoded_stream,data_ptr,left);
                 data_ptr += left;
             }
@@ -189,7 +244,7 @@ public:
             LOG(INFO) << "=====================================================================";
             LOG(INFO) << "Encoding time = " << enc_seconds << " sec";
             LOG(INFO) << "Encoding speed = " << text_size_mb / enc_seconds << " MB/s";
-            LOG(INFO) << "Encoding done. (" << std::string(coder_type::type()+"-"+std::to_string(t_block_size)) << ")";
+            LOG(INFO) << "Encoding done. (" << base_type::type() << ")";
         } else {
             LOG(INFO) << "Encoded text exists.";
         }
@@ -237,4 +292,5 @@ public:
     }
 private:
     bool rebuild = false;
+    uint64_t dict_size_bytes = 0;
 };

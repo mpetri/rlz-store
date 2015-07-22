@@ -64,61 +64,7 @@ void bench_index_full(collection& col,const t_idx& idx,size_t dict_size_in_bytes
 }
 
 template <class t_idx>
-void bench_index_rand_aligned(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
-{
-	utils::flush_cache();
-
-	uint64_t blocks_to_decode = 10000ULL;
-	uint64_t block_ret_size = 16*1024;
-	auto total_ret_blocks = idx.text_size / block_ret_size;
-
-
-	std::vector<uint32_t> block_ids(total_ret_blocks);
-	for(size_t i=0;i<total_ret_blocks;i++) {
-		block_ids[i] = i;
-	}
-	std::mt19937 g(1234);
-	std::shuffle(block_ids.begin(),block_ids.end(), g);
-	block_ids.resize(blocks_to_decode);
-
-	std::vector<uint8_t> block_content(idx.encoding_block_size);
-	block_factor_data bfd(idx.encoding_block_size);
-
-	auto itr = idx.begin();
-	auto start = hrclock::now();
-	size_t checksum = 0;
-	size_t num_syms = 0;
-	for(const auto bid: block_ids) {
-		auto text_ret_offset = bid*block_ret_size;
-		itr.seek(text_ret_offset);
-		num_syms += block_ret_size;
-		for (size_t i = 0; i < block_ret_size; i++) {
-			checksum += *itr;
-			++itr;
-		}
-	}
-    auto stop = hrclock::now();
-    if (checksum == 0) {
-        LOG(ERROR) << "text decoding speed checksum error";
-    }
-
-    auto time_ms = duration_cast<milliseconds>(stop - start);
-    LOG(INFO) << idx.type() << ";"
-    		  << dict_size_in_bytes << ";"
-    		  << idx.encoding_block_size << ";"
-    		  << time_ms.count() << ";"
-    		  << num_syms << ";"
-    		  << blocks_to_decode << ";"
-    		  << block_ret_size << ";"
-    		  << checksum << ";"
-              << idx.size_in_bytes() << ";"
-              << idx.size() << ";"
-              << col.path << ";"
-    		  << "RAND-ALIGNED";
-}
-
-template <class t_idx>
-void bench_index_rand(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_rand(collection& col,const t_idx& idx,size_t dict_size_in_bytes,size_t seed=1234)
 {
 	utils::flush_cache();
 
@@ -126,7 +72,7 @@ void bench_index_rand(collection& col,const t_idx& idx,size_t dict_size_in_bytes
 	uint64_t block_ret_size = 16*1024;
 
 	std::vector<uint64_t> byte_offsets(blocks_to_decode);
-	std::mt19937 g(1234);
+	std::mt19937 g(seed);
 	std::uniform_int_distribution<uint64_t> dis(0, idx.text_size - 1 - block_ret_size);
 	for(size_t i=0;i<blocks_to_decode;i++) {
 		byte_offsets[i] = dis(g);
@@ -171,23 +117,20 @@ void bench_index_rand(collection& col,const t_idx& idx,size_t dict_size_in_bytes
 
 
 template <class t_idx>
-void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_bytes)
+void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_bytes,size_t seed=1234)
 {
 	utils::flush_cache();
 
-	uint64_t blocks_to_decode = 10000;
+	uint64_t blocks_to_decode = 10000ULL;
 	uint64_t block_ret_size = 16*1024;
-	auto total_ret_blocks = idx.text_size / block_ret_size;
 
-	std::vector<uint32_t> block_ids(total_ret_blocks);
-	for(size_t i=0;i<total_ret_blocks;i++) {
-		block_ids[i] = i;
+	std::vector<uint64_t> byte_offsets(blocks_to_decode);
+	std::mt19937 g(seed);
+	std::uniform_int_distribution<uint64_t> dis(0, idx.text_size - 1 - block_ret_size);
+	for(size_t i=0;i<blocks_to_decode;i++) {
+		byte_offsets[i] = dis(g);
 	}
-	std::mt19937 g(1234);
-	std::shuffle(block_ids.begin(),block_ids.end(), g);
-	block_ids.resize(blocks_to_decode);
-	std::sort(block_ids.begin(),block_ids.end());
-
+    std::sort(byte_offsets.begin(),byte_offsets.end());	
 	std::vector<uint8_t> block_content(idx.encoding_block_size);
 	block_factor_data bfd(idx.encoding_block_size);
 
@@ -195,8 +138,8 @@ void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_byte
 	auto start = hrclock::now();
 	size_t checksum = 0;
 	size_t num_syms = 0;
-	for(const auto bid: block_ids) {
-		auto text_ret_offset = bid*block_ret_size;
+	for(const auto bo: byte_offsets) {
+		auto text_ret_offset = bo;
 		itr.seek(text_ret_offset);
 		num_syms += block_ret_size;
 		for (size_t i = 0; i < block_ret_size; i++) {
@@ -208,6 +151,7 @@ void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_byte
     if (checksum == 0) {
         LOG(ERROR) << "text decoding speed checksum error";
     }
+
 
     auto time_ms = duration_cast<milliseconds>(stop - start);
     LOG(INFO) << idx.type() << ";"
@@ -223,6 +167,7 @@ void bench_index_batch(collection& col,const t_idx& idx,size_t dict_size_in_byte
               << col.path << ";"
     		  << "BATCH";
 }
+
 
 template<uint32_t t_factorization_blocksize,uint32_t dict_size_in_bytes>
 void bench_indexes_full(collection& col,utils::cmdargs_t& args)
@@ -322,7 +267,7 @@ void bench_indexes_full(collection& col,utils::cmdargs_t& args)
 }
 
 template<uint32_t t_factorization_blocksize,uint32_t dict_size_in_bytes>
-void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
+void bench_indexes_batch(collection& col,utils::cmdargs_t& args,size_t seed=1234)
 {
 	/* raw compression */
 	if(dict_size_in_bytes == 0) {
@@ -420,7 +365,7 @@ void bench_indexes_batch(collection& col,utils::cmdargs_t& args)
 
 
 template<uint32_t t_factorization_blocksize,uint32_t dict_size_in_bytes>
-void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
+void bench_indexes_rand(collection& col,utils::cmdargs_t& args,size_t seed=1234)
 {
 	/* raw compression */
 	if(dict_size_in_bytes == 0) {
@@ -433,14 +378,14 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 
 	    //     bench_index_rand_aligned(lz_store,dict_size_in_bytes);
 	    // }
-	    {
-	        auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
-	                             .set_rebuild(args.rebuild)
-	                             .set_threads(args.threads)
-	                             .set_dict_size(dict_size_in_bytes)
-	                             .load(col);
-	        bench_index_rand(col,lz_store,dict_size_in_bytes);
-	    }
+	    // {
+	    //     auto lz_store = typename lz_store_static<coder::zlib<9>,t_factorization_blocksize>::builder{}
+	    //                          .set_rebuild(args.rebuild)
+	    //                          .set_threads(args.threads)
+	    //                          .set_dict_size(dict_size_in_bytes)
+	    //                          .load(col);
+	    //     bench_index_rand(col,lz_store,dict_size_in_bytes,seed);
+	    // }
 	    {
 	        auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
 	                             .set_rebuild(args.rebuild)
@@ -448,17 +393,17 @@ void bench_indexes_rand(collection& col,utils::cmdargs_t& args)
 	                             .set_dict_size(dict_size_in_bytes)
 	                             .load(col);
 
-	        bench_index_rand(col,lz_store,dict_size_in_bytes);
+	        bench_index_rand(col,lz_store,dict_size_in_bytes,seed);
 	    }
-	    {
-	        auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
-	                             .set_rebuild(args.rebuild)
-	                             .set_threads(args.threads)
-	                             .set_dict_size(dict_size_in_bytes)
-	                             .load(col);
+	    // {
+	    //     auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
+	    //                          .set_rebuild(args.rebuild)
+	    //                          .set_threads(args.threads)
+	    //                          .set_dict_size(dict_size_in_bytes)
+	    //                          .load(col);
 
-	        bench_index_rand(col,lz_store,dict_size_in_bytes);
-	    }
+	    //     bench_index_rand(col,lz_store,dict_size_in_bytes);
+	    // }
 	} else {
 	    /* rlz compression */
 	    using airs_csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
@@ -628,72 +573,59 @@ int main(int argc, const char* argv[])
     /* create rlz index */
     {
 	    bench_indexes_rand<16*1024,0>(col,args);
-	    bench_indexes_rand<64*1024,0>(col,args);
-	    bench_indexes_rand<256*1024,0>(col,args);
+	    //bench_indexes_rand<64*1024,0>(col,args,1234);
+	    //bench_indexes_rand<64*1024,0>(col,args,1235);
+	    //bench_indexes_rand<64*1024,0>(col,args,1236);
+	    // bench_indexes_rand<64*1024,0>(col,args);
+	    // bench_indexes_rand<256*1024,0>(col,args);
 
-	    bench_indexes_rand<16*1024,256*1024*1024>(col,args);
-	    bench_indexes_rand<64*1024,256*1024*1024>(col,args);
-	    bench_indexes_rand<256*1024,256*1024*1024>(col,args);
+     //    bench_indexes_rand<16*1024,256*1024*1024>(col,args);
+	    // bench_indexes_rand<64*1024,256*1024*1024>(col,args);
+	    // bench_indexes_rand<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_rand<16*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand<64*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand<256*1024,16*1024*1024>(col,args);
+    	// bench_indexes_rand<16*1024,16*1024*1024>(col,args);
+	    // bench_indexes_rand<64*1024,16*1024*1024>(col,args);
+	    // bench_indexes_rand<256*1024,16*1024*1024>(col,args);
 
-	    bench_indexes_rand<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand<64*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand<256*1024,64*1024*1024>(col,args);
-	}
+	    // bench_indexes_rand<16*1024,64*1024*1024>(col,args);
+	    // bench_indexes_rand<64*1024,64*1024*1024>(col,args);
+	    // bench_indexes_rand<256*1024,64*1024*1024>(col,args);
+    }
     {
-	    bench_indexes_rand_aligned<16*1024,0>(col,args);
-	    bench_indexes_rand_aligned<64*1024,0>(col,args);
-	    bench_indexes_rand_aligned<256*1024,0>(col,args);
 
-	    bench_indexes_rand_aligned<16*1024,256*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,256*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<256*1024,256*1024*1024>(col,args);
+	    // bench_indexes_batch<16*1024,0>(col,args);
+	    // bench_indexes_batch<64*1024,0>(col,args);
+	    // bench_indexes_batch<256*1024,0>(col,args);
 
-	    bench_indexes_rand_aligned<16*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,16*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<256*1024,16*1024*1024>(col,args);
+	    // bench_indexes_batch<16*1024,256*1024*1024>(col,args);
+	    // bench_indexes_batch<64*1024,256*1024*1024>(col,args);
+	    // bench_indexes_batch<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_rand_aligned<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<64*1024,64*1024*1024>(col,args);
-	    bench_indexes_rand_aligned<256*1024,64*1024*1024>(col,args);
-	}
+	    // bench_indexes_batch<16*1024,16*1024*1024>(col,args);
+	    // bench_indexes_batch<64*1024,16*1024*1024>(col,args);
+	    // bench_indexes_batch<256*1024,16*1024*1024>(col,args);
+
+	    // bench_indexes_batch<16*1024,64*1024*1024>(col,args);
+	    // bench_indexes_batch<64*1024,64*1024*1024>(col,args);
+	    // bench_indexes_batch<256*1024,64*1024*1024>(col,args);
+    }
     {
-	    bench_indexes_batch<16*1024,0>(col,args);
-	    bench_indexes_batch<64*1024,0>(col,args);
-	    bench_indexes_batch<256*1024,0>(col,args);
+	    // bench_indexes_full<16*1024,0>(col,args);
+	    // bench_indexes_full<64*1024,0>(col,args);
+	    // bench_indexes_full<256*1024,0>(col,args);
 
-	    bench_indexes_batch<16*1024,256*1024*1024>(col,args);
-	    bench_indexes_batch<64*1024,256*1024*1024>(col,args);
-	    bench_indexes_batch<256*1024,256*1024*1024>(col,args);
+	    // bench_indexes_full<16*1024,256*1024*1024>(col,args);
+	    // bench_indexes_full<64*1024,256*1024*1024>(col,args);
+	    // bench_indexes_full<256*1024,256*1024*1024>(col,args);
 
-	    bench_indexes_batch<16*1024,16*1024*1024>(col,args);
-	    bench_indexes_batch<64*1024,16*1024*1024>(col,args);
-	    bench_indexes_batch<256*1024,16*1024*1024>(col,args);
+	    // bench_indexes_full<16*1024,16*1024*1024>(col,args);
+	    // bench_indexes_full<64*1024,16*1024*1024>(col,args);
+	    // bench_indexes_full<256*1024,16*1024*1024>(col,args);
 
-	    bench_indexes_batch<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_batch<64*1024,64*1024*1024>(col,args);
-	    bench_indexes_batch<256*1024,64*1024*1024>(col,args);
-	}
-    {
-	    bench_indexes_full<16*1024,0>(col,args);
-	    bench_indexes_full<64*1024,0>(col,args);
-	    bench_indexes_full<256*1024,0>(col,args);
-
-	    bench_indexes_full<16*1024,256*1024*1024>(col,args);
-	    bench_indexes_full<64*1024,256*1024*1024>(col,args);
-	    bench_indexes_full<256*1024,256*1024*1024>(col,args);
-
-	    bench_indexes_full<16*1024,16*1024*1024>(col,args);
-	    bench_indexes_full<64*1024,16*1024*1024>(col,args);
-	    bench_indexes_full<256*1024,16*1024*1024>(col,args);
-
-	    bench_indexes_full<16*1024,64*1024*1024>(col,args);
-	    bench_indexes_full<64*1024,64*1024*1024>(col,args);
-	    bench_indexes_full<256*1024,64*1024*1024>(col,args);
-	}
+	    // bench_indexes_full<16*1024,64*1024*1024>(col,args);
+	    // bench_indexes_full<64*1024,64*1024*1024>(col,args);
+	    // bench_indexes_full<256*1024,64*1024*1024>(col,args);
+    }
 
 
     return EXIT_SUCCESS;

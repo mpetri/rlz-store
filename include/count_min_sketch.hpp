@@ -26,7 +26,7 @@ public:
     {
         return "count_min_sketch-" + std::to_string(t_epsilon::den) + "-" + std::to_string(t_delta::den);
     }
-private:
+public:
 	using size_type = uint64_t;
 	sdsl::int_vector<32> m_table;
 	std::vector<hash_params> m_hash_params;
@@ -85,8 +85,8 @@ public:
 		m_total_count += count;
 		uint64_t new_est = std::numeric_limits<uint64_t>::max();
 		for(size_t i=0;i<d;i++) {
-			auto row_offset = compute_hash(item,i);
-			auto col_offset = (w+1)*i;
+			uint64_t row_offset = compute_hash(item,i);
+			uint64_t col_offset = (w+1)*i;
 			uint64_t new_count = m_table[row_offset+col_offset] + count;
 			m_table[row_offset+col_offset] = new_count;
 			new_est = std::min(new_est,new_count);
@@ -96,8 +96,8 @@ public:
 	uint64_t estimate(uint64_t item) const {
 		uint64_t est = std::numeric_limits<uint64_t>::max();
 		for(size_t i=0;i<d;i++) {
-			auto row_offset = compute_hash(item,i);
-			auto col_offset = (w+1)*i;
+			uint64_t row_offset = compute_hash(item,i);
+			uint64_t col_offset = (w+1)*i;
 			uint64_t val = m_table[row_offset+col_offset];
 			est = std::min(est,val);
 		}
@@ -125,7 +125,7 @@ public:
 		for(size_t j=0;j<d;j++) {
 			uint64_t noise = std::numeric_limits<uint64_t>::max();
 			for(size_t i=0;i<(w+1);i++) {
-				uint64_t elem = m_table[i];
+				uint64_t elem = m_table[i+(j*(w+1))];
 				noise = std::min(elem,noise);
 			}
 			noise_overall = std::max(noise_overall,noise);

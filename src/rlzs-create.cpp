@@ -22,35 +22,29 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    const uint32_t cikm_factorization_blocksize = 32768;
+    const uint32_t block_size = 32768;
+    const uint32_t prime_size = 32768;
     {
-        auto lz_store = lz_store_static<coder::zlib<9>,cikm_factorization_blocksize>::builder{}
+        auto lz_store = lz_store_static<coder::zlib<9>,block_size>::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(0)
+                             .build_or_load(col);
+
+        if(args.verify) verify_index(col, lz_store);
+    }
+    {
+        auto lz_store = lz_store_static<coder::zlib<9>,
+                                    block_size,
+                                    prime_size,
+                                    dict_uniform_sample_budget<1024>
+                                    >::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
                              .set_dict_size(args.dict_size_in_bytes)
                              .build_or_load(col);
 
         if(args.verify) verify_index(col, lz_store);
-    }
-
-    {
-        const uint32_t cikm_sample_block_size = 1024;
-        using cikm_csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-        using rlz_type_uuv_greedy_sp = rlz_store_static<dict_uniform_sample_budget<cikm_sample_block_size>,
-                                     dict_prune_none,
-                                     dict_index_csa<cikm_csa_type>,
-                                     cikm_factorization_blocksize,
-                                     factor_select_first,
-                                     factor_coder_blocked<4,coder::aligned_fixed<uint8_t>,coder::aligned_fixed<uint32_t>,coder::vbyte>,
-                                     block_map_uncompressed>;
-        auto rlz_store = rlz_type_uuv_greedy_sp::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
-                             .build_or_load(col);
-
-        
-        if(args.verify) verify_index(col, rlz_store);
     }
 
 
