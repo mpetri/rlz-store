@@ -10,7 +10,7 @@ public:
         return "dict_none";
     }
 
-    static std::string file_name(collection& col)
+    static std::string file_name(collection& col,size_t)
     {
         return col.path + "/index/" + type() + ".sdsl";
     }
@@ -18,7 +18,7 @@ public:
 public:
     static void create(collection& col, bool , size_t )
     {
-        auto fname = file_name(col);
+        auto fname = file_name(col,0);
         col.file_map[KEY_DICT] = fname;
         auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
         wdict.push_back(0);

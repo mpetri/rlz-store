@@ -46,7 +46,7 @@ public:
     uint64_t encoding_block_size = block_size;
     block_map_type& block_map = m_blockmap;
     sdsl::int_vector<8>& dict = m_dict;
-    factor_coder_type factor_coder;
+    factor_coder_type m_factor_coder;
     sdsl::int_vector_mapper<1, std::ios_base::in>& factor_text = m_factored_text;
     uint64_t text_size;
     std::string m_dict_hash;
@@ -76,6 +76,10 @@ public:
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
+
+        LOG(INFO) << "\tLoad factor coder";
+        sdsl::load_from_file(m_factor_coder, col.file_map[KEY_FCODER]);
+
         // (3) load dictionary from disk
         LOG(INFO) << "\tLoad dictionary";
         m_dict_hash = col.param_map[PARAM_DICT_HASH];
@@ -117,7 +121,8 @@ public:
     size_type size_in_bytes() const {
         return m_dict.size() +
             (m_factored_text.size()>>3)+
-            m_blockmap.size_in_bytes();
+            m_blockmap.size_in_bytes() +
+            m_factor_coder.size_in_bytes();
     }
 
     inline void decode_factors(size_t offset,
@@ -125,7 +130,7 @@ public:
                                size_t num_factors) const
     {
         m_factor_stream.seek(offset);
-        factor_coder.decode_block(m_factor_stream, bfd, num_factors);
+        m_factor_coder.decode_block(m_factor_stream, bfd, num_factors);
     }
 
     inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data& bfd) const
@@ -139,7 +144,7 @@ public:
         size_t offsets_used = 0;
         for (size_t i = 0; i < num_factors; i++) {
             const auto& factor_len = bfd.lengths[i];
-            if (factor_len <= factor_coder.literal_threshold) {
+            if (factor_len <= m_factor_coder.literal_threshold) {
                 /* copy literals */
                 for (size_t i = 0; i < factor_len; i++) {
                     *out_itr = bfd.literals[literals_used + i];

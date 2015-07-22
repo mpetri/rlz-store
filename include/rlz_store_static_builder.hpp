@@ -27,7 +27,6 @@ public:
     using factor_encoder = t_factor_coder;
     using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_encoder>;
     using block_map = t_block_map;
-
 public:
     builder& set_rebuild(bool r)
     {
@@ -52,6 +51,64 @@ public:
                + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
+    static std::string factorcoder_file_name(collection& col)
+    {
+        return col.path + "/index/" + KEY_FCODER + "-"
+               + factor_encoder::type() + "-" + factorization_strategy::type() + "-"
+               + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+    }
+
+    void create_priming(factor_encoder& coder,
+        const sdsl::int_vector_mapper<8, std::ios_base::in>& text,
+        dictionary_index& idx) const
+    {
+        uint64_t prime_bytes = factor_encoder::prime_bytes;
+        uint64_t prime_factors = prime_bytes / 4;
+        uint64_t prime_fact_block_size = 1024;
+        // LOG(INFO) << "prime_bytes = " << prime_bytes;
+        // LOG(INFO) << "prime_factors = " << prime_factors;
+        /* perform uniform random encodings */
+        sdsl::int_vector<32> offsets(prime_factors);
+        sdsl::int_vector<32> lens(prime_factors);
+        auto n = text.size();
+        // LOG(INFO) << "n = " << n;
+        std::mt19937 gen(4711);
+        std::uniform_int_distribution<uint64_t> dis(0,n-1-prime_fact_block_size);
+        // LOG(INFO) << "prime_fact_block_size = " << prime_fact_block_size;
+        block_factor_data tmp_block_factor_data(prime_fact_block_size);
+        size_t factors_created = 0;
+        while(factors_created != prime_factors) {
+            auto pos = dis(gen);
+            // LOG(INFO) << "prime from pos = " << pos;
+            auto itr = text.begin()+pos;
+            auto end = itr + prime_fact_block_size;
+
+            auto factor_itr = idx.factorize(itr, end);
+            size_t syms_encoded = 0;
+            while (!factor_itr.finished()) {
+                if (factor_itr.len == 0) {
+                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, 0, 1);
+                } else {
+                    auto offset = factor_selection_strategy::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
+                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, offset, factor_itr.len);
+                }
+                ++factor_itr;
+            }
+
+            /* copy lens and offset_literals */
+            // LOG(INFO) << "copy num_factors = " << tmp_block_factor_data.num_factors;
+            for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
+                if(factors_created == prime_factors) break;
+                lens[factors_created] = tmp_block_factor_data.lengths[i];
+                offsets[factors_created] = tmp_block_factor_data.offset_literals[i];
+                factors_created++;
+            }
+            tmp_block_factor_data.reset();
+        }
+        coder.set_offset_prime(offsets);
+        coder.set_length_prime(lens);
+    }
+
     rlz_store_static build_or_load(collection& col) const
     {
         auto start = hrclock::now();
@@ -73,11 +130,22 @@ public:
         if (rebuild || !utils::file_exists(factor_file_name)) {
             LOG(INFO) << "Create/Load dictionary index";
             dictionary_index idx(col, rebuild);
+            const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
+
+            LOG(INFO) << "Create priming data for factor coder";
+            {
+                factor_encoder tmp_coder;
+                create_priming(tmp_coder,text,idx);
+                auto factorcoder_file = factorcoder_file_name(col);
+                sdsl::store_to_file(tmp_coder, factorcoder_file);
+                col.file_map[KEY_FCODER] = factorcoder_file;
+            }
+
 
             LOG(INFO) << "Factorize text (" << num_threads << " threads) - ("
                       << factorization_strategy::type() << ")";
             auto start_fact = hrclock::now();
-            const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
+
 
             std::vector<std::future<factorization_info> > fis;
             std::vector<factorization_info> efs;
@@ -117,6 +185,7 @@ public:
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
+            col.file_map[KEY_FCODER] = factorcoder_file_name(col);
         }
 
         // (4) encode document start pos
@@ -156,6 +225,7 @@ public:
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
+            col.file_map[KEY_FCODER] = factorcoder_file_name(col);
         }
 
         /* (2) check blockmap */
@@ -214,6 +284,8 @@ public:
             t_factor_coder coder;
             auto num_blocks = old.block_map.num_blocks();
             auto num_blocks10p = (uint64_t)(num_blocks * 0.1);
+
+
 
             while (itr != end) {
                 const auto& f = *itr;

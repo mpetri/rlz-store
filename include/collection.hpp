@@ -14,6 +14,7 @@ const std::string KEY_FACTORIZED_TEXT = "FACTORS";
 const std::string KEY_BLOCKMAP = "BLOCKMAP";
 const std::string KEY_BLOCKOFFSETS = "BLOCKOFFSETS";
 const std::string KEY_BLOCKFACTORS = "BLOCKFACTORS";
+const std::string KEY_FCODER = "FCODER";
 
 const std::string PARAM_DICT_HASH = "DICT_HASH";
 

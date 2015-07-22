@@ -93,6 +93,15 @@ public:
 		}
 		return new_est;
 	}
+	void remove(uint64_t item) {
+		auto current_est = estimate(item);
+		m_total_count -= current_est;
+		for(size_t i=0;i<d;i++) {
+			uint64_t row_offset = compute_hash(item,i);
+			uint64_t col_offset = (w+1)*i;
+			m_table[row_offset+col_offset] -= current_est;
+		}
+	}
 	uint64_t estimate(uint64_t item) const {
 		uint64_t est = std::numeric_limits<uint64_t>::max();
 		for(size_t i=0;i<d;i++) {

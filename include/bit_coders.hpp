@@ -19,6 +19,16 @@ struct vbyte {
         return "vbyte";
     }
 
+    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+    }
+
+
     template <typename T>
     inline uint64_t encoded_length(const T& x) const
     {
@@ -104,6 +114,16 @@ public:
         return "u" + std::to_string(t_width);
     }
 
+    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+    }
+
+
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, T* in_buf, size_t n) const
     {
@@ -125,6 +145,15 @@ public:
     static std::string type()
     {
         return "u" + std::to_string(8 * sizeof(t_int_type)) + "a";
+    }
+
+    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    {
     }
 
     template <class t_bit_ostream>
@@ -200,7 +229,6 @@ public:
     {
         dict_ptr = dptr;
         dict_size = n;
-
     }
 
     template <class t_bit_ostream, class T>
@@ -284,8 +312,8 @@ public:
             if (sdret != Z_OK) {
                 LOG(FATAL) << "zlib-decode: set dictionary error:" << sdret;
             }
+            error = inflate(&istrm, Z_FINISH);
         }
-        error = inflate(&istrm, Z_FINISH);
         inflateReset(&istrm); // after finish we need to reset
         if (error != Z_STREAM_END) {
             switch (error) {
@@ -436,6 +464,8 @@ template <uint8_t t_level = 9>
 struct lz4hc {
 private:
     mutable void* lz4_state = nullptr;
+    mutable const char* dict_ptr = nullptr;
+    mutable uint32_t dict_size = 0;
 public:
     lz4hc()
     {
@@ -453,6 +483,18 @@ public:
         return "lz4hc-" + std::to_string(t_level);
     }
 
+    inline void set_deflate_dictionary(const uint8_t* dptr, uint32_t n) const
+    {
+        dict_ptr = (const char*) dptr;
+        dict_size = n;
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* dptr, uint32_t n) const
+    {
+        dict_ptr = (const char*) dptr;
+        dict_size = n;
+    }
+
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
     {
@@ -462,8 +504,16 @@ public:
         /* compress */
         char* out_buf = (char*) os.cur_data8();
         uint64_t in_size = n * sizeof(T);
-        auto bytes_written = LZ4_compress_HC_extStateHC(lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3,t_level);
-        os.skip(bytes_written * 8); // skip over the written content
+        LZ4_resetStreamHC((LZ4_streamHC_t*)lz4_state,t_level);
+        if(dict_size != 0) { /* prime with dict */
+            LZ4_loadDictHC((LZ4_streamHC_t*)lz4_state,dict_ptr,dict_size);
+        }
+        auto bytes_written = LZ4_compress_HC_continue((LZ4_streamHC_t*)lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3);
+        os.skip(bytes_written * 8);
+        // } else {
+        //     auto bytes_written = LZ4_compress_HC_extStateHC(lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3,t_level);
+        //     os.skip(bytes_written * 8); // skip over the written content            
+        // }
     }
 
     template <class t_bit_istream, class T>
@@ -472,7 +522,12 @@ public:
         is.align8(); // align to bytes if needed
         const char* in_buf = (const char*) is.cur_data8();
         uint64_t out_size = n * sizeof(T);
-        auto comp_size = LZ4_decompress_fast(in_buf,(char*)out_buf,out_size);
+        int comp_size = 0;
+        if(dict_size != 0) { /* prime with dict */
+            comp_size = LZ4_decompress_fast_usingDict(in_buf,(char*)out_buf,out_size,dict_ptr,dict_size);
+        } else {
+            comp_size = LZ4_decompress_fast(in_buf,(char*)out_buf,out_size);
+        }
         is.skip(comp_size * 8); // skip over the read content
     }
 };
@@ -488,6 +543,16 @@ public:
     {
         return "bzip2-" + std::to_string(t_level);
     }
+
+    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+
+    }
+
+    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    {
+    }
+
 
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const

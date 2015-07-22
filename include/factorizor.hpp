@@ -67,8 +67,9 @@ struct factorizor {
         /* (1) create output files */
         factor_storage fs(col, t_block_size, offset);
 
-        /* (2) create encoder */
+        /* (2) create encoder and load priming data from file if necessary */
         t_coder coder;
+        sdsl::load_from_file(coder, col.file_map[KEY_FCODER]);
 
         /* (3) compute text stats */
         auto block_size = t_block_size;

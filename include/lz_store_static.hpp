@@ -19,8 +19,8 @@ using namespace std::chrono;
 
 template <class t_coder,
           uint32_t t_block_size,
-          uint32_t t_prime_size = 0,
-          class t_dictionary_creation_strategy = dict_none
+          class t_dictionary_creation_strategy = dict_none,
+          uint32_t t_prime_size = 0
           >
 class lz_store_static {
 public:
@@ -69,6 +69,7 @@ public:
             m_dict_hash = col.param_map[PARAM_DICT_HASH];
             m_dict_file = col.file_map[KEY_DICT];
             sdsl::load_from_file(m_dict, col.file_map[KEY_DICT]);
+            LOG(INFO) << "\tDict size = " << m_dict.size();
         }
         {
             LOG(INFO) << "\tDetermine text size";
@@ -94,7 +95,7 @@ public:
     }
 
     size_type size_in_bytes() const {
-        return (m_compressed_text.size()>>3) + m_blockmap.size_in_bytes();
+        return (m_compressed_text.size()>>3) + m_blockmap.size_in_bytes() + m_dict.size();
     }
 
     inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data&) const
@@ -130,19 +131,19 @@ public:
 
 template <class t_coder,
           uint32_t t_block_size,
-          uint32_t t_prime_size,
-          class t_dictionary_creation_strategy
+          class t_dictionary_creation_strategy,
+          uint32_t t_prime_size
           >
 class lz_store_static<t_coder,
                       t_block_size,
-                      t_prime_size,
-                      t_dictionary_creation_strategy
+                      t_dictionary_creation_strategy,
+                      t_prime_size
                       >::builder {
 public:
     using base_type = lz_store_static<t_coder,
                       t_block_size,
-                      t_prime_size,
-                      t_dictionary_creation_strategy
+                      t_dictionary_creation_strategy,
+                      t_prime_size
                       >;
     using coder_type = t_coder;
     using block_map_type = block_map_uncompressed;
@@ -166,18 +167,21 @@ public:
     static std::string blockmap_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_BLOCKMAP + "-" + base_type::type() + "-"
-               + block_map_type::type() +".sdsl";
+               + block_map_type::type() + "-" + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
     static std::string blockoffsets_file_name(collection& col)
     {
-        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-" + base_type::type() + ".sdsl";
+        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-" + base_type::type() 
+            + "-" + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
-    static std::string encoding_file_name(collection& col)
+    static std::string encoding_file_name(collection& col,size_t dict_size_bytes)
     {
+        auto dict_size_mb = dict_size_bytes / (1024*1024);
         return col.path + "/index/" + KEY_LZ + "-"
-               + block_map_type::type() + "-" + base_type::type() + ".sdsl";
+               + block_map_type::type() + "-" + base_type::type() + "-" + 
+                std::to_string(dict_size_mb) + ".sdsl";
     }
 
     lz_store_static build_or_load(collection& col) const
@@ -192,9 +196,11 @@ public:
             dictionary_creation_strategy::create(col, rebuild, dict_size_bytes);
             LOG(INFO) << "Dictionary hash '" << col.param_map[PARAM_DICT_HASH] << "'";
             sdsl::load_from_file(dict, col.file_map[KEY_DICT]);
+        } else {
+            col.param_map[PARAM_DICT_HASH] = "0";
         }
 
-        auto lz_file_name = encoding_file_name(col);
+        auto lz_file_name = encoding_file_name(col,dict_size_bytes);
         auto bo_file_name = blockoffsets_file_name(col);
         if (rebuild || !utils::file_exists(lz_file_name)) {
             LOG(INFO) << "Encoding text (" << base_type::type() << ")";
@@ -269,9 +275,16 @@ public:
     lz_store_static load(collection& col) const
     {
         /* make sure components exists and register them */
+        if(dict_size_bytes != 0) {
+            auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
+            col.file_map[KEY_DICT] = dict_file_name;
+            col.compute_dict_hash();            
+        } else {
+            col.param_map[PARAM_DICT_HASH] = "0";
+        }
 
         /* (2) check factorized text */
-        auto enc_file_name = encoding_file_name(col);
+        auto enc_file_name = encoding_file_name(col,dict_size_bytes);
         if (!utils::file_exists(enc_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find encoded text.");
         } else {

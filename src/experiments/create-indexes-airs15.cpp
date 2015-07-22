@@ -46,28 +46,50 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
 
             if(args.verify) verify_index(col, lz_store);
         }
-        {
-            auto lz_store = typename lz_store_static<coder::lz4hc<16>,t_factorization_blocksize>::builder{}
-                                 .set_rebuild(args.rebuild)
-                                 .set_threads(args.threads)
-                                 .set_dict_size(dict_size_in_bytes)
-                                 .build_or_load(col);
 
-            if(args.verify) verify_index(col, lz_store);
-        }
-        {
-            auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
-                                 .set_rebuild(args.rebuild)
-                                 .set_threads(args.threads)
-                                 .set_dict_size(dict_size_in_bytes)
-                                 .build_or_load(col);
+        // {
+        //     auto lz_store = typename lz_store_static<coder::fixed<8>,t_factorization_blocksize>::builder{}
+        //                          .set_rebuild(args.rebuild)
+        //                          .set_threads(args.threads)
+        //                          .set_dict_size(dict_size_in_bytes)
+        //                          .build_or_load(col);
 
-            if(args.verify) verify_index(col, lz_store);
-        }
+        //     if(args.verify) verify_index(col, lz_store);
+        // }
         return;
     }
     /* rlz compression */
     {
+        {
+            const uint32_t zlib_prime_size = 32768;
+            auto lz_store = typename lz_store_static<coder::zlib<9>,
+                                    t_factorization_blocksize,
+                                    dict_uniform_sample_budget<airs_sample_block_size>,
+                                    zlib_prime_size
+                                    >::builder{}
+                                 .set_rebuild(args.rebuild)
+                                 .set_threads(args.threads)
+                                 .set_dict_size(dict_size_in_bytes)
+                                 .build_or_load(col);
+
+            if(args.verify) verify_index(col, lz_store);
+        }
+        {
+            const uint32_t lz4_prime_size = 2*32768;
+            auto lz_store = typename lz_store_static<coder::lz4hc<16>,
+                                    t_factorization_blocksize,
+                                    dict_uniform_sample_budget<airs_sample_block_size>,
+                                    lz4_prime_size
+                                    >::builder{}
+                                 .set_rebuild(args.rebuild)
+                                 .set_threads(args.threads)
+                                 .set_dict_size(dict_size_in_bytes)
+                                 .build_or_load(col);
+
+            if(args.verify) verify_index(col, lz_store);
+        }
+
+        
         const uint32_t dict_size_in_bytes_log2 = CLog2<dict_size_in_bytes>();
     	/* RLZ-UV LOG(D)bit offsets */
         using rlz_type_uv_greedy_sp = rlz_store_static<dict_uniform_sample_budget<airs_sample_block_size>,
@@ -106,8 +128,18 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         if(args.verify) verify_index(col, rlz_store);
     }
     {
-    	/* RLZ-LLL */
-        auto rlz_store = typename rlz_type_ll_greedy_sp<t_factorization_blocksize>::builder{}
+        /* RLZ-ZZP */
+        const uint32_t prime_size = 32768;
+        using fcoder_type = factor_coder_blocked_twostream_primed<1, coder::zlib<9>, coder::zlib<9>, prime_size>;
+        using rlz_type_zzp_greedy_sp = rlz_store_static<
+                                         dict_uniform_sample_budget<airs_sample_block_size>,
+                                         dict_prune_none,
+                                         dict_index_csa<airs_csa_type>,
+                                         t_factorization_blocksize,
+                                         factor_select_first,
+                                         fcoder_type,
+                                         block_map_uncompressed>;
+        auto rlz_store = typename rlz_type_zzp_greedy_sp::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
                              .set_dict_size(dict_size_in_bytes)
@@ -142,9 +174,9 @@ int main(int argc, const char* argv[])
     create_indexes<16*1024,0*1024*1024>(col,args);
     create_indexes<64*1024,0*1024*1024>(col,args);
 
-    create_indexes<16*1024,256*1024*1024>(col,args);
-    create_indexes<64*1024,256*1024*1024>(col,args);
-    create_indexes<256*1024,256*1024*1024>(col,args);
+    create_indexes<16*1024,4*1024*1024>(col,args);
+    create_indexes<64*1024,4*1024*1024>(col,args);
+    create_indexes<256*1024,4*1024*1024>(col,args);
 
     return EXIT_SUCCESS;
 }

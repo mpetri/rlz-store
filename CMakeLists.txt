@@ -86,3 +86,9 @@ target_link_libraries(create-indexes-airs15.x sdsl pthread divsufsort divsufsort
 
 add_executable(bench-indexes-airs15.x src/experiments/bench-indexes-airs15.cpp)
 target_link_libraries(bench-indexes-airs15.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+
+add_executable(bench-priming-airs15.x src/experiments/bench-priming-airs15.cpp)
+target_link_libraries(bench-priming-airs15.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+
+add_executable(bench-multistream-airs15.x src/experiments/bench-multistream-airs15.cpp)
+target_link_libraries(bench-multistream-airs15.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
