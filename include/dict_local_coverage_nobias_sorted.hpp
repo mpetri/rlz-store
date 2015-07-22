@@ -47,8 +47,8 @@ public:
 			//double threshold = 0.0f;
 			// using sketch_type = count_min_sketch<std::ratio<1, 2000000>,std::ratio<1, 5>>;
 			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 10>>; //for 1gb
-			//  using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
-			 using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 10>>; //for 10gb
+			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 10>>; //for 2gb
+			using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 10>>; //for 10gb
 			using hasher_type = fixed_hasher<t_estimator_block_size>;
 			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
 			cfe_type cfe;
@@ -63,8 +63,13 @@ public:
 			auto num_samples = budget_bytes / t_block_size;
             LOG(INFO) << "\tDictionary samples = " << num_samples;
             auto n = text.size();
-            size_t sample_step = n / num_samples;
+            size_t sample_step = n / num_samples;   
+            size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
+            size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
+
             LOG(INFO) << "\tSample steps = " << sample_step;
+            LOG(INFO) << "\tAdjusted sample steps = " << sample_step_adjusted;
+            LOG(INFO) << "\tAdjusted dictionary samples  = " << num_samples_adjusted;
 
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
@@ -129,7 +134,7 @@ public:
 
 			std::vector<uint32_t> step_indices;
 			//try ordered max cov from front to back, proven to be good for small datasets
-			for (size_t i = 0; i < num_samples; i++) {
+			for (size_t i = 0; i < num_samples_adjusted; i++) {
 				step_indices.push_back(i);
 			}
 			// //try randomly ordered max cov
@@ -158,11 +163,11 @@ public:
 				// fixed_hasher<t_estimator_block_size> rk;
 				std::unordered_set<uint64_t> best_local_blocks;
 
-				for(size_t j=0;j<sample_step;j = j+t_block_size) {//blocks 
+				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 
 					std::unordered_set<uint64_t> local_blocks;
 
 					for(size_t k=0;k<t_block_size;k++) {//bytes
-						auto sym = text[i*sample_step+j+k];
+						auto sym = text[i*sample_step_adjusted+j+k];
 						auto hash = rk.update(sym);
 
 						if(k < t_estimator_block_size-1) continue;
@@ -186,7 +191,9 @@ public:
 				}
 
 				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
-				picked_blocks.push_back(i * sample_step + best_block_no * t_block_size);
+				picked_blocks.push_back(i * sample_step_adjusted + best_block_no * t_block_size);
+				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
+				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
 		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
 		    step_blocks.clear(); //save mem
