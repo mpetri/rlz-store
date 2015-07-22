@@ -28,7 +28,7 @@ int main(int argc, const char* argv[])
 		const uint32_t factorization_blocksize = 32768;
 		const uint32_t sample_block_size = 1024;
 		using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-		using fcoder_type = factor_coder_blocked<1, coder::fixed<32>, coder::aligned_fixed<uint32_t>, coder::vbyte>;
+		using fcoder_type = factor_coder_blocked<1, coder::zlib<9>, coder::zlib<9>, coder::zlib<9> >;
 		using rlz_type_uv_greedy_sp = rlz_store_static<
 										 dict_uniform_sample_budget<sample_block_size>,
 			                             dict_prune_none,
@@ -49,6 +49,7 @@ int main(int argc, const char* argv[])
                                          // dict_local_coverage_nobias_memory<sample_block_size, 16>,
                                          dict_local_coverage_nobias_sorted<sample_block_size, 16>,
                                          // dict_local_coverage_rolling<sample_block_size, 8>,
+                                         // exact_counting<sample_block_size, 16>,
                                          dict_prune_none,
                                          dict_index_csa<csa_type>,
                                          factorization_blocksize,

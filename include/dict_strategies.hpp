@@ -13,3 +13,5 @@
 #include "dict_local_coverage_nobias.hpp"
 #include "dict_local_coverage_nobias_memory.hpp"
 #include "dict_local_coverage_nobias_sorted.hpp"
+#include "exact_counting.hpp"
+
