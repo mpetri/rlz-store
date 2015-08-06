@@ -25,41 +25,33 @@ int main(int argc, const char* argv[])
     /* create rlz index */
     {
     	/* create the default dict */
-		const uint32_t factorization_blocksize = 32768;
-		const uint32_t sample_block_size = 1024;
-		using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-		using fcoder_type = factor_coder_blocked<1, coder::zlib<9>, coder::zlib<9>, coder::zlib<9> >;
-		using rlz_type_uv_greedy_sp = rlz_store_static<
-										 dict_uniform_sample_budget<sample_block_size>,
-			                             dict_prune_none,
-			                             dict_index_csa<csa_type>,
-			                             factorization_blocksize,
-			                             factor_select_first,
-			                             fcoder_type,
-			                             block_map_uncompressed>;
-        auto rlz_store = rlz_type_uv_greedy_sp::builder{}
-                             .set_rebuild(false)
-                             .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
-                             .build_or_load(col);
-
-        using rlz_type_new = rlz_store_static<
-                                         dict_sketch_cover_onepass<1024,8,100>,
-                                         // dict_local_coverage_disjoint<sample_block_size, 16>,
-                                         // dict_local_coverage_nobias_memory<sample_block_size, 16>,
-                                         //dict_local_coverage_nobias_sorted<sample_block_size, 16>,
-                                         // dict_local_coverage_rolling<sample_block_size, 8>,
-                                         // exact_counting<sample_block_size, 16>,
-                                         dict_prune_none,
-                                         dict_index_csa<csa_type>,
-                                         factorization_blocksize,
-                                         factor_select_first,
-                                         fcoder_type,
-                                         block_map_uncompressed>;
-        auto rlz_store_new = rlz_type_new::builder{}
+        const uint32_t block_size = 32768;
+        using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
+        using rlz_type_zzz_greedy_sp_prune = rlz_store_static<dict_uniform_sample_budget<1024>,
+                                     dict_prune_rem<1024>,
+                                     dict_index_csa<csa_type>,
+                                     block_size,
+                                     factor_select_first,
+                                     factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+        auto rlz_store = typename rlz_type_zzz_greedy_sp_prune::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
+                             .set_dict_size(64*1024*1024)
+                             .set_pruned_dict_size(64*1024*1024)
+                             .build_or_load(col);
+
+        using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<1024>,
+                                     dict_prune_none,
+                                     dict_index_csa<csa_type>,
+                                     block_size,
+                                     factor_select_first,
+                                     factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+        auto rlz_store_new = typename rlz_type_zzz_greedy_sp::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(32*1024*1024)
                              .build_or_load(col);
 
 

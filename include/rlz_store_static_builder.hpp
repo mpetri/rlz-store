@@ -22,7 +22,7 @@ class rlz_store_static<t_dictionary_creation_strategy,
 public:
     using dictionary_creation_strategy = t_dictionary_creation_strategy;
     using dictionary_pruning_strategy = t_dictionary_pruning_strategy;
-    using dictionary_index = t_dictionary_index;
+    using dictionary_index_type = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
     using factor_encoder = t_factor_coder;
     using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_encoder>;
@@ -43,6 +43,12 @@ public:
         dict_size_bytes = ds;
         return *this;
     };
+    builder& set_pruned_dict_size(uint64_t ds)
+    {
+        pruned_dict_size_bytes = ds;
+        return *this;
+    };
+
 
     static std::string blockmap_file_name(collection& col)
     {
@@ -121,15 +127,15 @@ public:
 
         // (2) prune the dictionary if necessary
         LOG(INFO) << "Prune dictionary with " << dictionary_pruning_strategy::type();
-        dictionary_pruning_strategy::template prune<factorization_strategy>(col, rebuild);
+        dictionary_pruning_strategy::template prune<dictionary_index_type,factorization_strategy>(col, 
+                                rebuild,pruned_dict_size_bytes);
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (3) create factorized text using the dict
-        auto dict_hash = col.param_map[PARAM_DICT_HASH];
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         if (rebuild || !utils::file_exists(factor_file_name)) {
             LOG(INFO) << "Create/Load dictionary index";
-            dictionary_index idx(col, rebuild);
+            dictionary_index_type idx(col, rebuild);
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
 
             LOG(INFO) << "Create priming data for factor coder";
@@ -336,4 +342,5 @@ private:
     bool rebuild = false;
     uint32_t num_threads = 1;
     uint64_t dict_size_bytes = 0;
+    uint64_t pruned_dict_size_bytes = 0;
 };

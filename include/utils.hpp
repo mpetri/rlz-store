@@ -150,6 +150,7 @@ std::string safe_print(t_itr itr, t_itr end)
 typedef struct cmdargs {
     std::string collection_dir;
     size_t dict_size_in_bytes;
+    size_t pruned_dict_size_in_bytes;
     bool rebuild;
     uint32_t threads;
     bool verify;
@@ -161,7 +162,8 @@ print_usage(const char* program)
     fprintf(stdout, "%s <args>\n", program);
     fprintf(stdout, "where\n");
     fprintf(stdout, "  -c <collection directory>  : the directory the collection is stored.\n");
-    fprintf(stdout, "  -s <dict size in MB>       : size of the dictionary in MB.\n");
+    fprintf(stdout, "  -s <dict size in MB>       : size of the initial dictionary in MB.\n");
+    fprintf(stdout, "  -p <dict size in MB>       : size of the dictionary after pruning in MB.\n");
     fprintf(stdout, "  -d <debug output>          : increase the amount of logs shown.\n");
     fprintf(stdout, "  -t <threads>               : number of threads to use during factorization.\n");
     fprintf(stdout, "  -f <force rebuild>         : force rebuild of structures.\n");
@@ -178,7 +180,8 @@ parse_args(int argc, const char* argv[])
     args.verify = false;
     args.threads = 1;
     args.dict_size_in_bytes = 0;
-    while ((op = getopt(argc, (char* const*)argv, "c:fdvt:s:")) != -1) {
+    args.pruned_dict_size_in_bytes = 0;
+    while ((op = getopt(argc, (char* const*)argv, "c:fdvt:s:p:")) != -1) {
         switch (op) {
         case 'c':
             args.collection_dir = optarg;
@@ -188,6 +191,9 @@ parse_args(int argc, const char* argv[])
             break;
         case 'f':
             args.rebuild = true;
+            break;
+        case 'p':
+            args.pruned_dict_size_in_bytes = std::stoul(optarg) * (1024 * 1024);
             break;
         case 't':
             args.threads = std::stoul(optarg);
@@ -205,6 +211,10 @@ parse_args(int argc, const char* argv[])
         print_usage(argv[0]);
         exit(EXIT_FAILURE);
     }
+    if(args.pruned_dict_size_in_bytes == 0) {
+        args.pruned_dict_size_in_bytes = args.dict_size_in_bytes;
+    }
+
     return args;
 }
 

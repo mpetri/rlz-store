@@ -17,6 +17,96 @@ struct factorization_info {
     }
 };
 
+struct factorization_statistics {
+    using size_type = uint64_t;
+    uint64_t block_size;
+    uint64_t total_encoded_factors = 0;
+    uint64_t total_encoded_blocks = 0;
+    sdsl::int_vector<64> dict_usage;
+
+    inline size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = NULL, std::string name = "") const
+    {
+        using namespace sdsl;
+        structure_tree_node* child = structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+        size_type written_bytes = 0;
+        written_bytes += dict_usage.serialize(out,child,"dict byte usage");
+        written_bytes += sdsl::serialize(total_encoded_factors,out,child,"total factors");
+        written_bytes += sdsl::serialize(block_size,out,child,"block_size");
+        written_bytes += sdsl::serialize(total_encoded_blocks,out,child,"total encoded blocks");
+        sdsl::structure_tree::add_size(child, written_bytes);
+        return written_bytes;
+    }
+
+    inline void load(std::istream& in)
+    {
+        dict_usage.load(in);
+        sdsl::read_member(total_encoded_factors,in);
+        sdsl::read_member(block_size,in);
+        sdsl::read_member(total_encoded_blocks,in);
+    }
+};
+
+struct factor_tracker {
+    factorization_statistics fs;
+    hrclock::time_point encoding_start;
+    block_factor_data tmp_block_factor_data;
+    factor_tracker(collection& col, size_t _block_size)
+    {
+        {
+            const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
+            fs.dict_usage.resize(dict.size());
+            fs.block_size =_block_size;
+        }
+        // create a buffer we can write to without reallocating
+        tmp_block_factor_data.resize(_block_size);
+        // save the start of the encoding process
+        encoding_start = hrclock::now();
+    }
+    template <class t_coder, class t_itr>
+    void add_to_block_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
+    {
+        tmp_block_factor_data.add_factor(coder, text_itr, offset, len);
+    }
+    void start_new_block()
+    {
+        tmp_block_factor_data.reset();
+    }
+    template <class t_coder>
+    void encode_current_block(t_coder& coder)
+    {
+        for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
+            auto len = tmp_block_factor_data.lengths[i];
+            if( len > coder.literal_threshold ) {
+                auto offset = tmp_block_factor_data.offset_literals[i];
+                for(size_t j=0;j<len;j++) {
+                    fs.dict_usage[offset+j]++;
+                }
+            } 
+        }
+        fs.total_encoded_factors += tmp_block_factor_data.num_factors;
+        fs.total_encoded_blocks++;
+    }
+    void output_stats(size_t total_blocks) const
+    {
+        auto cur_time = hrclock::now();
+        auto time_spent = cur_time - encoding_start;
+        auto time_in_sec = std::chrono::duration_cast<std::chrono::milliseconds>(time_spent).count() / 1000.0f;
+        auto bytes_written = fs.total_encoded_blocks * fs.block_size;
+        auto mb_written = bytes_written / (1024 * 1024);
+        LOG(INFO) << "\t FACTORS = " << fs.total_encoded_factors << " "
+                  << "BLOCKS = " << fs.total_encoded_blocks << " "
+                  << "F/B = " << (double)fs.total_encoded_factors / (double)fs.total_encoded_blocks << " "
+                  << "SPEED = " << mb_written / time_in_sec << " MB/s"
+                  << " (" << 100 * (double)fs.total_encoded_blocks / (double)total_blocks << "%)";
+    }
+
+    factorization_statistics
+    statistics() const
+    {
+        return fs;
+    }
+};
+
 struct factor_storage {
     uint64_t offset;
     uint64_t block_size;

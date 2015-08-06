@@ -55,7 +55,7 @@ public:
         }
         factor_data fd;
         fd.len = m_block_factor_data.lengths[m_factor_offset];
-        if( m_block_factor_data.lengths[m_factor_offset] <= m_idx.factor_coder.literal_threshold ) {
+        if( m_block_factor_data.lengths[m_factor_offset] <= m_idx.m_factor_coder.literal_threshold ) {
             /* literal factor */
             fd.is_literal = true;
             fd.literal_ptr = m_block_factor_data.literals.data() + m_in_block_literals_offset;

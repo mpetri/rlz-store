@@ -39,8 +39,8 @@ struct factorizor {
         return col.path + "/index/" + KEY_BLOCKFACTORS + "-fs=" + type() + "-dhash=" + dict_hash + ".sdsl";
     }
 
-    template <class t_itr>
-    static void factorize_block(factor_storage& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end)
+    template <class t_fstorage,class t_itr>
+    static void factorize_block(t_fstorage& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end)
     {
         auto factor_itr = idx.factorize(itr, end);
         fs.start_new_block();
@@ -96,5 +96,43 @@ struct factorizor {
         }
 
         return fs.info();
+    }
+
+    template <class t_itr>
+    static factorization_statistics
+    factorize_statistics(collection& col, t_index& idx, t_itr itr, t_itr end)
+    {
+        /* (1) create output files */
+        factor_tracker ft(col, t_block_size);
+
+        /* (2) create encoder and load priming data from file if necessary */
+        t_coder coder;
+        sdsl::load_from_file(coder, col.file_map[KEY_FCODER]);
+
+        /* (3) compute text stats */
+        auto block_size = t_block_size;
+        size_t n = std::distance(itr, end);
+        size_t num_blocks = n / block_size;
+        auto left = n % block_size;
+        auto blocks_per_10mib = (10 * 1024 * 1024) / block_size;
+
+        /* (4) encode blocks */
+        for (size_t i = 1; i <= num_blocks; i++) {
+            auto block_end = itr + block_size;
+            // LOG(INFO) << "block " << i;
+            factorize_block(ft, coder, idx, itr, block_end);
+            itr = block_end;
+            block_end += block_size;
+            if (i % blocks_per_10mib == 0) {
+                ft.output_stats(num_blocks);
+            }
+        }
+
+        /* (5) is there a non-full block? */
+        if (left != 0) {
+            factorize_block(ft, coder, idx, itr, end);
+        }
+
+        return ft.statistics();
     }
 };
