@@ -16,6 +16,3 @@
 [submodule "external/zlib"]
 	path = external/zlib
 	url = https://github.com/madler/zlib
-[submodule "external/stxxl"]
-	path = external/stxxl
-	url = http://github.com/stxxl/stxxl.git
