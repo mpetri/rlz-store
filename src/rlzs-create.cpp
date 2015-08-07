@@ -26,7 +26,7 @@ int main(int argc, const char* argv[])
     const uint32_t block_size = 32768;
     using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
     using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<1024>,
-                                 dict_prune_rem<1024>,
+                                 dict_prune_care<20,10>,
                                  dict_index_csa<csa_type>,
                                  block_size,
                                  factor_select_first,

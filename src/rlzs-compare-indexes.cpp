@@ -28,7 +28,7 @@ int main(int argc, const char* argv[])
         const uint32_t block_size = 32768;
         using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
         using rlz_type_zzz_greedy_sp_prune = rlz_store_static<dict_uniform_sample_budget<1024>,
-                                     dict_prune_rem<1024>,
+                                     dict_prune_care<40,10,FFT>,
                                      dict_index_csa<csa_type>,
                                      block_size,
                                      factor_select_first,
@@ -38,7 +38,7 @@ int main(int argc, const char* argv[])
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
                              .set_dict_size(64*1024*1024)
-                             .set_pruned_dict_size(64*1024*1024)
+                             .set_pruned_dict_size(8*1024*1024)
                              .build_or_load(col);
 
         using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<1024>,
@@ -51,7 +51,7 @@ int main(int argc, const char* argv[])
         auto rlz_store_new = typename rlz_type_zzz_greedy_sp::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
-                             .set_dict_size(32*1024*1024)
+                             .set_dict_size(8*1024*1024)
                              .build_or_load(col);
 
 
