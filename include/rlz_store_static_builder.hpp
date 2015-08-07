@@ -57,64 +57,6 @@ public:
                + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
-    static std::string factorcoder_file_name(collection& col)
-    {
-        return col.path + "/index/" + KEY_FCODER + "-"
-               + factor_encoder::type() + "-" + factorization_strategy::type() + "-"
-               + col.param_map[PARAM_DICT_HASH] + ".sdsl";
-    }
-
-    void create_priming(factor_encoder& coder,
-        const sdsl::int_vector_mapper<8, std::ios_base::in>& text,
-        dictionary_index& idx) const
-    {
-        uint64_t prime_bytes = factor_encoder::prime_bytes;
-        uint64_t prime_factors = prime_bytes / 4;
-        uint64_t prime_fact_block_size = 1024;
-        // LOG(INFO) << "prime_bytes = " << prime_bytes;
-        // LOG(INFO) << "prime_factors = " << prime_factors;
-        /* perform uniform random encodings */
-        sdsl::int_vector<32> offsets(prime_factors);
-        sdsl::int_vector<32> lens(prime_factors);
-        auto n = text.size();
-        // LOG(INFO) << "n = " << n;
-        std::mt19937 gen(4711);
-        std::uniform_int_distribution<uint64_t> dis(0,n-1-prime_fact_block_size);
-        // LOG(INFO) << "prime_fact_block_size = " << prime_fact_block_size;
-        block_factor_data tmp_block_factor_data(prime_fact_block_size);
-        size_t factors_created = 0;
-        while(factors_created != prime_factors) {
-            auto pos = dis(gen);
-            // LOG(INFO) << "prime from pos = " << pos;
-            auto itr = text.begin()+pos;
-            auto end = itr + prime_fact_block_size;
-
-            auto factor_itr = idx.factorize(itr, end);
-            size_t syms_encoded = 0;
-            while (!factor_itr.finished()) {
-                if (factor_itr.len == 0) {
-                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, 0, 1);
-                } else {
-                    auto offset = factor_selection_strategy::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
-                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, offset, factor_itr.len);
-                }
-                ++factor_itr;
-            }
-
-            /* copy lens and offset_literals */
-            // LOG(INFO) << "copy num_factors = " << tmp_block_factor_data.num_factors;
-            for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
-                if(factors_created == prime_factors) break;
-                lens[factors_created] = tmp_block_factor_data.lengths[i];
-                offsets[factors_created] = tmp_block_factor_data.offset_literals[i];
-                factors_created++;
-            }
-            tmp_block_factor_data.reset();
-        }
-        coder.set_offset_prime(offsets);
-        coder.set_length_prime(lens);
-    }
-
     rlz_store_static build_or_load(collection& col) const
     {
         auto start = hrclock::now();
@@ -128,72 +70,21 @@ public:
         // (2) prune the dictionary if necessary
         LOG(INFO) << "Prune dictionary with " << dictionary_pruning_strategy::type();
         dictionary_pruning_strategy::template prune<dictionary_index_type,factorization_strategy>(col, 
-                                rebuild,pruned_dict_size_bytes);
+                                rebuild,pruned_dict_size_bytes,num_threads);
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (3) create factorized text using the dict
         auto factor_file_name = factorization_strategy::factor_file_name(col);
-        if (rebuild || !utils::file_exists(factor_file_name)) {
-            LOG(INFO) << "Create/Load dictionary index";
-            dictionary_index_type idx(col, rebuild);
-            const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
-
-            LOG(INFO) << "Create priming data for factor coder";
-            {
-                factor_encoder tmp_coder;
-                create_priming(tmp_coder,text,idx);
-                auto factorcoder_file = factorcoder_file_name(col);
-                sdsl::store_to_file(tmp_coder, factorcoder_file);
-                col.file_map[KEY_FCODER] = factorcoder_file;
-            }
-
-
-            LOG(INFO) << "Factorize text (" << num_threads << " threads) - ("
-                      << factorization_strategy::type() << ")";
-            auto start_fact = hrclock::now();
-
-
-            std::vector<std::future<factorization_info> > fis;
-            std::vector<factorization_info> efs;
-            auto num_blocks = text.size() / t_factorization_block_size;
-            auto blocks_per_thread = num_blocks / num_threads;
-            auto syms_per_thread = blocks_per_thread * t_factorization_block_size;
-            auto left = text.size();
-            auto itr = text.begin();
-            for (size_t i = 0; i < num_threads; i++) {
-                auto begin = itr;
-                auto end = begin + syms_per_thread;
-                if (left < 2 * syms_per_thread) // last thread might have to encode a little more
-                    end = text.end();
-                fis.push_back(std::async(std::launch::async, [&, begin, end, i] {
-                        return factorization_strategy::factorize(col,idx,begin,end,i);
-                }));
-                itr += syms_per_thread;
-                left -= syms_per_thread;
-            }
-            // wait for all threads to finish
-            for (auto& fi : fis) {
-                auto f = fi.get();
-                efs.push_back(f);
-            }
-            auto stop_fact = hrclock::now();
-            auto text_size_mb = text.size() / (1024 * 1024.0);
-            auto fact_seconds = duration_cast<milliseconds>(stop_fact - start_fact).count() / 1000.0;
-            LOG(INFO) << "Factorization time = " << fact_seconds << " sec";
-            LOG(INFO) << "Factorization speed = " << text_size_mb / fact_seconds << " MB/s";
-            LOG(INFO) << "Factorize done. (" << factorization_strategy::type() << ")";
-            output_encoding_stats(efs, text.size());
-
-            LOG(INFO) << "Merge factorized text blocks";
-            merge_factor_encodings<factorization_strategy>(col, efs);
+        if(rebuild || !utils::file_exists(factor_file_name)) {
+            factorization_strategy::template parallel_factorize<factor_storage>(col,rebuild,num_threads);
         } else {
             LOG(INFO) << "Factorized text exists.";
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
-            col.file_map[KEY_FCODER] = factorcoder_file_name(col);
+            col.file_map[KEY_FCODER] = factorization_strategy::factorcoder_file_name(col);
         }
-
+       
         // (4) encode document start pos
         LOG(INFO) << "Create block map (" << block_map_type::type() << ")";
         auto blockmap_file = blockmap_file_name(col);
@@ -231,7 +122,7 @@ public:
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
-            col.file_map[KEY_FCODER] = factorcoder_file_name(col);
+            col.file_map[KEY_FCODER] = factorization_strategy::factorcoder_file_name(col);
         }
 
         /* (2) check blockmap */
@@ -243,98 +134,6 @@ public:
         }
 
         /* load */
-        return rlz_store_static(col);
-    }
-
-    template <class t_idx>
-    rlz_store_static reencode(collection& col, t_idx& old) const
-    {
-        /* (0) make sure we use the same dict, and coding strategy etc. */
-        static_assert(std::is_same<typename t_idx::dictionary_creation_strategy, dictionary_creation_strategy>::value,
-                      "different dictionary creation strategy");
-        static_assert(std::is_same<typename t_idx::dictionary_pruning_strategy, dictionary_pruning_strategy>::value,
-                      "different dictionary pruning strategy");
-        static_assert(std::is_same<typename t_idx::dictionary_index, dictionary_index>::value,
-                      "different dictionary index");
-        static_assert(std::is_same<typename t_idx::factor_selection_strategy, factor_selection_strategy>::value,
-                      "different factor selection strategy");
-        static_assert(t_idx::factorization_bs == t_factorization_block_size,
-                      "different factorization block size");
-        static_assert(t_idx::factor_coder_type::literal_threshold == factor_coder_type::literal_threshold,
-                      "different factor literal coding threshold");
-
-        /* (1) check dict */
-        auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
-        if (!utils::file_exists(dict_file_name)) {
-            throw std::runtime_error("Cannot find dictionary.");
-        } else {
-            col.file_map[KEY_DICT] = dict_file_name;
-            col.compute_dict_hash();
-        }
-
-        /* (2) reencode the factors */
-        auto start = hrclock::now();
-        LOG(INFO) << "Reencoding factors (" << t_factor_coder::type() << ")";
-        auto itr = old.factors_begin();
-        auto end = old.factors_end();
-        block_factor_data bfd;
-        auto factor_file_name = factorization_strategy::factor_file_name(col);
-        auto boffsets_file_name = factorization_strategy::boffsets_file_name(col);
-        auto bfactors_file_name = factorization_strategy::bfactors_file_name(col);
-        if (rebuild || !utils::file_exists(factor_file_name)) {
-            auto factor_buf = sdsl::write_out_buffer<1>::create(factor_file_name);
-            auto block_offsets = sdsl::write_out_buffer<0>::create(boffsets_file_name);
-            auto block_factors = sdsl::write_out_buffer<0>::create(bfactors_file_name);
-            bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
-            size_t cur_block_offset = itr.block_id;
-            t_factor_coder coder;
-            auto num_blocks = old.block_map.num_blocks();
-            auto num_blocks10p = (uint64_t)(num_blocks * 0.1);
-
-
-
-            while (itr != end) {
-                const auto& f = *itr;
-                if (itr.block_id != cur_block_offset) {
-                    block_offsets.push_back(factor_stream.tellp());
-                    block_factors.push_back(bfd.num_factors);
-                    coder.encode_block(factor_stream,bfd);
-                    cur_block_offset = itr.block_id;
-                    bfd.reset();
-                    if ((cur_block_offset + 1) % num_blocks10p == 0) {
-                        LOG(INFO) << "\t"
-                                  << "Encoded " << 100 * (cur_block_offset + 1) / num_blocks << "% ("
-                                  << (cur_block_offset + 1) << "/" << num_blocks << ")";
-                    }
-                }
-
-                if(f.is_literal) {
-                    bfd.add_factor(coder,f.literal_ptr,0,f.len);
-                } else {
-                    bfd.add_factor(coder,f.literal_ptr,f.offset,f.len);
-                }
-                ++itr;
-            }
-            if ( bfd.num_factors != 0) {
-                block_offsets.push_back(factor_stream.tellp());
-                block_factors.push_back(bfd.num_factors);
-                coder.encode_block(factor_stream,bfd);
-            }
-        }
-        col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
-        col.file_map[KEY_BLOCKOFFSETS] = boffsets_file_name;
-        col.file_map[KEY_BLOCKFACTORS] = bfactors_file_name;
-
-        LOG(INFO) << "\t"
-                  << "Create block map (" << block_map_type::type() << ")";
-        auto blockmap_file = blockmap_file_name(col);
-        if (rebuild || !utils::file_exists(blockmap_file)) {
-            block_map_type tmp(col);
-            sdsl::store_to_file(tmp, blockmap_file);
-        }
-        col.file_map[KEY_BLOCKMAP] = blockmap_file;
-        auto stop = hrclock::now();
-        LOG(INFO) << "RLZ factor reencode complete. time = " << duration_cast<seconds>(stop - start).count() << " sec";
         return rlz_store_static(col);
     }
 

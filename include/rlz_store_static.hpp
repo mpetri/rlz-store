@@ -13,8 +13,6 @@
 
 #include <sdsl/suffix_arrays.hpp>
 
-#include <future>
-
 using namespace std::chrono;
 
 template <class t_dictionary_creation_strategy,

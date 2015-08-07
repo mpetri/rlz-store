@@ -21,7 +21,7 @@ struct dict_prune_rem {
 
 
     template <class t_dict_idx,class t_factorization_strategy>
-    static void prune(collection& col, bool rebuild,uint64_t target_dict_size_bytes)
+    static void prune(collection& col, bool rebuild,uint64_t target_dict_size_bytes,uint64_t num_threads)
     {
     	auto start_dict_size_bytes = 0ULL;
     	{
@@ -49,12 +49,7 @@ struct dict_prune_rem {
     	auto dict_stats_file = dict_file + "-" + KEY_DICT_STATISTICS + "-" + t_factorization_strategy::type() + ".sdsl";
     	factorization_statistics fstats;
     	if (rebuild || !utils::file_exists(dict_stats_file)) {
-    		LOG(INFO) << "\tCreate/Load dictionary index over existing dict for pruning";
-	        t_dict_idx idx(col, rebuild);
-	        const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
-	        auto itr = text.begin();
-	        auto end = text.end();
-	        fstats = t_factorization_strategy::factorize_statistics(col,idx,itr,end);
+	        fstats = t_factorization_strategy::template parallel_factorize<factor_tracker>(col,rebuild,num_threads);
 	        sdsl::store_to_file(fstats,dict_stats_file);
 	    } else {
 	    	sdsl::load_from_file(fstats,dict_stats_file);

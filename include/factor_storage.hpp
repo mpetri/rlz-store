@@ -47,10 +47,12 @@ struct factorization_statistics {
 };
 
 struct factor_tracker {
+    using result_type = factorization_statistics;
     factorization_statistics fs;
     hrclock::time_point encoding_start;
     block_factor_data tmp_block_factor_data;
-    factor_tracker(collection& col, size_t _block_size)
+    size_t toffset;
+    factor_tracker(collection& col, size_t _block_size, size_t _offset) : toffset(_offset)
     {
         {
             const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
@@ -93,7 +95,8 @@ struct factor_tracker {
         auto time_in_sec = std::chrono::duration_cast<std::chrono::milliseconds>(time_spent).count() / 1000.0f;
         auto bytes_written = fs.total_encoded_blocks * fs.block_size;
         auto mb_written = bytes_written / (1024 * 1024);
-        LOG(INFO) << "\t FACTORS = " << fs.total_encoded_factors << " "
+        LOG(INFO) << "   (" << toffset << ") "
+                  << "FACTORS = " << fs.total_encoded_factors << " "
                   << "BLOCKS = " << fs.total_encoded_blocks << " "
                   << "F/B = " << (double)fs.total_encoded_factors / (double)fs.total_encoded_blocks << " "
                   << "SPEED = " << mb_written / time_in_sec << " MB/s"
@@ -101,14 +104,37 @@ struct factor_tracker {
     }
 
     factorization_statistics
-    statistics() const
+    result() const
     {
         return fs;
     }
 };
 
+void
+output_encoding_stats(collection& ,std::vector<factorization_statistics>& )
+{
+}
+
+
+template <class t_fact_strategy>
+factorization_statistics 
+merge_factor_encodings(collection& , std::vector<factorization_statistics>& efs)
+{
+    factorization_statistics fs;
+    fs.block_size = efs[0].block_size;
+    fs.dict_usage.resize(efs[0].dict_usage.size());
+    for(size_t i=0;i<efs.size();i++) {
+        for(size_t j=0;j<efs[i].dict_usage.size();j++) {
+            fs.dict_usage[j] += efs[i].dict_usage[j]; 
+        }
+    }
+    return fs;
+}
+
+
 struct factor_storage {
-    uint64_t offset;
+    using result_type = factorization_info;
+    uint64_t toffset;
     uint64_t block_size;
     uint64_t total_encoded_factors = 0;
     uint64_t total_encoded_blocks = 0;
@@ -119,11 +145,11 @@ struct factor_storage {
     sdsl::int_vector_mapper<0> block_factors;
     bit_ostream<sdsl::int_vector_mapper<1> > factor_stream;
     factor_storage(collection& col, size_t _block_size, size_t _offset)
-        : offset(_offset)
+        : toffset(_offset)
         , block_size(_block_size)
-        , factored_text(sdsl::write_out_buffer<1>::create(col.temp_file_name(KEY_FACTORIZED_TEXT, offset)))
-        , block_offsets(sdsl::write_out_buffer<0>::create(col.temp_file_name(KEY_BLOCKOFFSETS, offset)))
-        , block_factors(sdsl::write_out_buffer<0>::create(col.temp_file_name(KEY_BLOCKFACTORS, offset)))
+        , factored_text(sdsl::write_out_buffer<1>::create(col.temp_file_name(KEY_FACTORIZED_TEXT, toffset)))
+        , block_offsets(sdsl::write_out_buffer<0>::create(col.temp_file_name(KEY_BLOCKOFFSETS, toffset)))
+        , block_factors(sdsl::write_out_buffer<0>::create(col.temp_file_name(KEY_BLOCKFACTORS, toffset)))
         , factor_stream(factored_text)
     {
         // create a buffer we can write to without reallocating
@@ -156,7 +182,7 @@ struct factor_storage {
         auto time_in_sec = std::chrono::duration_cast<std::chrono::milliseconds>(time_spent).count() / 1000.0f;
         auto bytes_written = total_encoded_blocks * block_size;
         auto mb_written = bytes_written / (1024 * 1024);
-        LOG(INFO) << "   (" << offset << ") "
+        LOG(INFO) << "   (" << toffset << ") "
                   << "FACTORS = " << total_encoded_factors << " "
                   << "BLOCKS = " << total_encoded_blocks << " "
                   << "F/B = " << (double)total_encoded_factors / (double)total_encoded_blocks << " "
@@ -165,10 +191,10 @@ struct factor_storage {
     }
 
     factorization_info
-    info() const
+    result() const
     {
         factorization_info fi;
-        fi.offset = offset;
+        fi.offset = toffset;
         fi.total_encoded_factors = total_encoded_factors;
         fi.total_encoded_blocks = total_encoded_blocks;
         fi.factored_text_filename = factored_text.file_name();
@@ -179,8 +205,19 @@ struct factor_storage {
 };
 
 void
-output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
+output_encoding_stats(collection& col,std::vector<factorization_info>& efs)
 {
+    size_t text_size_bytes = 0;
+    {
+        const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
+        text_size_bytes = text.size();
+    }
+    size_t dict_size_bytes = 0;
+    {
+        const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
+        dict_size_bytes = dict.size();
+    }
+
     uint64_t num_factors = 0;
     uint64_t num_blocks = 0;
     uint64_t num_bits = 0;
@@ -191,11 +228,13 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
         num_bits += block.size();
     }
     uint64_t nb = num_bits / 8;
+    // add dict size to encoding
+    nb += dict_size_bytes;
     LOG(INFO) << "=====================================================================";
-    LOG(INFO) << "text size          = " << n << " bytes (" << n / (1024 * 1024.0) << " MB)";
+    LOG(INFO) << "text size          = " << text_size_bytes << " bytes (" << text_size_bytes / (1024 * 1024.0) << " MB)";
     LOG(INFO) << "encoding size      = " << nb << " bytes (" << nb / (1024 * 1024.0) << " MB)";
-    LOG(INFO) << "compression ratio  = " << 100.0 * (((double)nb / (double)n)) << " %";
-    LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)nb / (double)n)) << " %";
+    LOG(INFO) << "compression ratio  = " << 100.0 * (((double)nb / (double)text_size_bytes)) << " %";
+    LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)nb / (double)text_size_bytes)) << " %";
     LOG(INFO) << "number of factors  = " << num_factors;
     LOG(INFO) << "bits per factor    = " << (double) (8*nb) / (double) num_factors;
     LOG(INFO) << "number of blocks   = " << num_blocks;
@@ -204,7 +243,7 @@ output_encoding_stats(std::vector<factorization_info>& efs, size_t n)
 }
 
 template <class t_fact_strategy>
-void
+factorization_info 
 merge_factor_encodings(collection& col, std::vector<factorization_info>& efs)
 {
     auto dict_hash = col.param_map[PARAM_DICT_HASH];
@@ -262,4 +301,7 @@ merge_factor_encodings(collection& col, std::vector<factorization_info>& efs)
     col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
     col.file_map[KEY_BLOCKOFFSETS] = boffsets_file_name;
     col.file_map[KEY_BLOCKFACTORS] = bfactors_file_name;
+
+    factorization_info fi;
+    return fi;
 }
