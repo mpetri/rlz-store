@@ -42,7 +42,7 @@ struct dict_prune_care {
     static void compute_nfac(t_dict_idx& idx,const sdsl::int_vector_mapper<8, std::ios_base::in>& dict,segment_info& segment) {
     	auto seg_start = dict.begin()+segment.offset;
     	auto seg_end = seg_start + segment.length;
-        auto factor_itr = idx.factorize_restricted(seg_start, seg_end,segment.offset);
+        auto factor_itr = idx.factorize_restricted(seg_start, seg_end);
         uint64_t factors_produced = 0;
         while (!factor_itr.finished()) {
             factors_produced++;
@@ -151,6 +151,9 @@ struct dict_prune_care {
         	segments_to_remove++;
         	segment_cum_len += segments[i].length;
         	if(segment_cum_len >= bytes_to_remove) {
+        		// update the length so it fits into the size we want 
+        		auto new_len = segment_cum_len - bytes_to_remove;
+        		segments[i].length -= (new_len + 1);
         		break;
         	}
         }

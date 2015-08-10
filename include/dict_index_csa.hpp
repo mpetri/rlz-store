@@ -92,8 +92,7 @@ struct factor_itr_csa_restricted {
     uint64_t len;
     uint8_t sym;
     bool done;
-    uint64_t invalid_offset;
-    factor_itr_csa_restricted(const t_csa& _csa, t_itr begin, t_itr _end,uint64_t _invalid_offset)
+    factor_itr_csa_restricted(const t_csa& _csa, t_itr begin, t_itr _end)
         : sa(_csa)
         , factor_start(begin)
         , itr(begin)
@@ -103,7 +102,6 @@ struct factor_itr_csa_restricted {
         , len(0)
         , sym(0)
         , done(false)
-        , invalid_offset(_invalid_offset)
     {
         find_next_factor();
     }
@@ -235,9 +233,9 @@ struct dict_index_csa {
     }
 
     template <class t_itr>
-    factor_itr_csa_restricted<t_csa, t_itr> factorize_restricted(t_itr itr, t_itr end,uint64_t invalid_offset) const
+    factor_itr_csa_restricted<t_csa, t_itr> factorize_restricted(t_itr itr, t_itr end) const
     {
-        return factor_itr_csa_restricted<t_csa, t_itr>(sa, itr, end,invalid_offset);
+        return factor_itr_csa_restricted<t_csa, t_itr>(sa, itr, end);
     }
 
     bool is_reverse() const
