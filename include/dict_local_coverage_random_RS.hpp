@@ -1,4 +1,4 @@
-[#pragma once
+#pragma once
 
 #include "utils.hpp"
 #include "collection.hpp"
@@ -241,4 +241,4 @@ public:
 		col.compute_dict_hash();
 	}
 };
-]
+

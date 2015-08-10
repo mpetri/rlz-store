@@ -37,11 +37,11 @@ int main(int argc, const char* argv[])
         auto rlz_store = typename rlz_type_zzz_greedy_sp_prune::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
-                             .set_dict_size(128*1024*1024)
-                             .set_pruned_dict_size(32*1024*1024)
+                             .set_dict_size(2048*1024*1024ULL)
+                             .set_pruned_dict_size(512*1024*1024ULL)
                              .build_or_load(col);
 
-        using rlz_type_zzz_greedy_sp = rlz_store_static<dict_local_coverage_random_RS<2048,16,64>,
+        using rlz_type_zzz_greedy_sp = rlz_store_static<dict_local_coverage_random_RS<2048,16,256>,
                                      dict_prune_none,
                                      dict_index_csa<csa_type>,
                                      block_size,
@@ -51,7 +51,7 @@ int main(int argc, const char* argv[])
         auto rlz_store_new = typename rlz_type_zzz_greedy_sp::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
-                             .set_dict_size(32*1024*1024)
+                             .set_dict_size(512*1024*1024ULL)
                              .build_or_load(col);
 
         compare_indexes(col,rlz_store,rlz_store_new);
