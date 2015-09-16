@@ -7,7 +7,7 @@
 #include "factor_storage.hpp"
 
 #include <sdsl/suffix_arrays.hpp>
-#include <sdsl/int_vector_mapper.hpp>
+#include <sdsl/int_vector_mapped_buffer.hpp>
 
 #include <cctype>
 #include <future>
@@ -64,8 +64,12 @@ struct factorizor {
 
     template <class t_factor_store,class t_itr>
     static typename t_factor_store::result_type
-    factorize(collection& col, t_index& idx, t_itr itr, t_itr end, size_t offset = 0)
+    factorize(collection& col, t_index& idx, t_itr _itr, t_itr _end, size_t offset = 0)
     {
+        const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
+        auto itr = text.begin()+_itr;
+        auto end = text.begin()+_end;
+
         /* (1) create output files */
         t_factor_store fs(col, t_block_size, offset);
 
@@ -109,7 +113,7 @@ struct factorizor {
     }
 
     static void create_priming(t_coder& coder,
-        const sdsl::int_vector_mapper<8, std::ios_base::in>& text,
+        const sdsl::int_vector_mapped_buffer<8>& text,
         t_index& idx) 
     {
         uint64_t prime_bytes = t_coder::prime_bytes;
@@ -168,7 +172,7 @@ struct factorizor {
         t_index idx(col, rebuild);
         LOG(INFO) << "Create priming data for factor coder";
         {
-            const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
+            const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
             t_coder tmp_coder;
             create_priming(tmp_coder,text,idx);
             auto factorcoder_file = factorcoder_file_name(col);
@@ -178,23 +182,27 @@ struct factorizor {
 
         std::vector<typename t_factor_store::result_type> efs;
         {
-            const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
-            auto text_size_mb = text.size() / (1024 * 1024.0);
+            auto text_size = 0ULL;
+            {
+                const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
+                text_size = text.size();
+            }
+            auto text_size_mb = text_size / (1024 * 1024.0);
             auto start_fact = hrclock::now();
             LOG(INFO) << "Factorize text - " << text_size_mb << " MiB (" << num_threads << " threads) - (" << type() << ")";
                   
             std::vector<std::future<typename t_factor_store::result_type> > fis;
             
-            auto num_blocks = text.size() / t_block_size;
+            auto num_blocks = text_size / t_block_size;
             auto blocks_per_thread = num_blocks / num_threads;
             auto syms_per_thread = blocks_per_thread * t_block_size;
-            auto left = text.size();
-            auto itr = text.begin();
+            auto left = text_size;
+            auto itr = 0ULL;
             for (size_t i = 0; i < num_threads; i++) {
                 auto begin = itr;
                 auto end = begin + syms_per_thread;
                 if (left < 2 * syms_per_thread) // last thread might have to encode a little more
-                    end = text.end();
+                    end = text_size;
                 fis.push_back(std::async(std::launch::async, [&, begin, end, i] {
                         return factorize<t_factor_store>(col,idx,begin,end,i);
                 }));

@@ -87,6 +87,7 @@ struct factor_tracker {
         }
         fs.total_encoded_factors += tmp_block_factor_data.num_factors;
         fs.total_encoded_blocks++;
+        tmp_block_factor_data.reset();
     }
     void output_stats(size_t total_blocks) const
     {

@@ -89,32 +89,34 @@ struct dict_prune_care {
     	/* (2) find segments */
     	LOG(INFO) << "\t" << "Find potential segments to remove.";
 
-    	std::vector<segment_info> segments;
-    	size_t run_len = 0;
-    	size_t total_len = 0;
-    	size_t total_byte_usage = 0;
-    	for(size_t i=0;i<fstats.dict_usage.size();i++) {
-    		if(fstats.dict_usage[i] <= t_freq_threshold) {
-    			run_len++;
-    			total_byte_usage += fstats.dict_usage[i];
-    		} else {
-    			if(run_len >= t_length_threshold) {
-    				auto seg_start = i - run_len;
-    				segments.emplace_back(seg_start,run_len,total_byte_usage,0);
-    				total_len += run_len;
-    			}
-    			run_len = 0;
-    			total_byte_usage = 0;
-    		}
-    	}
-    	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
-
+        size_t total_len = 0;
     	auto bytes_to_remove = start_dict_size_bytes - target_dict_size_bytes;
-    	if(bytes_to_remove > total_len) {
-    		LOG(ERROR) << "\t" << "Could not find enough candidate segments to prune dictionary to "
-    			<< target_dict_size_bytes << " bytes. needed = " 
-    			<< bytes_to_remove << " found = " << total_len;
-    	}
+        auto freq_threshold = t_freq_threshold;
+    	std::vector<segment_info> segments;
+        while( total_len < bytes_to_remove ) {
+            segments.clear();
+            total_len = 0;
+    	    size_t run_len = 0;
+    	    size_t total_byte_usage = 0;
+    	    for(size_t i=0;i<fstats.dict_usage.size();i++) {
+    		    if(fstats.dict_usage[i] <= freq_threshold) {
+    			    run_len++;
+    			    total_byte_usage += fstats.dict_usage[i];
+    		    } else {
+    			    if(run_len >= t_length_threshold) {
+    				    auto seg_start = i - run_len;
+    				    segments.emplace_back(seg_start,run_len,total_byte_usage,0);
+    				    total_len += run_len;
+    			    }
+    			    run_len = 0;
+    			    total_byte_usage = 0;
+    		    }
+    	    }
+            LOG(INFO) << "Freq threshold = " << freq_threshold << " Found bytes = " << total_len << " Req = " << bytes_to_remove;
+            freq_threshold *= 2;
+        }
+        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold << " Length threshold = " << t_length_threshold;
+    	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
 
     	/* (3) compute the metric for those segments */
         {

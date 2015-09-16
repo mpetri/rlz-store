@@ -5,6 +5,7 @@
 
 #include "sdsl/io.hpp"
 #include "sdsl/construct.hpp"
+#include "sdsl/int_vector_mapped_buffer.hpp"
 #include "sdsl/int_vector_mapper.hpp"
 
 const std::string KEY_PREFIX = "text.";
@@ -47,7 +48,7 @@ struct collection {
             LOG(FATAL) << "Collection path does not contain text.";
             throw std::runtime_error("Collection path does not contain text.");
         } else {
-            sdsl::read_only_mapper<8> text(file_map[KEY_TEXT]);
+            sdsl::int_vector_mapped_buffer<8> text(file_map[KEY_TEXT]);
             LOG(INFO) << "Found input text with size " << text.size() / (1024.0 * 1024.0) << " MiB";
         }
     }
