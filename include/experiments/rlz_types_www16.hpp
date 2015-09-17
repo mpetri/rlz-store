@@ -2,7 +2,9 @@
 
 #include "indexes.hpp"
 
-using www_csa_type = sdsl::csa_wt<sdsl::wt_flat<sdsl::bit_vector>, 1, 4096>;
+#include "wt_flat.hpp"
+
+using www_csa_type = sdsl::csa_wt<wt_flat<sdsl::bit_vector>, 1, 4096>;
 const uint32_t www_uniform_sample_block_size = 1024;
 const uint32_t www_factorization_blocksize = 64*1024;
 

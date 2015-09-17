@@ -119,7 +119,10 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
     return json_response;
 }
 
+
+
 static void rpc_dict_stats(struct mg_connection *nc,http_message *hm) {
+    static std::map<std::string,std::string> cache;
     char start_pos[1000] = {0};
     char end_pos[1000] = {0};
     char num_cells_str[1000] = {0};
@@ -134,7 +137,15 @@ static void rpc_dict_stats(struct mg_connection *nc,http_message *hm) {
 
     LOG(INFO) << "start = " << start << " end = " << end << " num_cells = " << num_cells;
 
-    auto json_response = compute_json_stats(start,end,num_cells);
+    std::string cache_key = std::to_string(start)+"-"+std::to_string(end)+"-"+std::to_string(num_cells);
+    auto itr = cache.find(cache_key);
+    std::string json_response;
+    if(itr != cache.end()) {
+        json_response = itr->second;
+    } else {
+        json_response = compute_json_stats(start,end,num_cells);
+        cache[cache_key] = json_response;
+    }
 
     // printf("HTTP/1.1 200 OK\r\n"
     //         "Cache-Control: no-cache\r\n"
