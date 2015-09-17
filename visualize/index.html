@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<!--
+ ##########################################################################
+ Patrick.Brockmann@lsce.ipsl.fr
+ ##########################################################################
+-->
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script src="http://d3js.org/colorbrewer.v1.min.js"></script>
+<script src="heatmap.js"></script>
+<link rel="stylesheet" href="heatmap.css" />
+<head>
+<script>
+$(document).ready(function() {
+	heatmap_display("/rlz_dict_stats", "#heatmap", "OrRd");
+});
+</script>
+</head>
+<body>
+<div>
+<ol class="breadcrumb">
+</ol>
+</div>
+<div id="heatmap"></div>
+<div id="tooltip" class="hidden">
+        <p><span id="value"></p>
+</div>
+<div id="sequence"></div>
+</div>
+</body>
+</html>

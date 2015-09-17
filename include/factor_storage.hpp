@@ -3,6 +3,7 @@
 #include "sdsl/int_vector_mapper.hpp"
 
 #include "factor_data.hpp"
+#include "bit_streams.hpp"
 
 struct factorization_info {
     uint64_t offset;

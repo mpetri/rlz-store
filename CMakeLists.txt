@@ -56,6 +56,7 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/lz4/lib
                      ${CMAKE_HOME_DIRECTORY}/external/zlib/
                      ${CMAKE_HOME_DIRECTORY}/external/bzip2-1.0.6/
+                     ${CMAKE_HOME_DIRECTORY}/external/mongoose/
                      ${STXXL_INCLUDE_DIRS}
                     )
 
@@ -82,4 +83,7 @@ target_link_libraries(rlzs-index-statistics.x sdsl pthread divsufsort divsufsort
 
 add_executable(create-baselines-www16.x src/experiments/create-baselines-www16.cpp)
 target_link_libraries(create-baselines-www16.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+
+add_executable(rlzs-serve-dict-stats.x src/rlzs-serve-dict-stats.cpp external/mongoose/mongoose.c)
+target_link_libraries(rlzs-serve-dict-stats.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
 
