@@ -414,17 +414,19 @@ void output_stats_csv(collection& col,t_idx& idx) {
 
 
 
-template <class t_idx_base1, class t_idx_base2,class t_idx_new>
-void compare_indexes(collection& col, t_idx_base1& baseline1, t_idx_base2& baseline2, t_idx_new& new_idx)
+// template <class t_idx_base1, class t_idx_base2,class t_idx_new>
+template <class t_idx>
+// void compare_indexes(collection& col, t_idx_base1& baseline1, t_idx_base2& baseline2, t_idx_new& new_idx)
+void compare_indexes(collection& col, t_idx& idx, std::string s)
 {
     /* (1) output encoding stats of baseline 1 */
-    output_stats(baseline1,"baseline1");
+    output_stats(idx, s);
 
     /* (2) output encoding stats of baseline 2 */
-    output_stats(baseline2,"baseline2");
+    // output_stats(baseline2,"baseline2");
 
     /* (3) output encoding stats of new */
-    output_stats(new_idx," new_idx");
+    // output_stats(new_idx," new_idx");
 
     // /* (3) compress new_idx with baseline */
     // {

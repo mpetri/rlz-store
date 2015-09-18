@@ -28,6 +28,7 @@ public:
         auto fname = file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
         if (!utils::file_exists(fname) || rebuild) { // construct
+            auto start_total = hrclock::now();
             LOG(INFO) << "\tCreate dictionary with budget " << budget_mb << " MiB";
             // memory map the text and iterate over it
             std::vector<uint8_t> dict;
@@ -52,6 +53,8 @@ public:
                       << "Writing dictionary.";
             auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
             std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
+            auto end_total = hrclock::now();
+            LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
         } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";

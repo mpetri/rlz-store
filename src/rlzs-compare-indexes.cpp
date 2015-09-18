@@ -77,7 +77,7 @@ int main(int argc, const char* argv[])
                              //.set_dict_size(512*1024*1024ULL)
                              .build_or_load(col);
 
-        compare_indexes(col,rlz_store_base1,rlz_store_base2,rlz_store_new1);
+        // compare_indexes(col,rlz_store_base1,rlz_store_base2,rlz_store_new1);
         
     }
 

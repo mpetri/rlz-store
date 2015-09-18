@@ -3,23 +3,31 @@
 #include "utils.hpp"
 #include "collection.hpp"
 
+#include "logging.hpp"
+
 #include "count_min_sketch.hpp"
 #include "chunk_freq_estimator.hpp"
 
 #include <unordered_set>
 
 using namespace std::chrono;
+enum ACCESS_TYPE : int
+{
+	SEQ,
+	RAND 
+};
 
 template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16,
-uint32_t t_down_size = 256
+uint32_t t_down_size = 256,
+ACCESS_TYPE t_method = SEQ
 >
 class dict_local_coverage_random_RS{
 public:
     static std::string type()
     {
-        return "dict_local_coverage_random_RS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return "dict_local_coverage_random_RS-"+ std::to_string(t_method)+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
 
     static std::string file_name(collection& col, uint64_t size_in_bytes)
@@ -37,6 +45,7 @@ public:
         auto fname = file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
+			auto start_total = hrclock::now();
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
 			LOG(INFO) << "\t" << "Block size = " << t_block_size; 
 			LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required; 
@@ -159,7 +168,8 @@ public:
 				step_indices.push_back(i);
 			}
 			// //try randomly ordered max cov
-// 			std::random_shuffle(step_indices.begin(), step_indices.end());
+			if(t_method == RAND)
+				std::random_shuffle(step_indices.begin(), step_indices.end());
 			
 		    auto stop = hrclock::now();
 		    LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
@@ -248,6 +258,8 @@ public:
 	
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict.size()/(1024*1024) << " MiB"; 
 			dict.push_back(0); // zero terminate for SA construction
+			auto end_total = hrclock::now();
+			LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
 		}

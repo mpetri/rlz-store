@@ -3,6 +3,8 @@
 #include "utils.hpp"
 #include "collection.hpp"
 
+#include "logging.hpp"
+
 #include "count_min_sketch.hpp"
 #include "chunk_freq_estimator.hpp"
 
@@ -13,13 +15,14 @@ using namespace std::chrono;
 template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16,
-uint32_t t_down_size = 256
+uint32_t t_down_size = 256,
+ACCESS_TYPE t_method = SEQ
 >
 class dict_local_weighted_coverage_random_CMS{
 public:
     static std::string type()
     {
-        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_method)+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
 
     static std::string file_name(collection& col, uint64_t size_in_bytes)
@@ -37,8 +40,9 @@ public:
         auto fname = file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
+			auto start_total = hrclock::now();
 			// using sketch_type = count_min_sketch<std::ratio<1, 100000>,std::ratio<1, 8>>; //for 1gb RS		
-			using sketch_type = count_min_sketch<std::ratio<1, 1000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
+			using sketch_type = count_min_sketch<std::ratio<1, 5000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
 			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 8>>; //for 1gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 300000000>,std::ratio<1, 8>>; //for 128gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 8>>; //for 2gb
@@ -190,7 +194,8 @@ public:
 				step_indices.push_back(i);
 			}
 			// //try randomly ordered max cov
-			// std::random_shuffle(step_indices.begin(), step_indices.end());
+			if(t_method == RAND)
+				std::random_shuffle(step_indices.begin(), step_indices.end());
 			
 		    auto stop = hrclock::now();
 		    LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
@@ -267,6 +272,8 @@ public:
 	
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict.size()/(1024*1024) << " MiB"; 
 			dict.push_back(0); // zero terminate for SA construction
+			auto end_total = hrclock::now();
+			LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
 		}
