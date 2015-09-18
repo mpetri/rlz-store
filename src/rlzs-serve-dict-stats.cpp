@@ -36,7 +36,7 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
     auto num_bytes = stop-start+1;
     auto bytes_per_cell = num_bytes / num_cells;
     if(bytes_per_cell == 0) bytes_per_cell = 1;
-    if(bytes_per_cell != 1) bytes_per_cell = 1ULL<< ((int)floor(log2(bytes_per_cell)));  
+    if(bytes_per_cell != 1) bytes_per_cell = 1ULL<< ((int)ceil(log2(bytes_per_cell)));  
 
     std::vector<cell_stat> cell_stats;
     uint64_t max_avg_freq = 0;
@@ -185,11 +185,24 @@ int main(int argc, const char* argv[])
     auto rlz_store = rlz_type_zzz_greedy_sp::builder{}
                          .set_rebuild(args.rebuild)
                          .set_threads(args.threads)
-                         .set_dict_size(64*1024*1024)
+                         .set_dict_size(1024*1024*1024)
                          .build_or_load(col);
 
-    LOG(INFO) << "DETERMINE DICT USAGE";
-    auto fs = dict_usage_stats(rlz_store);
+    
+
+    auto dict_file = rlz_store.m_dict_file;
+    auto dict_stats_file = dict_file + "-" + KEY_DICT_STATISTICS 
+        + "-" + rlz_type_zzz_greedy_sp::factorization_strategy::type() + ".sdsl";
+
+    factorization_statistics fs;
+    if( utils::file_exists(dict_stats_file) ) {
+        LOG(INFO) << "Loading dict usage statistics";
+        sdsl::load_from_file(fs,dict_stats_file);
+    } else {
+        LOG(INFO) << "Computing dict usage statistics";
+        fs = dict_usage_stats(rlz_store);
+        sdsl::store_to_file(fs,dict_stats_file);
+    }
 
     s_fs = &fs;
     s_dict = &rlz_store.dict;
