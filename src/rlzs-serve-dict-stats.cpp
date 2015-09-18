@@ -98,7 +98,7 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
         json_response += "\"stop\":" + std::to_string(cs.stop) + ",";
         json_response += "\"freq\":" + std::to_string(cs.freq) + ",";
         json_response += "\"bytes_per_cell\":" + std::to_string(cs.bytes_per_cell) + ",";
-        if(cs.bytes_per_cell <= 32) {
+        if(cs.bytes_per_cell <= 500) {
             std::string content;
             for(size_t j=cs.start;j<=cs.stop;j++) {
                 auto sym = (*s_dict)[j];
@@ -203,7 +203,9 @@ int main(int argc, const char* argv[])
                          .set_dict_size(1024*1024*1024)
                          .build_or_load(col);
 
+    LOG(INFO) << "DETERMINE DICT USAGE";
     auto fs = dict_usage_stats(rlz_store);
+
     s_fs = &fs;
     s_dict = &rlz_store.dict;
 
@@ -215,11 +217,10 @@ int main(int argc, const char* argv[])
     mg_set_protocol_http_websocket(nc);
     s_http_server_opts.document_root = "../visualize/";
 
-    printf("Starting HTTP server on port %s\n", "1234");
+    LOG(INFO) << "Starting HTTP server on port 1234";
     for (;;) {
         mg_mgr_poll(&mgr, 1000);
     }
     mg_mgr_free(&mgr);
-
     return EXIT_SUCCESS;
 }

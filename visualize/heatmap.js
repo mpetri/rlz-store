@@ -1,8 +1,8 @@
 var classesNumber = 9,
-    cellSize = 32;
+    cellSize = 16;
 var colors;
 var colorScale;
-var legendElementWidth = cellSize * 2;
+var legendElementWidth = cellSize * 5;
 var w = window,
     d = document,
     e = d.documentElement,
@@ -19,12 +19,30 @@ var b = {
   w: 75, h: 30, s: 3, t: 10
 };
 
+var entityMap = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': '&quot;',
+    "'": '&#39;',
+    "/": '&#x2F;'
+  };
+
+  function escapeHtml(string) {
+    return String(string).replace(/[&<>"'\/]/g, function (s) {
+      return entityMap[s];
+    });
+  }
+
+var largeScale = ['#fff','#fef3f3','#fde3e3','#fdd3d3','#fcc3c3','#fbb3b3','#faa3a3','#f99393','#f88383','#f77373','#f66363','#f55353','#f44342','#f43332','#f32322','#f21312','#e60e0d','#d60d0c','#c60c0b','#b60b0a','#a60a09','#960908','#860807','#760707','#650606','#550505','#450404','#350303','#250202','#150101','#00000'];
+
 //#########################################################
 function heatmap_display(url, heatmapId, paletteName) {
     //==================================================
-
+    
     colors = colorbrewer[paletteName][classesNumber];
     colorScale = d3.scale.linear()
+            .domain([0,100*1000*1000])
             .range(colors);
     var svg = d3.select(heatmapId).append("svg")
             .attr("width", x)
@@ -76,12 +94,13 @@ function fillData(url) {
             .attr("height", cellSize)
             .style("fill", function(d) {
                 if (d != null) return colors[d.quantile];
+                //if (d != null) return colorScale(d.freq);
                 else return "url(#diagonalHatch)";
             })
             .on("mouseover", function(d){
                //highlight text
                d3.select(this).classed("cell-selected",true);
-               if (d.bytes_per_cell <= 32 ) {
+               if (d.bytes_per_cell <= 500 ) {
                     d3.select("#tooltip")
                     .style("left", (d3.event.pageX+20) + "px")
                     .style("top", (d3.event.pageY-20) + "px")
@@ -89,9 +108,10 @@ function fillData(url) {
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
                         d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
-                        "<strong>content:</strong> '"+d.content+"'<br/>"
+                        "<strong>content:</strong> '"+escapeHtml(d.content)+"'<br/>"
                         );
                } else {
+                    
                     d3.select("#tooltip")
                     .style("left", (d3.event.pageX+20) + "px")
                     .style("top", (d3.event.pageY-20) + "px")
@@ -130,8 +150,9 @@ function fillData(url) {
             .attr("y", y + 150)
             .attr("class", "cellLegend bordered")
             .attr("width", legendElementWidth)
-            .attr("height", cellSize / 2)
+            .attr("height", cellSize *2 )
             .style("fill", function(d, i) {
+                //return colorScale(i);
                 return colors[i];
             });
 
@@ -143,7 +164,7 @@ function fillData(url) {
             .attr("x", function(d, i) {
                 return 20 + legendElementWidth * i;
             })
-            .attr("y", y + 150 + cellSize);
+            .attr("y", y + 150 + 3* cellSize);
 
         addBreadCrumb("[0-n]",0,0,numCells)
     })
@@ -190,6 +211,7 @@ function updateData(url) {
 
         cells.style("fill", function(d) {
                 if (d != null) return colors[d.quantile];
+                //if (d != null) return colorScale(d.freq);
                 else return "url(#diagonalHatch)";
             })
 
@@ -211,12 +233,13 @@ function updateData(url) {
             .attr("height", cellSize)
             .style("fill", function(d) {
                 if (d != null) return colors[d.quantile];
+                //if (d != null) return colorScale(d.freq);
                 else return "url(#diagonalHatch)";
             })
             .on("mouseover", function(d){
                //highlight text
                d3.select(this).classed("cell-selected",true);
-               if (d.bytes_per_cell <= 32 ) {
+               if (d.bytes_per_cell <= 500 ) {
                     d3.select("#tooltip")
                     .style("left", (d3.event.pageX+20) + "px")
                     .style("top", (d3.event.pageY-20) + "px")
@@ -224,7 +247,7 @@ function updateData(url) {
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
                         d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
-                        "<strong>content:</strong> '"+d.content+"'<br/>"
+                        "<strong>content:</strong> '"+escapeHtml(d.content)+"'<br/>"
                         );
                } else {
                     d3.select("#tooltip")
@@ -240,7 +263,8 @@ function updateData(url) {
                d3.select("#tooltip").classed("hidden", false);
             })
             .on("mouseout", function(){
-                   d3.select(this).classed("cell-selected",false);
+               d3.select("#tooltip").classed("hidden", true);
+               d3.select(this).classed("cell-selected",false);
             })
             .on("click", function(d) {
                 addBreadCrumb("["+d.start+"-"+d.stop+"]",d.start,d.stop,numCells)
