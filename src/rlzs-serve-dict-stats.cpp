@@ -23,7 +23,7 @@ struct cell_stat {
     uint64_t start;
     uint64_t stop;
     uint64_t freq;
-    uint64_t quantile;
+    uint64_t avg_freq;
     uint64_t bytes_per_cell;
 };
 
@@ -33,18 +33,21 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
     if(start == 0 && stop == 0) {
         stop = s_fs->dict_usage.size()-1;
     }
-    auto num_bytes = stop-start;
+    auto num_bytes = stop-start+1;
     auto bytes_per_cell = num_bytes / num_cells;
     if(bytes_per_cell == 0) bytes_per_cell = 1;
+    if(bytes_per_cell != 1) bytes_per_cell = 1ULL<< ((int)floor(log2(bytes_per_cell)));  
 
     std::vector<cell_stat> cell_stats;
-
+    uint64_t max_avg_freq = 0;
+    uint64_t min_avg_freq = 999999999;
     for(size_t i=start;i<=stop;i+=bytes_per_cell) {
         cell_stat cs;
         cs.start = i;
         cs.stop = i+bytes_per_cell-1;
         cs.bytes_per_cell = bytes_per_cell;
         cs.freq = 0;
+        cs.avg_freq = 0;
         for(size_t j=0;j<bytes_per_cell;j++) {
             if(i+j == s_fs->dict_usage.size()) {
                 cs.bytes_per_cell = j;
@@ -53,42 +56,24 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
             }
             cs.freq += s_fs->dict_usage[i+j];
         }
-        if(cs.freq > 1000000000) { // 100M
-            cs.quantile = 9;
-        }
-        if(cs.freq <= 1000000000) { // 100M
-            cs.quantile = 8;
-        }
-        if(cs.freq <= 10000000) { // 10M
-            cs.quantile = 7;
-        }
-        if(cs.freq <= 1000000) {
-            cs.quantile = 6;
-        }
-        if(cs.freq <= 100000) {
-            cs.quantile = 5;
-        }
-        if(cs.freq<= 10000) {
-            cs.quantile = 4;
-        }
-        if(cs.freq <= 1000) {
-            cs.quantile = 3;
-        }
-        if(cs.freq <= 100) {
-            cs.quantile = 2;
-        }
-        if(cs.freq <= 10) {
-            cs.quantile = 1;
-        }
-        if(cs.freq == 0) {
-            cs.quantile = 0;
-        }
+        cs.avg_freq = cs.freq / (cs.bytes_per_cell);
+        max_avg_freq = std::max(cs.avg_freq,max_avg_freq);
+        min_avg_freq = std::min(cs.avg_freq,min_avg_freq);
         cell_stats.push_back(cs);
     }
+
+    LOG(INFO) << "bytes_per_cell = " << bytes_per_cell;
+    LOG(INFO) << "max_avg_freq = " << max_avg_freq;
+    LOG(INFO) << "min_avg_freq = " << min_avg_freq;
+    LOG(INFO) << "num_bytes = " << num_bytes;
+    LOG(INFO) << "start = " << start;
+    LOG(INFO) << "start = " << stop;
 
     /* create json object */
     std::string json_response;
     json_response += "{\n";
+    json_response += "\t\"max_avg_freq\": " + std::to_string(max_avg_freq) + ",\n";
+    json_response += "\t\"min_avg_freq\": " + std::to_string(min_avg_freq) + ",\n";
     json_response += "\t\"data\":[\n";
     for(size_t i=0;i<cell_stats.size();i++) {
         const auto& cs = cell_stats[i];
@@ -96,7 +81,7 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
         json_response += "\"id\":" + std::to_string(i) + ",";
         json_response += "\"start\":" + std::to_string(cs.start) + ",";
         json_response += "\"stop\":" + std::to_string(cs.stop) + ",";
-        json_response += "\"freq\":" + std::to_string(cs.freq) + ",";
+        json_response += "\"avg_freq\":" + std::to_string(cs.avg_freq) + ",";
         json_response += "\"bytes_per_cell\":" + std::to_string(cs.bytes_per_cell) + ",";
         if(cs.bytes_per_cell <= 500) {
             std::string content;
@@ -110,7 +95,7 @@ compute_json_stats(uint64_t start,uint64_t stop,uint64_t num_cells)
             }
             json_response += "\"content\": \"" + content + "\",";
         }
-        json_response += "\"quantile\":" + std::to_string(cs.quantile);
+        json_response += "\"freq\":" + std::to_string(cs.freq);
         if(i==cell_stats.size()-1) json_response += "}\n";
         else json_response +=  "},\n";
     }
@@ -200,7 +185,7 @@ int main(int argc, const char* argv[])
     auto rlz_store = rlz_type_zzz_greedy_sp::builder{}
                          .set_rebuild(args.rebuild)
                          .set_threads(args.threads)
-                         .set_dict_size(1024*1024*1024)
+                         .set_dict_size(64*1024*1024)
                          .build_or_load(col);
 
     LOG(INFO) << "DETERMINE DICT USAGE";
