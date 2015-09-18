@@ -13,13 +13,14 @@ using namespace std::chrono;
 template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16,
-uint32_t t_down_size = 256
+uint32_t t_down_size = 256,
+uint32_t topk = 2
 >
-class dict_local_coverage_random_RS{
+class dict_local_coverage_random_RS_topk{
 public:
     static std::string type()
     {
-        return "dict_local_coverage_random_RS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return "dict_local_coverage_random_RS_topk-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
 
     static std::string file_name(collection& col, uint64_t size_in_bytes)
@@ -45,7 +46,8 @@ public:
 			auto num_samples = budget_bytes / t_block_size;
             LOG(INFO) << "\tDictionary samples = " << num_samples;
             auto n = text.size();
-            size_t sample_step = n / num_samples;   
+            //topk comes to play
+            size_t sample_step = n / num_samples * topk;   
             size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
             size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
 
@@ -159,24 +161,41 @@ public:
 				step_indices.push_back(i);
 			}
 			// //try randomly ordered max cov
-// 			std::random_shuffle(step_indices.begin(), step_indices.end());
+ //			std::random_shuffle(step_indices.begin(), step_indices.end());
 			
 		    auto stop = hrclock::now();
 		    LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 
-			// 2nd pass: process max coverage using the sorted order by density
+			// 2nd pass: process topk max coverage
 			std::unordered_set<uint64_t> step_blocks;
 			step_blocks.max_load_factor(0.2);
 			std::vector<uint64_t> picked_blocks;
 			LOG(INFO) << "\t" << "Second pass: perform ordered max coverage..."; 
 			start = hrclock::now();
+			struct block_cover {
+				uint64_t block_pos;
+				uint32_t intersects;
+				uint32_t val; //frequency or weights etc.
+				std::unordered_set<uint64_t> contents;
+
+				bool operator<(const block_cover& bc) const {
+					return (val < bc.val || (val == bc.val && intersects < bc.intersects) || (val == bc.val && intersects == bc.intersects && block_pos > bc.block_pos));
+				}
+				bool operator>(const block_cover& bc) const {
+					return (val > bc.val || (val == bc.val && intersects > bc.intersects) || (val == bc.val && intersects == bc.intersects && block_pos < bc.block_pos));
+				}
+				bool operator==(const block_cover& bc) const {
+					return val == bc.val && intersects == bc.intersects && block_pos == bc.block_pos;
+				}
+			};
 			
 			for(const auto& i : step_indices) {//steps
-				uint32_t sum_weights_max = std::numeric_limits<uint32_t>::min();	
-				uint32_t intersection_max = 0;
+				// uint32_t sum_weights_max = std::numeric_limits<uint32_t>::min();	
+				// uint32_t intersection_max = 0;
 				uint64_t step_pos = i*sample_step_adjusted;
-				uint64_t best_block_no = 0;
-				std::unordered_set<uint64_t> best_local_blocks;
+				//uint64_t best_block_no = 0;
+				//std::unordered_set<uint64_t> best_local_blocks;
+				std::vector<block_cover> blocks;
 
 				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 
 					std::unordered_set<uint64_t> local_blocks;
@@ -203,27 +222,32 @@ public:
 							local_blocks.emplace(hash);	
 						}
 					}
-					// LOG(INFO) << "\t" << "intersection_count = " << intersection_count;
-					// the way: partially resolve tights!!! prefer more intersections
-                                        if(sum_weights_current > sum_weights_max || (sum_weights_current == sum_weights_max && intersection_count > intersection_max))
-                                        {
-//						LOG(INFO) << "\t" << "Rolling tight!";
-                                                intersection_max = intersection_count;
-                                                sum_weights_max = sum_weights_current;
-                                                best_block_no = step_pos + j;
-                                                best_local_blocks = std::move(local_blocks);
-                                        }
+
+					block_cover cov;
+					cov.block_pos = step_pos + j;
+					cov.val = sum_weights_current;
+					cov.intersects = intersection_count;
+					cov.contents = std::move(local_blocks);
+					blocks.push_back(cov);
 				}
-				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max weight = " << sum_weights_max;
-				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max intersect = " << intersection_max << "\n";
-				
-				picked_blocks.push_back(best_block_no);
-				LOG(INFO) << "\t" << "\n"; 	
-				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
-				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
-				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+				std::sort(blocks.begin(), blocks.end(), std::greater<block_cover>());
+				bool filled = false;
+				for(size_t k=0;k<topk;k++) {
+					picked_blocks.push_back(blocks[k].block_pos);
+					// LOG(INFO) << "\t" << "Block " << blocks[k].block_pos << " weight: " << blocks[k].val; 
+					// LOG(INFO) << "\t" << "Block " << blocks[k].block_pos << " intersections: " << blocks[k].intersects;
+					if(picked_blocks.size() >= num_samples)  {
+						filled = true;
+						break;
+					}	
+					// LOG(INFO) << "\t" << "max weight = " << sum_weights_max;
+					step_blocks.insert(blocks[k].contents.begin(), blocks[k].contents.end());
+				}
+				// LOG(INFO) << "\t" << "\n"; 	
+				if(filled) break;
 		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
+		    
 		    step_blocks.clear(); //save mem
 		    step_indices.clear();//
 		    useful_blocks.clear();

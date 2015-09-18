@@ -413,105 +413,108 @@ void output_stats_csv(collection& col,t_idx& idx) {
 
 
 
-template <class t_idx_base,class t_idx_new>
-void compare_indexes(collection& col, t_idx_base& baseline,t_idx_new& new_idx)
+template <class t_idx_base1, class t_idx_base2,class t_idx_new>
+void compare_indexes(collection& col, t_idx_base1& baseline1, t_idx_base2& baseline2, t_idx_new& new_idx)
 {
-    /* (1) output encoding stats of baseline */
-    output_stats(baseline,"baseline");
+    /* (1) output encoding stats of baseline 1 */
+    output_stats(baseline1,"baseline1");
 
-    /* (2) output encoding stats of new */
+    /* (2) output encoding stats of baseline 2 */
+    output_stats(baseline2,"baseline2");
+
+    /* (3) output encoding stats of new */
     output_stats(new_idx," new_idx");
 
-    /* (3) compress new_idx with baseline */
-    {
-        col.param_map[PARAM_DICT_HASH] = baseline.m_dict_hash;
-        typename t_idx_base::dictionary_index idx(col,false);
-        auto itr = new_idx.dict.begin();
-        auto end = new_idx.dict.end();
-        auto factor_itr = idx.factorize(itr, end);
-        auto num_literals = 0;
-        auto non_literals = 0;
-        auto num_factors = 0;
-        std::vector<uint64_t> flen_dist(new_idx.dict.size());
-        std::vector<uint64_t> dict_usage(baseline.dict.size());
-        while (!factor_itr.finished()) {
-            if (factor_itr.len == 0) {
-                num_literals++;
-            } else {
-                auto offset = idx.sa[factor_itr.sp];
-                auto len = factor_itr.len;
-                flen_dist[len]++;
-                for(size_t i=0;i<len;i++) {
-                    dict_usage[offset+i]++;
-                }
-                non_literals++;
-            }
-            ++factor_itr;
-            num_factors++;
-        }
-        LOG(INFO) << "==================================================";
-        LOG(INFO) << "compress new_idx with baseline";
-        LOG(INFO) << "    num_literals = " << num_literals;
-        LOG(INFO) << "    non_literals = " << non_literals;
-        LOG(INFO) << "    num_factors = " << num_factors;
-        LOG(INFO) << "    percent_literals = " << 100.0*num_literals / num_factors << " %";
+    // /* (3) compress new_idx with baseline */
+    // {
+    //     col.param_map[PARAM_DICT_HASH] = baseline.m_dict_hash;
+    //     typename t_idx_base::dictionary_index idx(col,false);
+    //     auto itr = new_idx.dict.begin();
+    //     auto end = new_idx.dict.end();
+    //     auto factor_itr = idx.factorize(itr, end);
+    //     auto num_literals = 0;
+    //     auto non_literals = 0;
+    //     auto num_factors = 0;
+    //     std::vector<uint64_t> flen_dist(new_idx.dict.size());
+    //     std::vector<uint64_t> dict_usage(baseline.dict.size());
+    //     while (!factor_itr.finished()) {
+    //         if (factor_itr.len == 0) {
+    //             num_literals++;
+    //         } else {
+    //             auto offset = idx.sa[factor_itr.sp];
+    //             auto len = factor_itr.len;
+    //             flen_dist[len]++;
+    //             for(size_t i=0;i<len;i++) {
+    //                 dict_usage[offset+i]++;
+    //             }
+    //             non_literals++;
+    //         }
+    //         ++factor_itr;
+    //         num_factors++;
+    //     }
+    //     LOG(INFO) << "==================================================";
+    //     LOG(INFO) << "compress new_idx with baseline";
+    //     LOG(INFO) << "    num_literals = " << num_literals;
+    //     LOG(INFO) << "    non_literals = " << non_literals;
+    //     LOG(INFO) << "    num_factors = " << num_factors;
+    //     LOG(INFO) << "    percent_literals = " << 100.0*num_literals / num_factors << " %";
 
-        uint64_t flen_sum = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            flen_sum += i*flen_dist[i];
-        }
-        auto flen_mean = flen_sum / (double)non_literals;
-        uint64_t flen_min = 0;
-        uint64_t flen_max = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            if(flen_min == 0 && flen_dist[i] != 0) flen_min = i;
-            if(flen_dist[i] != 0) flen_max = i;
-        }
-        uint64_t flen_1qrt_v = non_literals * 0.25;
-        uint64_t flen_median_v = non_literals * 0.5;
-        uint64_t flen_3qrt_v = non_literals * 0.75;
+    //     uint64_t flen_sum = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         flen_sum += i*flen_dist[i];
+    //     }
+    //     auto flen_mean = flen_sum / (double)non_literals;
+    //     uint64_t flen_min = 0;
+    //     uint64_t flen_max = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         if(flen_min == 0 && flen_dist[i] != 0) flen_min = i;
+    //         if(flen_dist[i] != 0) flen_max = i;
+    //     }
+    //     uint64_t flen_1qrt_v = non_literals * 0.25;
+    //     uint64_t flen_median_v = non_literals * 0.5;
+    //     uint64_t flen_3qrt_v = non_literals * 0.75;
 
-        uint64_t sum = 0;
-        uint64_t flen_1qrt = 0;
-        uint64_t flen_median = 0;
-        uint64_t flen_3qrt = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            sum += flen_dist[i];
-            if(sum >= flen_1qrt_v && flen_1qrt == 0) {
-                flen_1qrt = i;
-            }
-            if(sum >= flen_median_v && flen_median == 0) {
-                flen_median = i;
-            }
-            if(sum >= flen_3qrt_v && flen_3qrt == 0) {
-                flen_3qrt = i;
-            }
-        }
+    //     uint64_t sum = 0;
+    //     uint64_t flen_1qrt = 0;
+    //     uint64_t flen_median = 0;
+    //     uint64_t flen_3qrt = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         sum += flen_dist[i];
+    //         if(sum >= flen_1qrt_v && flen_1qrt == 0) {
+    //             flen_1qrt = i;
+    //         }
+    //         if(sum >= flen_median_v && flen_median == 0) {
+    //             flen_median = i;
+    //         }
+    //         if(sum >= flen_3qrt_v && flen_3qrt == 0) {
+    //             flen_3qrt = i;
+    //         }
+    //     }
 
-        LOG(INFO) << "    factor lens ";
-        LOG(INFO) << " min=" << flen_min
-            << " 1.qrt=" << flen_1qrt
-            << " med=" << flen_median
-            << " mean=" << flen_mean
-            << " 3.qrt=" << flen_3qrt
-            << " max=" << flen_max;
+    //     LOG(INFO) << "    factor lens ";
+    //     LOG(INFO) << " min=" << flen_min
+    //         << " 1.qrt=" << flen_1qrt
+    //         << " med=" << flen_median
+    //         << " mean=" << flen_mean
+    //         << " 3.qrt=" << flen_3qrt
+    //         << " max=" << flen_max;
 
-        LOG(INFO) << "    dict usage ";
-        double ds = baseline.dict.size();
-        auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
-        LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
+    //     LOG(INFO) << "    dict usage ";
+    //     double ds = baseline.dict.size();
+    //     auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
+    //     LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
         
-        uint64_t thres = 1;
-        uint64_t cnt = 1;
-        while(cnt) {
-            cnt = std::count_if(dict_usage.begin(),dict_usage.end(), [&thres](uint64_t i) {return i >= thres;});
-            if(cnt) LOG(INFO) << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
-            thres *= 2;
-        }
-        LOG(INFO);
-        LOG(INFO) << "    estimated compressed size = " << (num_factors*5)/(1024*1024) << " MiB";
-    }
-    /* (4) compress baseline with new_idx */
-    {
-    }
+    //     uint64_t thres = 1;
+    //     uint64_t cnt = 1;
+    //     while(cnt) {
+    //         cnt = std::count_if(dict_usage.begin(),dict_usage.end(), [&thres](uint64_t i) {return i >= thres;});
+    //         if(cnt) LOG(INFO) << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
+    //         thres *= 2;
+    //     }
+    //     LOG(INFO);
+    //     LOG(INFO) << "    estimated compressed size = " << (num_factors*5)/(1024*1024) << " MiB";
+    // }
+    // /* (4) compress baseline with new_idx */
+    // {
+    // }
 }

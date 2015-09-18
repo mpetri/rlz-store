@@ -115,7 +115,7 @@ struct dict_prune_care {
             LOG(INFO) << "Freq threshold = " << freq_threshold << " Found bytes = " << total_len << " Req = " << bytes_to_remove;
             freq_threshold *= 2;
         }
-        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold << " Length threshold = " << t_length_threshold;
+        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold/2 << " Length threshold = " << t_length_threshold;
     	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
 
     	/* (3) compute the metric for those segments */

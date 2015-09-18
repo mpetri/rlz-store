@@ -12,7 +12,8 @@ using namespace std::chrono;
 
 template <
 uint32_t t_block_size = 1024,
-uint32_t t_estimator_block_size = 16
+uint32_t t_estimator_block_size = 16,
+uint32_t t_down_size = 256
 >
 class dict_local_weighted_coverage_random_CMS{
 public:
@@ -36,8 +37,8 @@ public:
         auto fname = file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
-			   using sketch_type = count_min_sketch<std::ratio<1, 100000>,std::ratio<1, 8>>; //for 1gb RS		
-			// using sketch_type = count_min_sketch<std::ratio<1, 1000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
+			// using sketch_type = count_min_sketch<std::ratio<1, 100000>,std::ratio<1, 8>>; //for 1gb RS		
+			using sketch_type = count_min_sketch<std::ratio<1, 1000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
 			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 8>>; //for 1gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 300000000>,std::ratio<1, 8>>; //for 128gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 8>>; //for 2gb
@@ -65,12 +66,12 @@ public:
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
 			LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
-		   	uint32_t down_size = 256;
-			auto sketch_name = file_name(col,size_in_bytes) + "-RSsketch-" + std::to_string(down_size) + "-" + cfe.type();
-			auto rs_name = file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
+		   	// uint32_t down_size = 256;
+			auto sketch_name = file_name(col,size_in_bytes) + "-RSsketch-" + std::to_string(t_down_size) + "-" + cfe.type();
+			auto rs_name = file_name(col,size_in_bytes) + "-RSample-" +std::to_string(t_down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
-			uint64_t rs_size = (text.size()-t_estimator_block_size)/down_size;
+			uint64_t rs_size = (text.size()-t_estimator_block_size)/t_down_size;
 			std::vector<uint64_t> rs; //filter out frequency less than 64
 			if (! utils::file_exists(rs_name) || rebuild) {		
 			auto start = hrclock::now();
@@ -173,7 +174,7 @@ public:
     		rs.erase(last, rs.end());
     		// LOG(INFO) << "\t" << "RS size = " << rs.size(); 	
 			std::unordered_set<uint64_t> useful_blocks;		
-			useful_blocks.max_load_factor(0.25);
+			useful_blocks.max_load_factor(0.3);
 
 			std::move(rs.begin(), rs.end(), std::inserter(useful_blocks, useful_blocks.end()));
 			LOG(INFO) << "\t" << "Useful kept small blocks no. = " << useful_blocks.size(); 	
@@ -189,16 +190,15 @@ public:
 				step_indices.push_back(i);
 			}
 			// //try randomly ordered max cov
-			std::random_shuffle(step_indices.begin(), step_indices.end());
+			// std::random_shuffle(step_indices.begin(), step_indices.end());
 			
 		    auto stop = hrclock::now();
 		    LOG(INFO) << "\t" << "1st pass runtime = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
 
-
 			// 2nd pass: process max coverage using the sorted order by density
 			// uint32_t threshold = 10000;//change it later to quantile threshold as a parameter, simulating top k
 			std::unordered_set<uint64_t> step_blocks;
-			step_blocks.max_load_factor(0.5);
+			step_blocks.max_load_factor(0.2);
 			std::vector<uint64_t> picked_blocks;
 			LOG(INFO) << "\t" << "Second pass: perform ordered max coverage..."; 
 			start = hrclock::now();
@@ -211,7 +211,7 @@ public:
 
 				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 
 					std::unordered_set<uint64_t> local_blocks;
-					local_blocks.max_load_factor(0.75);
+					local_blocks.max_load_factor(0.1);
 					uint64_t sum_weights_current = 0;
 
 					for(size_t k=0;k<t_block_size;k++) {//bytes
@@ -236,11 +236,11 @@ public:
 						best_local_blocks = std::move(local_blocks);
 					}
 				}
-
-				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+			
 				picked_blocks.push_back(best_block_no);
 				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
 				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
+				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
 		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
 		    step_blocks.clear(); //save mem
