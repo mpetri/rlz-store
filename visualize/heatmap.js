@@ -2,6 +2,7 @@ var classesNumber = 9,
     cellSize = 16;
 var colors;
 var colorScale;
+var valueScale;
 var legendElementWidth = cellSize * 5;
 var w = window,
     d = document,
@@ -11,14 +12,9 @@ var w = window,
     y = w.innerHeight|| e.clientHeight|| g.clientHeight;
 
 var cellsPerRow = Math.floor(x / cellSize)
-var numRows = Math.floor((y-200) / cellSize)
+var numRows = Math.floor((y-400) / cellSize)
 var numCells = numRows * cellsPerRow
 var dataUrlPrefix
-
-var b = {
-  w: 75, h: 30, s: 3, t: 10
-};
-
 var entityMap = {
     "&": "&amp;",
     "<": "&lt;",
@@ -41,9 +37,6 @@ function heatmap_display(url, heatmapId, paletteName) {
     //==================================================
     
     colors = colorbrewer[paletteName][classesNumber];
-    colorScale = d3.scale.linear()
-            .domain([0,100*1000*1000])
-            .range(colors);
     var svg = d3.select(heatmapId).append("svg")
             .attr("width", x)
             .attr("height", y)
@@ -62,6 +55,11 @@ function fillData(url) {
         var row_number = arr.length;
         var col_number = arr[0].length;
         var svg = d3.select("svg");
+
+        var dom = [data.min_avg_freq,data.max_avg_freq]
+        colorScale = d3.scale.quantize()
+            .domain(dom)
+            .range(colors);
 
         svg.append('defs')
             .append('pattern')
@@ -93,8 +91,8 @@ function fillData(url) {
             .attr("width", cellSize)
             .attr("height", cellSize)
             .style("fill", function(d) {
-                if (d != null) return colors[d.quantile];
-                //if (d != null) return colorScale(d.freq);
+                //if (d != null) return colors[d.quantile];
+                if (d != null) return colorScale(d.avg_freq);
                 else return "url(#diagonalHatch)";
             })
             .on("mouseover", function(d){
@@ -108,6 +106,7 @@ function fillData(url) {
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
                         d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
+                        "<strong>avg_freq:</strong> "+d.avg_freq+"<br/>"+
                         "<strong>content:</strong> '"+escapeHtml(d.content)+"'<br/>"
                         );
                } else {
@@ -118,7 +117,8 @@ function fillData(url) {
                     .select("#value")
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
-                        d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"
+                        d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
+                        "<strong>avg_freq:</strong> "+d.avg_freq+"<br/>"
                         );
                }
                //Show the tooltip
@@ -129,17 +129,35 @@ function fillData(url) {
                    d3.select("#tooltip").classed("hidden", true);
             })
             .on("click", function(d) {
-                addBreadCrumb("["+d.start+"-"+d.stop+"]",d.start,d.stop,numCells)
-                var url = dataUrlPrefix
-                updateData(url+"?start="+d.start+"&end="+d.stop+"&numcells="+numCells);
-                d3.event.stopPropagation();
+                if(d.bytes_per_cell != 1) {
+                    addBreadCrumb("["+d.start+"-"+d.stop+"]",d.start,d.stop,numCells)
+                    var url = dataUrlPrefix
+                    updateData(url+"?start="+d.start+"&end="+d.stop+"&numcells="+numCells);
+                    d3.event.stopPropagation();
+                }
             });
+
+        var maxY = 0;
+        var rects = svg.selectAll(".cell").each(function(d, i) {
+            var thisY = parseInt((this.attributes[1].value))
+            if(thisY > maxY) {
+                maxY = thisY
+            }
+        });
+
+
+        var legendTitle = svg.append("g")
+            .append("g")
+            .append("text")
+            .attr("class", "legendTitle")
+            .attr("x", 20)
+            .attr("y", maxY + 30)
+            .text("Average Byte Frequency in Block")
 
         var legend = svg.append("g")
             .attr("class", "legend")
-            .attr("transform", "translate(0,-300)")
             .selectAll(".legendElement")
-            .data([0,"<=10","<=100","<=1000","<=10k","<=100k","<=1M","<=10M","<=100M",">100M"])
+            .data(colorScale.range())
             .enter().append("g")
             .attr("class", "legendElement");
 
@@ -147,24 +165,24 @@ function fillData(url) {
             .attr("x", function(d, i) {
                 return 20 + legendElementWidth * i;
             })
-            .attr("y", y + 150)
+            .attr("y", maxY + 35)
             .attr("class", "cellLegend bordered")
             .attr("width", legendElementWidth)
             .attr("height", cellSize *2 )
             .style("fill", function(d, i) {
-                //return colorScale(i);
-                return colors[i];
+                return d;
             });
 
         legend.append("text")
             .attr("class", "mono legendElement")
             .text(function(d) {
-                return d;
+                var range = colorScale.invertExtent(d)
+                return Math.ceil(range[0])+"-"+Math.floor(range[1]);
             })
             .attr("x", function(d, i) {
                 return 20 + legendElementWidth * i;
             })
-            .attr("y", y + 150 + 3* cellSize);
+            .attr("y", maxY + 35 + 3* cellSize);
 
         addBreadCrumb("[0-n]",0,0,numCells)
     })
@@ -206,13 +224,16 @@ function updateData(url) {
         data = json;
         var svg = d3.select("svg");
 
+        colorScale = d3.scale.quantize()
+            .domain([data.min_avg_freq,data.max_avg_freq])
+            .range(colors);
         var cells = svg.selectAll(".cell")
             .data(data.data)
 
         cells.style("fill", function(d) {
-                if (d != null) return colors[d.quantile];
+                return colorScale(d.avg_freq);
                 //if (d != null) return colorScale(d.freq);
-                else return "url(#diagonalHatch)";
+                //else return "url(#diagonalHatch)";
             })
 
         cells.enter()
@@ -232,9 +253,9 @@ function updateData(url) {
             .attr("width", cellSize)
             .attr("height", cellSize)
             .style("fill", function(d) {
-                if (d != null) return colors[d.quantile];
+                if (d != null) return colorScale(d.avg_freq);
                 //if (d != null) return colorScale(d.freq);
-                else return "url(#diagonalHatch)";
+                //else return "url(#diagonalHatch)";
             })
             .on("mouseover", function(d){
                //highlight text
@@ -247,6 +268,7 @@ function updateData(url) {
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
                         d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
+                        "<strong>avg_freq:</strong> "+d.avg_freq+"<br/>"+
                         "<strong>content:</strong> '"+escapeHtml(d.content)+"'<br/>"
                         );
                } else {
@@ -256,7 +278,8 @@ function updateData(url) {
                     .select("#value")
                     .html("<strong>bytes per cell:</strong> "+d.bytes_per_cell+
                         "<br/><strong>start:</strong> "+d.start+"<br/><strong>stop:</strong> "+
-                        d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"
+                        d.stop+"<br/><strong>freq:</strong> "+d.freq+"<br/>"+
+                        "<strong>avg_freq:</strong> "+d.avg_freq+"<br/>"
                         );
                }
                //Show the tooltip
@@ -267,14 +290,63 @@ function updateData(url) {
                d3.select(this).classed("cell-selected",false);
             })
             .on("click", function(d) {
-                addBreadCrumb("["+d.start+"-"+d.stop+"]",d.start,d.stop,numCells)
-                var url = dataUrlPrefix
-                updateData(url+"?start="+d.start+"&end="+d.stop+"&numcells="+numCells);
-                d3.event.stopPropagation();
+                if(d.bytes_per_cell != 1) {
+                    addBreadCrumb("["+d.start+"-"+d.stop+"]",d.start,d.stop,numCells)
+                    var url = dataUrlPrefix
+                    updateData(url+"?start="+d.start+"&end="+d.stop+"&numcells="+numCells);
+                    d3.event.stopPropagation();
+                }
             });
 
         cells.exit().remove()
 
+        var maxY = 0;
+        var rects = svg.selectAll(".cell").each(function(d, i) {
+            var thisY = parseInt((this.attributes[1].value))
+            if(thisY > maxY) {
+                maxY = thisY
+            }
+        });
+
+        svg.selectAll(".legendTitle").remove()
+        var legendTitle = svg.append("g")
+            .append("g")
+            .append("text")
+            .attr("class", "legendTitle")
+            .attr("x", 20)
+            .attr("y", maxY + 30)
+            .text("Average Byte Frequency in Block")
+            
+        svg.selectAll(".legend").remove()
+        var legend = svg.append("g")
+            .attr("class", "legend")
+            .selectAll(".legendElement")
+            .data(colorScale.range())
+            .enter().append("g")
+            .attr("class", "legendElement");
+
+        legend.append("svg:rect")
+            .attr("x", function(d, i) {
+                return 20 + legendElementWidth * i;
+            })
+            .attr("y", maxY + 35)
+            .attr("class", "cellLegend bordered")
+            .attr("width", legendElementWidth)
+            .attr("height", cellSize *2 )
+            .style("fill", function(d, i) {
+                return d;
+            });
+
+        legend.append("text")
+            .attr("class", "mono legendElement")
+            .text(function(d) {
+                var range = colorScale.invertExtent(d)
+                return Math.ceil(range[0])+"-"+Math.floor(range[1]);
+            })
+            .attr("x", function(d, i) {
+                return 20 + legendElementWidth * i;
+            })
+            .attr("y", maxY + 35 + 3* cellSize);
 
     });
 }
