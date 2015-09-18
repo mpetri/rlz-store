@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "utils.hpp"
+#include "factor_storage.hpp"
 
 using namespace std::chrono;
 
@@ -517,4 +518,25 @@ void compare_indexes(collection& col, t_idx_base1& baseline1, t_idx_base2& basel
     // /* (4) compress baseline with new_idx */
     // {
     // }
+}
+
+template <class t_idx>
+factorization_statistics dict_usage_stats(const t_idx& idx)
+{
+    factorization_statistics fs;
+    fs.dict_usage.resize(idx.dict.size());
+    fs.block_size = idx.encoding_block_size;
+    auto fitr = idx.factors_begin();
+    auto fend = idx.factors_end();
+    for(size_t i=0;i<fs.dict_usage.size();i++) fs.dict_usage[i] = 0;
+    while(fitr != fend) {
+        auto fd = *fitr;
+        if(!fd.is_literal) {
+            for(size_t i=0;i<fd.len;i++) {
+                fs.dict_usage[fd.offset+i]++;
+            }
+        }
+        ++fitr;
+    }
+    return fs;
 }
