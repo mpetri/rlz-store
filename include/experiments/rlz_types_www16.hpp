@@ -17,6 +17,14 @@ using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_u
                              	factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                              	block_map_uncompressed>;
 
+using rlz_type_zz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_uniform_sample_block_size>,
+                                dict_prune_none,
+                                dict_index_csa<www_csa_type>,
+                                www_factorization_blocksize,
+                                factor_select_first,
+				factor_coder_blocked_twostream<1,coder::zlib<9>,coder::zlib<9>>,
+                                block_map_uncompressed>;
+
  using rlz_type_zzz_greedy_sp_local_tb_rand = // rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256>,
 									 // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
 									 rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,   

@@ -25,16 +25,25 @@ ACCESS_TYPE t_method = SEQ
 >
 class dict_local_coverage_random_RS{
 public:
+    static std::string container_type()
+    {
+   	return "dict_local_coverage_random_RS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+    }
     static std::string type()
     {
-        return "dict_local_coverage_random_RS-"+ std::to_string(t_method)+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+	return "dict_local_coverage_random_RS-"+ std::to_string(t_method)+"-" +std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
-
-    static std::string file_name(collection& col, uint64_t size_in_bytes)
+    static std::string dict_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
         return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + ".sdsl";
     }
+    static std::string container_file_name(collection& col, uint64_t size_in_bytes)
+    {
+        auto size_in_mb = size_in_bytes / (1024 * 1024);
+        return col.path + "/index/" + container_type() + "-" + std::to_string(size_in_mb) + ".sdsl";
+    }
+   
 public:
 	static void create(collection& col, bool rebuild,size_t size_in_bytes) {
 		uint32_t budget_bytes = size_in_bytes;
@@ -42,7 +51,7 @@ public:
 		uint32_t num_blocks_required = (budget_bytes / t_estimator_block_size) + 1;
 
         // check if we store it already and load it
-        auto fname = file_name(col, size_in_bytes);
+        auto fname = dict_file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			auto start_total = hrclock::now();
@@ -65,7 +74,7 @@ public:
 			// (1) Filter by threshold using reservoir sampling
 			// try to load the estimates instead of recomputing
 		   	uint32_t down_size = t_down_size;
-			auto rs_name = file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
+			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
 			uint64_t rs_size = (text.size()-t_estimator_block_size)/down_size;
@@ -224,11 +233,11 @@ public:
                                                 best_local_blocks = std::move(local_blocks);
                                         }
 				}
-				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max weight = " << sum_weights_max;
-				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max intersect = " << intersection_max << "\n";
+//				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max weight = " << sum_weights_max;
+//				 LOG(INFO) << "\t" << "Block " << best_block_no << "\t" << "max intersect = " << intersection_max << "\n";
 				
 				picked_blocks.push_back(best_block_no);
-				LOG(INFO) << "\t" << "\n"; 	
+//				LOG(INFO) << "\t" << "\n"; 	
 				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
 				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
 				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
@@ -259,7 +268,7 @@ public:
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict.size()/(1024*1024) << " MiB"; 
 			dict.push_back(0); // zero terminate for SA construction
 			auto end_total = hrclock::now();
-			LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
+			LOG(INFO) <<"\n" << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total-start_total).count() / 1000.0f << " sec";
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
 		}
@@ -268,4 +277,3 @@ public:
 		col.compute_dict_hash();
 	}
 };
-

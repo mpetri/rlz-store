@@ -54,7 +54,7 @@ public:
             auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
             std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
             auto end_total = hrclock::now();
-            LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
+            LOG(INFO) << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total-start_total).count() / 1000.0f << " sec";
         } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";

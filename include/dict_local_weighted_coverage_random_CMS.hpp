@@ -22,13 +22,21 @@ class dict_local_weighted_coverage_random_CMS{
 public:
     static std::string type()
     {
-        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_method)+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_method)+"-" +std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
-
-    static std::string file_name(collection& col, uint64_t size_in_bytes)
+    static std::string container_type()
+    {
+        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+    }
+    static std::string dict_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
         return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + ".sdsl";
+    }
+    static std::string container_file_name(collection& col, uint64_t size_in_bytes)
+    {
+        auto size_in_mb = size_in_bytes / (1024 * 1024);
+        return col.path + "/index/" + container_type() +  "-" + std::to_string(size_in_mb) + ".sdsl";
     }
 public:
 	static void create(collection& col, bool rebuild,size_t size_in_bytes) {
@@ -37,12 +45,12 @@ public:
 		uint32_t num_blocks_required = (budget_bytes / t_estimator_block_size) + 1;
 
         // check if we store it already and load it
-        auto fname = file_name(col, size_in_bytes);
+        auto fname = dict_file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			auto start_total = hrclock::now();
 			// using sketch_type = count_min_sketch<std::ratio<1, 100000>,std::ratio<1, 8>>; //for 1gb RS		
-			using sketch_type = count_min_sketch<std::ratio<1, 5000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
+			using sketch_type = count_min_sketch<std::ratio<1, 4000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
 			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 8>>; //for 1gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 300000000>,std::ratio<1, 8>>; //for 128gb
 			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 8>>; //for 2gb
@@ -71,8 +79,8 @@ public:
 			// try to load the estimates instead of recomputing
 			LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
 		   	// uint32_t down_size = 256;
-			auto sketch_name = file_name(col,size_in_bytes) + "-RSsketch-" + std::to_string(t_down_size) + "-" + cfe.type();
-			auto rs_name = file_name(col,size_in_bytes) + "-RSample-" +std::to_string(t_down_size);
+			auto sketch_name = container_file_name(col,size_in_bytes) + "-RSsketch-" + std::to_string(t_down_size) + "-" + cfe.type();
+			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(t_down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
 			uint64_t rs_size = (text.size()-t_estimator_block_size)/t_down_size;
@@ -178,7 +186,7 @@ public:
     		rs.erase(last, rs.end());
     		// LOG(INFO) << "\t" << "RS size = " << rs.size(); 	
 			std::unordered_set<uint64_t> useful_blocks;		
-			useful_blocks.max_load_factor(0.3);
+			useful_blocks.max_load_factor(0.2);
 
 			std::move(rs.begin(), rs.end(), std::inserter(useful_blocks, useful_blocks.end()));
 			LOG(INFO) << "\t" << "Useful kept small blocks no. = " << useful_blocks.size(); 	
@@ -273,7 +281,7 @@ public:
 			LOG(INFO) << "\t" << "Final dictionary size = " << dict.size()/(1024*1024) << " MiB"; 
 			dict.push_back(0); // zero terminate for SA construction
 			auto end_total = hrclock::now();
-			LOG(INFO) << "\t" << type() + "Total time = " << duration_cast<milliseconds>(start_total-end_total).count() / 1000.0f << " sec";
+			LOG(INFO) << "\t" << type() << " Total time = " << duration_cast<milliseconds>(end_total-start_total).count() / 1000.0f << " sec";
 		} else {
 			LOG(INFO) << "\t" << "Dictionary exists at '" << fname << "'";
 		}
