@@ -54,6 +54,7 @@ struct dict_prune_care {
     template <class t_dict_idx,class t_factorization_strategy>
     static void prune(collection& col, bool rebuild,uint64_t target_dict_size_bytes,uint64_t num_threads)
     {
+        auto start_total = hrclock::now();
     	auto start_dict_size_bytes = 0ULL;
     	{
     		const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
@@ -186,6 +187,8 @@ struct dict_prune_care {
     	}
 
 		col.file_map[KEY_DICT] = new_dict_file;
+        auto end_total = hrclock::now();
+        LOG(INFO) <<"\n" << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total-start_total).count() / 1000.0f << " sec";
 		col.compute_dict_hash();
     }
 };
