@@ -149,12 +149,14 @@ class wt_flat
          */
         size_type rank(size_type i, value_type c)const {
             assert(i <= size());
+	    assert(c <= 256);
             if(m_bvs[c].size()==0) return 0;
             return m_bvs_rank[c].rank(i);
         };
 
         std::pair<size_type,size_type> double_rank(size_type i,size_type j, value_type c)const {
             assert(i <= size());
+	    assert(c <= 256);
             if(m_bvs[c].size()==0) return {0,0};
             return {m_bvs_rank[c].rank(i),m_bvs_rank[c].rank(j)};
         };

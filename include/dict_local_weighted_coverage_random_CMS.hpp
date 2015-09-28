@@ -26,7 +26,7 @@ public:
     }
     static std::string container_type()
     {
-        return "dict_local_weighted_coverage_random_CMS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+        return std::to_string(t_estimator_block_size);
     }
     static std::string dict_file_name(collection& col, uint64_t size_in_bytes)
     {
@@ -36,7 +36,7 @@ public:
     static std::string container_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
-        return col.path + "/index/" + container_type() +  "-" + std::to_string(size_in_mb) + ".sdsl";
+        return col.path + "/index/" + container_type() + ".sdsl";
     }
 public:
 	static void create(collection& col, bool rebuild,size_t size_in_bytes) {
@@ -219,7 +219,7 @@ public:
 			for(const auto& i : step_indices) {//steps
 				uint64_t sum_weights_max = std::numeric_limits<uint64_t>::min();	
 				uint64_t step_pos = i*sample_step_adjusted;
-				uint64_t best_block_no = 0;
+				uint64_t best_block_no = step_pos;
 				std::unordered_set<uint64_t> best_local_blocks;
 
 				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 

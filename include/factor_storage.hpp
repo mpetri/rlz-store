@@ -58,6 +58,7 @@ struct factor_tracker {
         {
             const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
             fs.dict_usage.resize(dict.size());
+	    for(size_t i=0;i<dict.size();i++) fs.dict_usage[i] = 0;
             fs.block_size =_block_size;
         }
         // create a buffer we can write to without reallocating
@@ -77,14 +78,16 @@ struct factor_tracker {
     template <class t_coder>
     void encode_current_block(t_coder& coder)
     {
+	size_t offsets_seen = 0;
         for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
             auto len = tmp_block_factor_data.lengths[i];
             if( len > coder.literal_threshold ) {
-                auto offset = tmp_block_factor_data.offset_literals[i];
+                auto offset = tmp_block_factor_data.offsets[offsets_seen];
                 for(size_t j=0;j<len;j++) {
                     fs.dict_usage[offset+j]++;
                 }
-            } 
+		offsets_seen++;
+            }
         }
         fs.total_encoded_factors += tmp_block_factor_data.num_factors;
         fs.total_encoded_blocks++;

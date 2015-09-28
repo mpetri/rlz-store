@@ -27,7 +27,7 @@ class dict_local_coverage_random_RS{
 public:
     static std::string container_type()
     {
-   	return "dict_local_coverage_random_RS-"+ std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
+   	return std::to_string(t_estimator_block_size);
     }
     static std::string type()
     {
@@ -41,7 +41,7 @@ public:
     static std::string container_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
-        return col.path + "/index/" + container_type() + "-" + std::to_string(size_in_mb) + ".sdsl";
+        return col.path + "/index/" + container_type() + ".sdsl";
     }
    
 public:
@@ -194,7 +194,7 @@ public:
 				uint32_t sum_weights_max = std::numeric_limits<uint32_t>::min();	
 				uint32_t intersection_max = 0;
 				uint64_t step_pos = i*sample_step_adjusted;
-				uint64_t best_block_no = 0;
+				uint64_t best_block_no = step_pos;
 				std::unordered_set<uint64_t> best_local_blocks;
 
 				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 
