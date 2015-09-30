@@ -94,6 +94,7 @@ struct dict_prune_care {
     	auto bytes_to_remove = start_dict_size_bytes - target_dict_size_bytes;
         auto freq_threshold = t_freq_threshold;
     	std::vector<segment_info> segments;
+        bool rewind = false;//mode for binary search of values
         while( total_len < bytes_to_remove ) {
             segments.clear();
             total_len = 0;
@@ -114,9 +115,22 @@ struct dict_prune_care {
     		    }
     	    }
             LOG(INFO) << "Freq threshold = " << freq_threshold << " Found bytes = " << total_len << " Req = " << bytes_to_remove;
-            freq_threshold *= 2;
+            if(!rewind) {
+	  	  if(total_len > bytes_to_remove) { 
+	    		freq_threshold = freq_threshold/2 + 1; //rewinding
+	   	 	rewind = true;
+			LOG(INFO) << "Rewinding...";
+			total_len = 0;	
+		  } else if(total_len == bytes_to_remove)
+		        break;
+		  else
+			freq_threshold *= 2;
+	    } else {
+		  freq_threshold += 1;	  
+	    }	
         }
-        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold/2 << " Length threshold = " << t_length_threshold;
+	if(rewind) freq_threshold--;
+        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold << " Length threshol = " << t_length_threshold << " Found bytes = " << total_len;
     	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
 
     	/* (3) compute the metric for those segments */

@@ -49,16 +49,6 @@ public:
         col.file_map[KEY_DICT] = fname;
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			auto start_total = hrclock::now();
-			// using sketch_type = count_min_sketch<std::ratio<1, 100000>,std::ratio<1, 8>>; //for 1gb RS		
-			using sketch_type = count_min_sketch<std::ratio<1, 4000000>,std::ratio<1, 8>>; //for 10gb RS 16gb RS
-			// using sketch_type = count_min_sketch<std::ratio<1, 3000000>,std::ratio<1, 8>>; //for 1gb
-			// using sketch_type = count_min_sketch<std::ratio<1, 300000000>,std::ratio<1, 8>>; //for 128gb
-			// using sketch_type = count_min_sketch<std::ratio<1, 6000000>,std::ratio<1, 8>>; //for 2gb
-			// using sketch_type = count_min_sketch<std::ratio<1, 20000000>,std::ratio<1, 8>>; //for 10gb
-			using hasher_type = fixed_hasher<t_estimator_block_size>;
-			using cfe_type = chunk_freq_estimator<t_estimator_block_size,hasher_type,sketch_type>;
-			cfe_type cfe;
-
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
 			LOG(INFO) << "\t" << "Block size = " << t_block_size; 
 			LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required; 
@@ -77,9 +67,7 @@ public:
 
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
-			LOG(INFO) << "\t" << "Sketch size = " << cfe.sketch.size_in_bytes()/(1024*1024) << " MiB";
 		   	// uint32_t down_size = 256;
-			auto sketch_name = container_file_name(col,size_in_bytes) + "-RSsketch-" + std::to_string(t_down_size) + "-" + cfe.type();
 			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(t_down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
@@ -156,38 +144,22 @@ public:
 			
 			LOG(INFO) << "\t" << "Reservoir sample blocks = " << rs.size(); 	
 			LOG(INFO) << "\t" << "Reservoir sample size = " << rs.size()*8/(1024*1024) << " MiB";
-
-			//make a smaller CMS from RAM
-			if (! utils::file_exists(sketch_name)  || rebuild) {	
-				LOG(INFO) << "\t" << "Building CM sketch";
-				auto start = hrclock::now();
-				cfe = cfe_type::parallel_sketch(rs.begin(),rs.end(),7);
-				auto stop = hrclock::now();
-				LOG(INFO) << "\t" << "Estimation time = " << duration_cast<milliseconds>(stop-start).count() / 1000.0f << " sec";
-				LOG(INFO) << "\t" << "Store sketch to file " << sketch_name;
-				sdsl::store_to_file(cfe,sketch_name);
-			} else {
-				LOG(INFO) << "\t" << "Load sketch from file " << sketch_name;
-				sdsl::load_from_file(cfe,sketch_name);
-				// LOG(INFO) << "\t" << "Maximum frequency = " << cfe.max_freq();
-				// LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.sketch.total_count;
+			//build exact counts of sampled elements
+			LOG(INFO) << "\t" << "Calculating exact frequencies of small rolling blocks...";
+			std::unordered_map<uint64_t,uint32_t> block_counts;
+			block_counts.max_load_factor(0.5);
+			for(uint64_t s : rs) {
+				block_counts[s]++;	
 			}
-			double cfe_noise = cfe.sketch.noise_estimate();		
-			double cfe_error = cfe.sketch.estimation_error()*0.2;
-			LOG(INFO) << "\t" << "Sketch params = {d=" << cfe.sketch.d << ",w=" << cfe.sketch.w << "}";
-			LOG(INFO) << "\t" << "Sketch estimation error = " << cfe.sketch.estimation_error();
-			LOG(INFO) << "\t" << "Sketch estimation confidence = " << cfe.sketch.estimation_probability();
-			LOG(INFO) << "\t" << "Sketch noise estimate = " << cfe_noise;
-			LOG(INFO) << "\t" << "Number of things hashed = " << cfe.sketch.total_count();
-			
+			LOG(INFO) << "\t" << "Generating distinct small rolling samples...";
 			//make a useful blocks hash, clear RA as you go to save space
 			std::sort(rs.begin(), rs.end());
 			auto last = std::unique(rs.begin(), rs.end());
-    		rs.erase(last, rs.end());
-    		// LOG(INFO) << "\t" << "RS size = " << rs.size(); 	
+	    		rs.erase(last, rs.end());
+	    		// LOG(INFO) << "\t" << "RS size = " << rs.size(); 	
 			std::unordered_set<uint64_t> useful_blocks;		
 			useful_blocks.max_load_factor(0.2);
-
+			
 			std::move(rs.begin(), rs.end(), std::inserter(useful_blocks, useful_blocks.end()));
 			LOG(INFO) << "\t" << "Useful kept small blocks no. = " << useful_blocks.size(); 	
 
@@ -236,12 +208,14 @@ public:
 						if(local_blocks.find(hash) == local_blocks.end() && step_blocks.find(hash) == step_blocks.end() && useful_blocks.find(hash) != useful_blocks.end()) //continues rolling
 						{//expensive checking					
 							local_blocks.emplace(hash);
-							auto est_freq = cfe.estimate(hash);
-							if(est_freq >= cfe_error)						
-								sum_weights_current += est_freq;		
+							auto freq = block_counts[hash];
+							sum_weights_current += std::sqrt(freq); //L0.5
+							//sum_weights_current += freq; //L1
+						//	sum_weights_current += freq*freq; //L2			
 						}
 					}
-					
+					//sum_weights_current = std::sqrt(sum_weights_current);
+					sum_weights_current = sum_weights_current*sum_weights_current;
 					if(sum_weights_current >= sum_weights_max)
 					{
 						sum_weights_max = sum_weights_current;
@@ -259,7 +233,7 @@ public:
 		    step_blocks.clear(); //save mem
 		    step_indices.clear();//
 		    useful_blocks.clear();
-	
+		    block_counts.clear();	
 		    //sort picked blocks
 			std::sort(picked_blocks.begin(), picked_blocks.end());
 			stop = hrclock::now();

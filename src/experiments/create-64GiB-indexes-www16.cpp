@@ -39,7 +39,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         LOG(INFO) << "Regular sampling compression ratio = "
                   << 100.0 * (double) rlz_store_1.size_in_bytes() / (double) rlz_store_1.text_size;
 
-*/
+
 
         auto rlz_store_2 = rlz_type_zzz_greedy_sp_local_tb_rand::builder{}
                              .set_rebuild(args.rebuild)
@@ -49,7 +49,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_2, "Local_tb_rand");
         LOG(INFO) << "Local_tb_rand compression ratio = "
                   << 100.0 * (double) rlz_store_2.size_in_bytes() / (double) rlz_store_2.text_size;
-
+*/
 
         auto rlz_store_3 = rlz_type_zzz_greedy_sp_local_cms_rand::builder{}
                              .set_rebuild(args.rebuild)
@@ -59,8 +59,8 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_3, "Local_cms_rand");
     	LOG(INFO) << "Local_cms_rand compression ratio = "
                   << 100.0 * (double) rlz_store_3.size_in_bytes() / (double) rlz_store_3.text_size;
-
 /*
+
         auto rlz_store_4 = rlz_type_zzz_greedy_sp_local_tb_seq::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
@@ -176,9 +176,9 @@ int main(int argc, const char* argv[])
 
     /* create rlz indices */
 //    create_indexes<32*1024*1024>(col,args);
-//    create_indexes<64*1024*1024>(col,args);
+    create_indexes<64*1024*1024>(col,args);
 //    create_indexes<512*1024*1024>(col,args);
-    create_indexes<1024*1024*1024>(col,args);
+//    create_indexes<1024*1024*1024>(col,args);
 //    create_indexes<16*1024*1024>(col,args);
 //    create_indexes<256*1024*1024>(col,args);
 
