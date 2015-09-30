@@ -49,7 +49,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_2, "Local_tb_rand");
         LOG(INFO) << "Local_tb_rand compression ratio = "
                   << 100.0 * (double) rlz_store_2.size_in_bytes() / (double) rlz_store_2.text_size;
-*/
+
 
         auto rlz_store_3 = rlz_type_zzz_greedy_sp_local_cms_rand::builder{}
                              .set_rebuild(args.rebuild)
@@ -59,7 +59,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_3, "Local_cms_rand");
     	LOG(INFO) << "Local_cms_rand compression ratio = "
                   << 100.0 * (double) rlz_store_3.size_in_bytes() / (double) rlz_store_3.text_size;
-/*
+
 
         auto rlz_store_4 = rlz_type_zzz_greedy_sp_local_tb_seq::builder{}
                              .set_rebuild(args.rebuild)
@@ -158,6 +158,14 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         LOG(INFO) << "CARE + Local_cms_rand compression ratio = "
                   << 100.0 * (double) rlz_store_11.size_in_bytes() / (double) rlz_store_11.text_size;
  */
+        auto rlz_store_12 = rlz_type_zzz_greedy_sp_local_norms_rand::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(dict_size_in_bytes)
+                             .build_or_load(col);
+        compare_indexes(col,rlz_store_12, "Local_norms_rand");
+        LOG(INFO) << "Local_norms_rand compression ratio = "
+                  << 100.0 * (double) rlz_store_12.size_in_bytes() / (double) rlz_store_12.text_size;
    }
 }
 
@@ -175,8 +183,8 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz indices */
-//    create_indexes<32*1024*1024>(col,args);
-    create_indexes<64*1024*1024>(col,args);
+    create_indexes<32*1024*1024>(col,args);
+//    create_indexes<64*1024*1024>(col,args);
 //    create_indexes<512*1024*1024>(col,args);
 //    create_indexes<1024*1024*1024>(col,args);
 //    create_indexes<16*1024*1024>(col,args);
