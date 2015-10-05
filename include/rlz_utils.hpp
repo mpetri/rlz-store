@@ -206,7 +206,7 @@ void output_stats(t_idx& idx,std::string name = std::string()) {
         LOG(INFO) << name << " space_savings = " << 100.0 * (1 - ((double)space_on_disk / ((double)idx.text_size*8))) << " %";
     }
     /* analyze factors */
-    {
+   /* {
         auto num_literals = 0ULL;
         auto non_literals = 0ULL;
         auto num_factors = 0ULL;
@@ -282,7 +282,7 @@ void output_stats(t_idx& idx,std::string name = std::string()) {
             if(cnt) LOG(INFO) << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
             thres *= 2;
         }
-    }
+    }*/
 }
 
 

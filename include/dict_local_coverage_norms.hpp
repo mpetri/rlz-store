@@ -32,7 +32,7 @@ public:
     static std::string dict_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
-        return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + ".sdsl";
+	return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + "-" + std::to_string(t_norm::num) + "-" + std::to_string(t_norm::den) + + "-" + std::to_string(t_down_size)+".sdsl";
     }
     static std::string container_file_name(collection& col, uint64_t size_in_bytes)
     {
@@ -76,7 +76,7 @@ public:
 			std::vector<uint64_t> rs; //filter out frequency less than 64
 			if (! utils::file_exists(rs_name) || rebuild) {		
 			auto start = hrclock::now();
-				LOG(INFO) << "\t" << "Building Reservoir sample";
+				LOG(INFO) << "\t" << "Building Reservoir sample with downsize: " << t_down_size;
 				//make a reservoir sampler and keep it in RAM
 				uint64_t count = 0;
 				uint64_t skip = 0;

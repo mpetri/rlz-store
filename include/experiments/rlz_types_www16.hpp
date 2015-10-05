@@ -9,7 +9,7 @@ const uint32_t www_uniform_sample_block_size = 1024;
 const uint32_t www_factorization_blocksize = 64*1024;
 
 //regular sampling baseline
-using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_uniform_sample_block_size>,
+using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<2048>,
                               	dict_prune_none,
                              	dict_index_csa<www_csa_type>,
                              	www_factorization_blocksize,
@@ -25,83 +25,8 @@ using rlz_type_zz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_un
 				factor_coder_blocked_twostream<1,coder::zlib<9>,coder::zlib<9>>,
                                 block_map_uncompressed>;
 
- using rlz_type_zzz_greedy_sp_local_tb_rand = // rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256>,
-									 // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
-									 rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,   
-									 // rlz_store_static<dict_local_coverage_random_RS_topk<1024,16,256,1>, 
-									 dict_prune_none,
-									 dict_index_csa<www_csa_type>,
-									 www_factorization_blocksize,
-									 factor_select_first,
-									 factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-									 block_map_uncompressed>;
-
- using rlz_type_zzz_greedy_sp_local_cms_rand =  rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256, RAND>,
-									 // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
-									 // rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,   
-									 // rlz_store_static<dict_local_coverage_random_RS_topk<1024,16,256,1>, 
-									 dict_prune_none,
-									 dict_index_csa<www_csa_type>,
-									 www_factorization_blocksize,
-									 factor_select_first,
-									 factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-									 block_map_uncompressed>;
-
- using rlz_type_zzz_greedy_sp_local_tb_seq = // rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256>,
-									 // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
-									 rlz_store_static<dict_local_coverage_random_RS<2048,16,256, SEQ>,   
-									 // rlz_store_static<dict_local_coverage_random_RS_topk<1024,16,256,1>, 
-									 dict_prune_none,
-									 dict_index_csa<www_csa_type>,
-									 www_factorization_blocksize,
-									 factor_select_first,
-									 factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-									 block_map_uncompressed>;
-
- using rlz_type_zzz_greedy_sp_local_cms_seq =  rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256, SEQ>,
-									 // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
-									 // rlz_store_static<dict_local_coverage_random_RS<2048,16,256, seq>,   
-									 // rlz_store_static<dict_local_coverage_random_RS_topk<1024,16,256,1>, 
-									 dict_prune_none,
-									 dict_index_csa<www_csa_type>,
-									 www_factorization_blocksize,
-									 factor_select_first,
-									 factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-									 block_map_uncompressed>;
-//REM + regular sampling
- using rlz_type_zzz_greedy_sp_rem_regsamp =  rlz_store_static<dict_uniform_sample_budget<1024>,
-                                                                         dict_prune_rem<1024>,
-                                                                         dict_index_csa<www_csa_type>,
-                                                                         www_factorization_blocksize,
-                                                                         factor_select_first,
-                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                                                        block_map_uncompressed>;
-//REM + local_tb
- using rlz_type_zzz_greedy_sp_rem_local_tb =  rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,
-                                                                         dict_prune_rem<1024>,
-                                                                         dict_index_csa<www_csa_type>,
-                                                                         www_factorization_blocksize,
-                                                                         factor_select_first,
-                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                                                        block_map_uncompressed>;
-//REM + local_cms
- using rlz_type_zzz_greedy_sp_rem_local_cms =  rlz_store_static<dict_local_weighted_coverage_random_CMS<2048,16,256, RAND>,
-                                                                         dict_prune_rem<1024>,
-                                                                         dict_index_csa<www_csa_type>,
-                                                                         www_factorization_blocksize,
-                                                                         factor_select_first,
-                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                                                        block_map_uncompressed>;
 //CARE + regular sampling
  using rlz_type_zzz_greedy_sp_care_regsamp =  rlz_store_static<dict_uniform_sample_budget<1024>,
-                                                                         dict_prune_care<10,20,FFT>,
-                                                                         dict_index_csa<www_csa_type>,
-                                                                         www_factorization_blocksize,
-                                                                         factor_select_first,
-                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                                                        block_map_uncompressed>;
-//CARE + local_tb
- using rlz_type_zzz_greedy_sp_care_local_tb =  rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,
                                                                          dict_prune_care<10,20,FFT>,
                                                                          dict_index_csa<www_csa_type>,
                                                                          www_factorization_blocksize,
@@ -116,14 +41,113 @@ using rlz_type_zz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_un
                                                                          factor_select_first,
                                                                          factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                                                         block_map_uncompressed>;
-//norm
-using rlz_type_zzz_greedy_sp_local_norms_rand =  rlz_store_static<dict_local_coverage_norms<1024,16,128, std::ratio<0,1>, RAND>,
-                                     // rlz_store_static<dict_local_weighted_coverage_random_CMS_topk<2048,16,256,1>,
-                                     // rlz_store_static<dict_local_coverage_random_RS<2048,16,256, RAND>,   
-                                     // rlz_store_static<dict_local_coverage_random_RS_topk<1024,16,256,1>, 
+//norms
+using rlz_type_zzz_greedy_sp_local_zero_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<0,1>, RAND>, 
+                                     dict_prune_none,
+				     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+				     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_half_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<1,2>, RAND>,
                                      dict_prune_none,
                                      dict_index_csa<www_csa_type>,
-                                     32*1024,
+                                     www_factorization_blocksize,
                                      factor_select_first,
-                                     factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                      block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_half_norm_seq =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<1,2>, SEQ>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_one_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<1,1>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_onehalf_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<3,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+
+//para: big block sizes, with half norm
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_size1 =  rlz_store_static<dict_local_coverage_norms<1024,16,256, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_size4 =  rlz_store_static<dict_local_coverage_norms<4096,16,256, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_size8 =  rlz_store_static<dict_local_coverage_norms<8192,16,256, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+//para: rs down sizes, with half norm
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize64 =  rlz_store_static<dict_local_coverage_norms<2048,16,64, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize128 =  rlz_store_static<dict_local_coverage_norms<2048,16,128, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize512 =  rlz_store_static<dict_local_coverage_norms<2048,16,512, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize1024 =  rlz_store_static<dict_local_coverage_norms<2048,16,1024, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize2048 =  rlz_store_static<dict_local_coverage_norms<2048,16,2048, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize4096 =  rlz_store_static<dict_local_coverage_norms<2048,16,4096, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
+
