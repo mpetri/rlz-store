@@ -115,7 +115,8 @@ struct dict_prune_care {
     		    }
     	    }
             LOG(INFO) << "Freq threshold = " << freq_threshold << " Found bytes = " << total_len << " Req = " << bytes_to_remove;
-            if(!rewind) {
+	    freq_threshold *= 2;	 
+/*            if(!rewind) {
 	  	  if(total_len > bytes_to_remove) { 
 	    		freq_threshold = freq_threshold/2 + 1; //rewinding
 	   	 	rewind = true;
@@ -129,9 +130,10 @@ struct dict_prune_care {
 		  freq_threshold += 1;	  
 	    }	
         }
-	if(rewind) freq_threshold--;
-        LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold << " Length threshol = " << t_length_threshold << " Found bytes = " << total_len;
-    	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
+	if(rewind) freq_threshold--;*/
+        }
+	LOG(INFO) << "\t" << "Freq threshold = " << freq_threshold/2 << " Length threshold = " << t_length_threshold << " Found bytes = " << total_len;
+	LOG(INFO) << "\t" << "Found " << segments.size() << " segments of total length " << total_len << " (" << total_len/(1024*1024) << " MiB)";
 
     	/* (3) compute the metric for those segments */
         {
