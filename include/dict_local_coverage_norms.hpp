@@ -25,6 +25,13 @@ public:
     {
         return "dict_local_coverage_norms-"+ std::to_string(t_method)+"-" +std::to_string(t_block_size)+"-"+ std::to_string(t_estimator_block_size);
     }
+    static uint32_t adjusted_down_size(collection& col, uint64_t size_in_bytes)
+    {
+	sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+	auto ratio = (text.size()/size_in_bytes)/2;
+        return (ratio >= t_down_size? t_down_size : ratio);
+    }
+ 	
     static std::string container_type()
     {
         return std::to_string(t_estimator_block_size);
@@ -32,7 +39,7 @@ public:
     static std::string dict_file_name(collection& col, uint64_t size_in_bytes)
     {
         auto size_in_mb = size_in_bytes / (1024 * 1024);
-	return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + "-" + std::to_string(t_norm::num) + "-" + std::to_string(t_norm::den) + + "-" + std::to_string(t_down_size)+".sdsl";
+	return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + "-" + std::to_string(t_norm::num) + "-" + std::to_string(t_norm::den) + + "-" + std::to_string(adjusted_down_size(col, size_in_bytes))+".sdsl";
     }
     static std::string container_file_name(collection& col, uint64_t size_in_bytes)
     {
@@ -48,6 +55,7 @@ public:
         // check if we store it already and load it
         auto fname = dict_file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
+	auto down_size = adjusted_down_size(col, size_in_bytes);
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			auto start_total = hrclock::now();
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
@@ -69,14 +77,14 @@ public:
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
 		   	// uint32_t down_size = 256;
-			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(t_down_size);
+			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
-			uint64_t rs_size = (text.size()-t_estimator_block_size)/t_down_size;
+			uint64_t rs_size = (text.size()-t_estimator_block_size)/down_size;
 			std::vector<uint64_t> rs; //filter out frequency less than 64
 			if (! utils::file_exists(rs_name) || rebuild) {		
 			auto start = hrclock::now();
-				LOG(INFO) << "\t" << "Building Reservoir sample with downsize: " << t_down_size;
+				LOG(INFO) << "\t" << "Building Reservoir sample with downsize: " << down_size;
 				//make a reservoir sampler and keep it in RAM
 				uint64_t count = 0;
 				uint64_t skip = 0;
