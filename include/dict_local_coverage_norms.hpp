@@ -29,7 +29,8 @@ public:
     {
 	sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
 	auto ratio = (text.size()/size_in_bytes)/2;
-        return (ratio >= t_down_size? t_down_size : ratio);
+        //return (ratio >= t_down_size? t_down_size : ratio);
+		return 256;
     }
  	
     static std::string container_type()
@@ -197,21 +198,26 @@ public:
 
 			// 2nd pass: process max coverage using the sorted order by density
 			std::unordered_set<uint64_t> step_blocks;
+			std::unordered_set<uint64_t> step_bad_blocks;
 			step_blocks.max_load_factor(0.2);
+			step_bad_blocks.max_load_factor(0.2);
 			std::vector<uint64_t> picked_blocks;
 			LOG(INFO) << "\t" << "Second pass: perform ordered max coverage..."; 
 			start = hrclock::now();
 			double norm = (double)t_norm::num/t_norm::den;
 			LOG(INFO) << "\t" << "Computing norm = " << norm; 
 			for(const auto& i : step_indices) {//steps
-				double sum_weights_max = std::numeric_limits<double>::min();	
+				double sum_weights_max = std::numeric_limits<double>::lowest();	
 				uint64_t step_pos = i*sample_step_adjusted;
 				uint64_t best_block_no = step_pos;
 				std::unordered_set<uint64_t> best_local_blocks;
+				std::unordered_set<uint64_t> best_local_bad_blocks;
 
 				for(size_t j=0;j<sample_step_adjusted;j = j+t_block_size) {//blocks 
-					std::unordered_set<uint64_t> local_blocks;
+					std::unordered_set<uint64_t> local_blocks; //local added new frequent blocks
+					std::unordered_set<uint64_t> local_bad_blocks;
 					local_blocks.max_load_factor(0.1);
+					local_bad_blocks.max_load_factor(0.1);
 					double sum_weights_current = 0;
 
 					for(size_t k=0;k<t_block_size;k++) {//bytes
@@ -220,13 +226,44 @@ public:
 
 						if(k < t_estimator_block_size-1) continue;
 
-						if(local_blocks.find(hash) == local_blocks.end() && step_blocks.find(hash) == step_blocks.end() && block_counts.find(hash) != block_counts.end()) //continues rolling
-						{//expensive checking					
+						//local block?
+						if(local_blocks.find(hash) != local_blocks.end() || local_bad_blocks.find(hash) != local_bad_blocks.end()) {
+							continue;
+						}
+
+						//step block?
+						if(step_blocks.find(hash) != step_blocks.end() || step_bad_blocks.find(hash) != step_bad_blocks.end()) {
+							continue;
+						}
+
+						//in rs?
+						if(block_counts.find(hash) != block_counts.end()) { //yes
+							auto freq = block_counts[hash];
+                       		//compute norms
+                        	sum_weights_current += std::pow(freq,norm); //L0 only
+							local_blocks.emplace(hash);
+						} else { //no
+							sum_weights_current += 0.2; //count bad blocks better than seen ones
+                        	local_bad_blocks.emplace(hash);
+						}
+
+						//if(local_blocks.find(hash) == local_blocks.end() && step_blocks.find(hash) == step_blocks.end() && block_counts.find(hash) != block_counts.end()) //continues rolling
+						//{//expensive checking
+						/*if(local_blocks.find(hash) == local_blocks.end() && local_bad_blocks.find(hash) = local_bad_locks.end() && step_blocks.find(hash) == step_blocks.end() && step_bad_blocks.find(hash) == step_bad_blocks.end()) {
 							local_blocks.emplace(hash);
 							auto freq = block_counts[hash];
-							//compute norms
-							sum_weights_current += std::pow(freq,norm); //L0.5
-						}
+                       		//compute norms
+                        	sum_weights_current += std::pow(freq,norm); //L0 only
+
+                        	//local bad
+                            if(local_bad_blocks.find(hash) = local_bad_locks.end()) //0.1
+
+
+                        	if(block_counts.find(hash) != block_counts.end()) {
+                        		sum_weights_current += 0.2; //count bad blocks better than seen ones
+                        		local_bad_blocks.emplace(hash);
+                        	}
+						}*/ 			
 					}
 					//sum_weights_current = std::sqrt(sum_weights_current);
 					if(norm > 0)
@@ -236,6 +273,7 @@ public:
 						sum_weights_max = sum_weights_current;
 						best_block_no = step_pos + j; 
 						best_local_blocks = std::move(local_blocks);
+						best_local_bad_blocks = std::move(local_bad_blocks);
 					}
 				}
 			
@@ -243,9 +281,11 @@ public:
 				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
 				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
 				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+				step_bad_blocks.insert(best_local_bad_blocks.begin(), best_local_bad_blocks.end());
 		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
 		    step_blocks.clear(); //save mem
+		    step_bad_blocks.clear();
 		    step_indices.clear();//
 		    // useful_blocks.clear();
 		    block_counts.clear();	
