@@ -4,87 +4,9 @@
 #include <string>
 #include <sdsl/rmq_support.hpp>
 
-template <class t_csa, class t_itr>
-struct factor_itr_csa {
-    const t_csa& sa;
-    t_itr factor_start;
-    t_itr itr;
-    t_itr end;
-    uint64_t sp;
-    uint64_t ep;
-    uint64_t len;
-    uint8_t sym;
-    bool done;
-    bool local;
-    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end)
-        : sa(_csa)
-        , factor_start(begin)
-        , itr(begin)
-        , end(_end)
-        , sp(0)
-        , ep(_csa.size() - 1)
-        , len(0)
-        , sym(0)
-        , done(false)
-        , local(false)
-    {
-        find_next_factor();
-    }
-    factor_itr_csa& operator++()
-    {
-        find_next_factor();
-        return *this;
-    }
-    inline void find_next_factor()
-    {
-        sp = 0;
-        ep = sa.size() - 1;
-        while (itr != end) {
-            sym = *itr;
-            auto mapped_sym = sa.char2comp[sym];
-            bool sym_exists_in_dict = mapped_sym != 0;
-            uint64_t res_sp, res_ep;
-            if (sym_exists_in_dict) {
-                if (sp == 0 && ep == sa.size() - 1) {
-                    // small optimization
-                    res_sp = sa.C[mapped_sym];
-                    res_ep = sa.C[mapped_sym + 1] - 1;
-                } else {
-                    sdsl::backward_search(sa, sp, ep, sym, res_sp, res_ep);
-                }
-            }
-            if (!sym_exists_in_dict || res_ep < res_sp) {
-                // FOUND FACTOR
-                len = std::distance(factor_start, itr);
-                if (len == 0) { // unknown symbol factor found
-                    ++itr;
-                } else {
-                    // substring not found. but we found a factor!
-                }
-                factor_start = itr;
-                return;
-            } else { // found substring
-                sp = res_sp;
-                ep = res_ep;
-                ++itr;
-            }
-        }
-        /* are we in a substring? encode the rest */
-        if (factor_start != itr) {
-            len = std::distance(factor_start, itr);
-            factor_start = itr;
-            return;
-        }
-        done = true;
-    }
-    inline bool finished() const
-    {
-        return done;
-    }
-};
 
-template <class t_csa, class t_itr>
-struct factor_itr_csa_local {
+template <class t_csa, class t_itr,bool t_local_search>
+struct factor_itr_csa {
     const t_csa& sa;
     t_itr factor_start;
     t_itr itr;
@@ -115,7 +37,7 @@ struct factor_itr_csa_local {
     };
 
     std::unordered_map<uint32_t,qpos_t> qgrams;
-    factor_itr_csa_local(const t_csa& _csa, t_itr begin, t_itr _end)
+    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end)
         : sa(_csa)
         , factor_start(begin)
         , itr(begin)
@@ -132,15 +54,15 @@ struct factor_itr_csa_local {
     {
         find_next_factor();
     }
-    factor_itr_csa_local& operator++()
+    factor_itr_csa& operator++()
     {
         find_next_factor();
         return *this;
     }
 
-    inline void find_local_factor()
+    inline void find_longer_local_factor()
     {
-        
+        if(!t_local_search) return;
         local = false;
         if(start != factor_start && start + 1 != factor_start && start + 2 != factor_start) {
             // utils::rlz_timer<std::chrono::nanoseconds> fbt("search_local_factor");
@@ -231,7 +153,7 @@ struct factor_itr_csa_local {
                 } else {
                     // substring not found. but we found a factor!
                 }
-                find_local_factor();
+                find_longer_local_factor();
                 factor_start = itr;
                 return;
             } else { // found substring
@@ -243,7 +165,7 @@ struct factor_itr_csa_local {
         /* are we in a substring? encode the rest */
         if (factor_start != itr) {
             len = std::distance(factor_start, itr);
-            find_local_factor();
+            find_longer_local_factor();
             factor_start = itr;
             return;
         }
@@ -399,22 +321,16 @@ struct dict_index_csa {
         rmq.load(in);
     }
 
-    template <class t_itr>
-    factor_itr_csa<t_csa, t_itr> factorize(t_itr itr, t_itr end) const
+    template <class t_itr,bool t_search_local_block_context>
+    factor_itr_csa<t_csa, t_itr,t_search_local_block_context> factorize(t_itr itr, t_itr end) const
     {
-        return factor_itr_csa<t_csa, t_itr>(sa, itr, end);
+        return factor_itr_csa<t_csa, t_itr,t_search_local_block_context>(sa, itr, end);
     }
 
     template <class t_itr>
     factor_itr_csa_restricted<t_csa, t_itr> factorize_restricted(t_itr itr, t_itr end) const
     {
         return factor_itr_csa_restricted<t_csa, t_itr>(sa, itr, end);
-    }
-
-    template <class t_itr>
-    factor_itr_csa_local<t_csa, t_itr> factorize_local(t_itr itr, t_itr end) const
-    {
-        return factor_itr_csa_local<t_csa, t_itr>(sa, itr, end);
     }
 
     bool is_reverse() const

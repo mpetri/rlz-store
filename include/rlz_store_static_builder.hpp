@@ -9,6 +9,7 @@ template <class t_dictionary_creation_strategy,
           class t_dictionary_pruning_strategy,
           class t_dictionary_index,
           uint32_t t_factorization_block_size,
+          bool t_search_local_block_context,
           class t_factor_selection_strategy,
           class t_factor_coder,
           class t_block_map>
@@ -16,6 +17,7 @@ class rlz_store_static<t_dictionary_creation_strategy,
                        t_dictionary_pruning_strategy,
                        t_dictionary_index,
                        t_factorization_block_size,
+                       t_search_local_block_context,
                        t_factor_selection_strategy,
                        t_factor_coder,
                        t_block_map>::builder {
@@ -25,7 +27,7 @@ public:
     using dictionary_index_type = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
     using factor_encoder = t_factor_coder;
-    using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_encoder>;
+    using factorization_strategy = factorizor<t_factorization_block_size,t_search_local_block_context, dictionary_index, factor_selection_strategy, factor_encoder>;
     using block_map = t_block_map;
 
 public:

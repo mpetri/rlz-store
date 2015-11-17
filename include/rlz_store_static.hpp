@@ -19,6 +19,7 @@ template <class t_dictionary_creation_strategy,
           class t_dictionary_pruning_strategy,
           class t_dictionary_index,
           uint32_t t_factorization_block_size,
+          bool t_search_local_block_context,
           class t_factor_selection_strategy,
           class t_factor_coder,
           class t_block_map>
@@ -29,7 +30,8 @@ public:
     using dictionary_index = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
     using factor_coder_type = t_factor_coder;
-    using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_coder_type>;
+    using factorization_strategy = factorizor<t_factorization_block_size,t_search_local_block_context, 
+            dictionary_index, factor_selection_strategy, factor_coder_type>;
     using block_map_type = t_block_map;
     using size_type = uint64_t;
 
@@ -148,11 +150,16 @@ public:
             } else {
                 /* copy from dict */
                 const auto& factor_offset = bfd.offsets[offsets_used];
-                if(factor_offset <= block_size) { // local factor instead of global factor
-                    auto beg = text.begin() + factor_offset;
-                    std::copy(beg, beg + factor_len, out_itr);
+                if(t_search_local_block_context) {
+                    if(factor_offset <= block_size) { // local factor instead of global factor
+                        auto beg = text.begin() + factor_offset;
+                        std::copy(beg, beg + factor_len, out_itr);
+                    } else {
+                        auto begin = m_dict.begin() + factor_offset - block_size;
+                        std::copy(begin, begin + factor_len, out_itr);
+                    }
                 } else {
-                    auto begin = m_dict.begin() + factor_offset - block_size;
+                    auto begin = m_dict.begin() + factor_offset;
                     std::copy(begin, begin + factor_len, out_itr);
                 }
                 out_itr += factor_len;
