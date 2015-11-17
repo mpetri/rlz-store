@@ -282,7 +282,6 @@ TEST(bit_stream, bzip2)
     }
 }
 
-
 int main(int argc, char* argv[])
 {
     ::testing::InitGoogleTest(&argc, argv);

@@ -65,26 +65,23 @@ void benchmark_text_decoding(const t_idx& idx)
     auto num_blocks = num_syms / t_idx::block_size;
     LOG(INFO) << "num blocks = " << num_blocks;
     LOG(INFO) << "blocks per sec = " << num_blocks / text_seconds;
-    LOG(INFO)<< "text checksum = "<< checksum;
-
-
+    LOG(INFO) << "text checksum = " << checksum;
 }
 
 template <class t_idx>
-void print_compressed_size(collection& col,t_idx& idx) 
+void print_compressed_size(collection& col, t_idx& idx)
 {
     size_t compressed_size = 0;
     {
         auto factor_file_name = t_idx::factorization_strategy::factor_file_name(col);
         sdsl::read_only_mapper<8> factorfile(factor_file_name);
-        compressed_size = factorfile.size();     
+        compressed_size = factorfile.size();
     }
 
-    LOG(INFO)<<" compressed size = "
-    << compressed_size << " in bytes "
-    << (double)compressed_size/(1024*1024.0) << " in MiB "
-    << (double)compressed_size/(1024*1024*1024.0) << "in GiB "
-    ;
+    LOG(INFO) << " compressed size = "
+              << compressed_size << " in bytes "
+              << (double)compressed_size / (1024 * 1024.0) << " in MiB "
+              << (double)compressed_size / (1024 * 1024 * 1024.0) << "in GiB ";
 }
 
 template <class t_idx>
@@ -147,66 +144,67 @@ bool verify_index(collection& col, t_idx& idx)
 }
 
 template <class t_idx>
-void output_stats(t_idx& idx,std::string name = std::string()) {
+void output_stats(t_idx& idx, std::string name = std::string())
+{
     LOG(INFO) << name << " text_size=" << idx.text_size;
     LOG(INFO) << name << " dict_size=" << idx.dict.size();
-    LOG(INFO) << name << " dict_size_mb=" << idx.dict.size()/(1024*1024);
+    LOG(INFO) << name << " dict_size_mb=" << idx.dict.size() / (1024 * 1024);
     LOG(INFO) << name << " type= " << idx.type();
     LOG(INFO) << name << " encoding_block_size=" << idx.encoding_block_size;
     LOG(INFO) << name << " encoding_size=" << idx.factor_text.size() / 8;
-    LOG(INFO) << name << " encoding_size_mb=" << idx.factor_text.size() / (8*1024*1024.0);
+    LOG(INFO) << name << " encoding_size_mb=" << idx.factor_text.size() / (8 * 1024 * 1024.0);
     LOG(INFO) << name << " num_blocks = " << idx.block_map.num_blocks();
 
     /* compute blocksize stats */
     {
         std::vector<uint64_t> block_sizes(idx.block_map.num_blocks());
         std::adjacent_difference(idx.block_map.m_block_offsets.begin(),
-            idx.block_map.m_block_offsets.end(),
-            block_sizes.begin());
-        std::sort(block_sizes.begin(),block_sizes.end());
+                                 idx.block_map.m_block_offsets.end(),
+                                 block_sizes.begin());
+        std::sort(block_sizes.begin(), block_sizes.end());
         auto block_size_min = block_sizes[1] / 8; // bits to bytes
-        auto block_size_max = block_sizes.back() / 8;  // bits to bytes
-        auto block_size_sum = std::accumulate(block_sizes.begin(),block_sizes.end(), 0ULL);
-        auto block_size_mean = (block_size_sum / (double) block_sizes.size()) / 8;
-        auto block_size_med = block_sizes[(uint64_t)(block_sizes.size()*0.5)] / 8;
-        auto block_size_1qrt = block_sizes[(uint64_t)(block_sizes.size()*0.25)] / 8;
-        auto block_size_3qrt = block_sizes[(uint64_t)(block_sizes.size()*0.75)] / 8;
+        auto block_size_max = block_sizes.back() / 8; // bits to bytes
+        auto block_size_sum = std::accumulate(block_sizes.begin(), block_sizes.end(), 0ULL);
+        auto block_size_mean = (block_size_sum / (double)block_sizes.size()) / 8;
+        auto block_size_med = block_sizes[(uint64_t)(block_sizes.size() * 0.5)] / 8;
+        auto block_size_1qrt = block_sizes[(uint64_t)(block_sizes.size() * 0.25)] / 8;
+        auto block_size_3qrt = block_sizes[(uint64_t)(block_sizes.size() * 0.75)] / 8;
         LOG(INFO) << name << " block_sizes ";
         LOG(INFO) << " min=" << block_size_min
-            << " 1.qrt=" << block_size_1qrt
-            << " med=" << block_size_med
-            << " mean=" << block_size_mean
-            << " 3.qrt=" << block_size_3qrt
-            << " max=" << block_size_max;
+                  << " 1.qrt=" << block_size_1qrt
+                  << " med=" << block_size_med
+                  << " mean=" << block_size_mean
+                  << " 3.qrt=" << block_size_3qrt
+                  << " max=" << block_size_max;
     }
 
     /* compute num factor stats */
     {
         std::vector<uint64_t> block_factors(idx.block_map.num_blocks());
-        std::copy(idx.block_map.m_block_factors.begin(),idx.block_map.m_block_factors.end(),block_factors.begin());
-        std::sort(block_factors.begin(),block_factors.end());
+        std::copy(idx.block_map.m_block_factors.begin(), idx.block_map.m_block_factors.end(), block_factors.begin());
+        std::sort(block_factors.begin(), block_factors.end());
         auto block_factors_min = block_factors.front() / 8; // bits to bytes
-        auto block_factors_max = block_factors.back() / 8;  // bits to bytes
-        auto block_factors_sum = std::accumulate(block_factors.begin(),block_factors.end(), 0ULL);
-        auto block_factors_mean = (block_factors_sum / (double) block_factors.size()) / 8;
-        auto block_factors_med = block_factors[(uint64_t)(block_factors.size()*0.5)];
-        auto block_factors_1qrt = block_factors[(uint64_t)(block_factors.size()*0.25)];
-        auto block_factors_3qrt = block_factors[(uint64_t)(block_factors.size()*0.75)];
+        auto block_factors_max = block_factors.back() / 8; // bits to bytes
+        auto block_factors_sum = std::accumulate(block_factors.begin(), block_factors.end(), 0ULL);
+        auto block_factors_mean = (block_factors_sum / (double)block_factors.size()) / 8;
+        auto block_factors_med = block_factors[(uint64_t)(block_factors.size() * 0.5)];
+        auto block_factors_1qrt = block_factors[(uint64_t)(block_factors.size() * 0.25)];
+        auto block_factors_3qrt = block_factors[(uint64_t)(block_factors.size() * 0.75)];
         LOG(INFO) << name << " block factors ";
         LOG(INFO) << " min=" << block_factors_min
-            << " 1.qrt=" << block_factors_1qrt
-            << " med=" << block_factors_med
-            << " mean=" << block_factors_mean
-            << " 3.qrt=" << block_factors_3qrt
-            << " max=" << block_factors_max;
+                  << " 1.qrt=" << block_factors_1qrt
+                  << " med=" << block_factors_med
+                  << " mean=" << block_factors_mean
+                  << " 3.qrt=" << block_factors_3qrt
+                  << " max=" << block_factors_max;
 
-        LOG(INFO) << name << " bits_per_factor = " << idx.factor_text.size() / (double) block_factors_sum;
+        LOG(INFO) << name << " bits_per_factor = " << idx.factor_text.size() / (double)block_factors_sum;
         auto space_of_bmap = sdsl::size_in_bytes(idx.block_map);
-        auto space_on_disk = idx.factor_text.size() + (idx.dict.size()*8) + (space_of_bmap*8);
-        LOG(INFO) << name << " space_savings = " << 100.0 * (1 - ((double)space_on_disk / ((double)idx.text_size*8))) << " %";
+        auto space_on_disk = idx.factor_text.size() + (idx.dict.size() * 8) + (space_of_bmap * 8);
+        LOG(INFO) << name << " space_savings = " << 100.0 * (1 - ((double)space_on_disk / ((double)idx.text_size * 8))) << " %";
     }
     /* analyze factors */
-   /* {
+    /* {
         auto num_literals = 0ULL;
         auto non_literals = 0ULL;
         auto num_factors = 0ULL;
@@ -285,9 +283,9 @@ void output_stats(t_idx& idx,std::string name = std::string()) {
     }*/
 }
 
-
 template <class t_idx>
-void output_stats_csv(collection& col,t_idx& idx) {
+void output_stats_csv(collection& col, t_idx& idx)
+{
     /* analyze factors */
     {
         auto num_literals = 0ULL;
@@ -297,89 +295,89 @@ void output_stats_csv(collection& col,t_idx& idx) {
         auto fend = idx.factors_end();
         std::vector<uint64_t> flen_dist(idx.encoding_block_size);
         sdsl::int_vector<64> dict_usage(idx.dict.size());
-        while(fitr != fend) {
+        while (fitr != fend) {
             num_factors++;
             auto fd = *fitr;
-            if(fd.is_literal) num_literals++;
+            if (fd.is_literal)
+                num_literals++;
             else {
                 flen_dist[fd.len]++;
                 non_literals++;
-                for(size_t i=0;i<fd.len;i++) {
-                    dict_usage[fd.offset+i]++;
+                for (size_t i = 0; i < fd.len; i++) {
+                    dict_usage[fd.offset + i]++;
                 }
             }
             ++fitr;
         }
 
         LOG(INFO) << "FLEN;0;" << num_literals;
-        for(size_t i=1;i<flen_dist.size();i++) {
-            LOG(INFO) << "FLEN;"<<i<<";" << flen_dist[i];
+        for (size_t i = 1; i < flen_dist.size(); i++) {
+            LOG(INFO) << "FLEN;" << i << ";" << flen_dist[i];
         }
 
         double ds = idx.dict.size();
-        auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
-        LOG(INFO) << "DUSAGE;0;" << num_zeros << ";" << 100*num_zeros/ds;
+        auto num_zeros = std::count_if(dict_usage.begin(), dict_usage.end(), [](uint64_t i) {return i == 0; });
+        LOG(INFO) << "DUSAGE;0;" << num_zeros << ";" << 100 * num_zeros / ds;
 
         uint64_t thres = 1;
         uint64_t cnt = 1;
-        while(cnt) {
-            cnt = std::count_if(dict_usage.begin(),dict_usage.end(), [&thres](uint64_t i) {return i >= thres;});
-            if(cnt) LOG(INFO) << "DUSAGE;" << thres << ";" << cnt << ";" << 100*cnt/ds;
-            thres*=2;
+        while (cnt) {
+            cnt = std::count_if(dict_usage.begin(), dict_usage.end(), [&thres](uint64_t i) {return i >= thres; });
+            if (cnt)
+                LOG(INFO) << "DUSAGE;" << thres << ";" << cnt << ";" << 100 * cnt / ds;
+            thres *= 2;
         }
 
         {
             auto run_len = 0;
-            for(size_t i=0;i<dict_usage.size();i++) {
-                if(dict_usage[i] == 0) {
+            for (size_t i = 0; i < dict_usage.size(); i++) {
+                if (dict_usage[i] == 0) {
                     run_len++;
                 } else {
-                    if(run_len != 0) {
+                    if (run_len != 0) {
                         LOG(INFO) << "ZERORUN;" << run_len;
                     }
                     run_len = 0;
                 }
             }
-            if(run_len) {
+            if (run_len) {
                 LOG(INFO) << "ZERORUN;" << run_len;
             }
         }
 
-
         std::vector<uint64_t> sample_hist(1024);
-        for(size_t i=0;i<dict_usage.size();i++) {
-            if(dict_usage[i] == 0) {
+        for (size_t i = 0; i < dict_usage.size(); i++) {
+            if (dict_usage[i] == 0) {
                 auto pos_mod_1024 = i % 1024;
                 sample_hist[pos_mod_1024]++;
             }
         }
-        for(size_t i=0;i<sample_hist.size();i++) {
+        for (size_t i = 0; i < sample_hist.size(); i++) {
             LOG(INFO) << "sample_hist;" << i << ";" << sample_hist[i];
         }
-
     }
     /* analyze dict */
     LOG(INFO) << "analyze dict";
     auto num_bytes_in_dict = idx.dict.size();
-    std::unordered_map<uint64_t,uint64_t> text_counts;
+    std::unordered_map<uint64_t, uint64_t> text_counts;
     {
-        uint8_t* dptr = (uint8_t*) idx.dict.data();
-        std::unordered_map<uint64_t,uint64_t> hash_counts;
-        for(size_t i=0;i<num_bytes_in_dict-8;i++) {
+        uint8_t* dptr = (uint8_t*)idx.dict.data();
+        std::unordered_map<uint64_t, uint64_t> hash_counts;
+        for (size_t i = 0; i < num_bytes_in_dict - 8; i++) {
             uint64_t* d64ptr = (uint64_t*)dptr;
             auto h = *d64ptr;
             hash_counts[h]++;
             text_counts[h] = 0;
             dptr++;
-            LOG_EVERY_N(10*1024*1024,INFO) << "Processed " << i << " symbols of dict.";
+            LOG_EVERY_N(10 * 1024 * 1024, INFO) << "Processed " << i << " symbols of dict.";
         }
         {
-            std::unordered_map<uint64_t,uint64_t> count_dists;
-            for(const auto& hc: hash_counts) {
+            std::unordered_map<uint64_t, uint64_t> count_dists;
+            for (const auto& hc : hash_counts) {
                 auto cnt = hc.second;
                 count_dists[cnt]++;
             }
-            for(const auto& cd: count_dists) {
+            for (const auto& cd : count_dists) {
                 LOG(INFO) << "D64C;" << cd.first << ";" << cd.second;
             }
         }
@@ -411,8 +409,6 @@ void output_stats_csv(collection& col,t_idx& idx) {
     //     }
     // }
 }
-
-
 
 // template <class t_idx_base1, class t_idx_base2,class t_idx_new>
 template <class t_idx>
@@ -506,7 +502,7 @@ void compare_indexes(collection& col, t_idx& idx, std::string s)
     //     double ds = baseline.dict.size();
     //     auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
     //     LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
-        
+
     //     uint64_t thres = 1;
     //     uint64_t cnt = 1;
     //     while(cnt) {
@@ -530,12 +526,13 @@ factorization_statistics dict_usage_stats(const t_idx& idx)
     fs.block_size = idx.encoding_block_size;
     auto fitr = idx.factors_begin();
     auto fend = idx.factors_end();
-    for(size_t i=0;i<fs.dict_usage.size();i++) fs.dict_usage[i] = 0;
-    while(fitr != fend) {
+    for (size_t i = 0; i < fs.dict_usage.size(); i++)
+        fs.dict_usage[i] = 0;
+    while (fitr != fend) {
         auto fd = *fitr;
-        if(!fd.is_literal) {
-            for(size_t i=0;i<fd.len;i++) {
-                fs.dict_usage[fd.offset+i]++;
+        if (!fd.is_literal) {
+            for (size_t i = 0; i < fd.len; i++) {
+                fs.dict_usage[fd.offset + i]++;
             }
         }
         ++fitr;

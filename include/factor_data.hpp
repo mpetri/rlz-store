@@ -39,10 +39,10 @@ struct block_factor_data {
     void add_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
     {
         assert(len > 0); // we define len to be larger than 0 even for unknown syms.
-        if (len <= coder.literal_threshold)  {
-            if( last_factor_was_literal && ((lengths[num_factors-1] + len) <= coder.literal_threshold) ) {
+        if (len <= coder.literal_threshold) {
+            if (last_factor_was_literal && ((lengths[num_factors - 1] + len) <= coder.literal_threshold)) {
                 // extend last literal
-                lengths[num_factors-1] += len;
+                lengths[num_factors - 1] += len;
             } else {
                 lengths[num_factors++] = len;
             }
@@ -50,7 +50,7 @@ struct block_factor_data {
             num_literals += len;
             last_factor_was_literal = true;
             // for two stream encoding we need both things combined!
-            std::copy(text_itr,text_itr + len,offset_literals.begin() + num_offset_literals);
+            std::copy(text_itr, text_itr + len, offset_literals.begin() + num_offset_literals);
             num_offset_literals += len;
         } else {
             offsets[num_offsets] = offset;
