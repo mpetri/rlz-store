@@ -243,7 +243,7 @@ public:
                         	sum_weights_current += std::pow(freq,norm); //L0 only
 							local_blocks.emplace(hash);
 						} else { //no
-							sum_weights_current += 0.2; //count bad blocks better than seen ones
+							sum_weights_current += 0.25; //count bad blocks better than seen ones
                         	local_bad_blocks.emplace(hash);
 						}
 
@@ -266,8 +266,8 @@ public:
 						}*/ 			
 					}
 					//sum_weights_current = std::sqrt(sum_weights_current);
-					if(norm > 0)
-						sum_weights_current = std::pow(sum_weights_current,1/norm);
+					//if(norm > 0)
+						//sum_weights_current = std::pow(sum_weights_current,1/norm);
 					if(sum_weights_current >= sum_weights_max)
 					{
 						sum_weights_max = sum_weights_current;
