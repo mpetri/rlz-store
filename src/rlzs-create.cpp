@@ -9,7 +9,6 @@
 #include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
-
 int main(int argc, const char* argv[])
 {
     setup_logger(argc, argv);
@@ -23,20 +22,11 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz index */
-    const uint32_t block_size = 32768;
-    using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 1, 4096>;
-    using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<1024>,
-                                 dict_prune_care<20,10>,
-                                 dict_index_csa<csa_type>,
-                                 block_size,
-                                 factor_select_first,
-                                 factor_coder_blocked<1,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                 block_map_uncompressed>;
-    auto rlz_store = typename rlz_type_zzz_greedy_sp::builder{}
+    const uint32_t factorization_blocksize = 64 * 1024;
+    auto rlz_store = typename rlz_type_u32v_greedy_sp<factorization_blocksize>::builder{}
                          .set_rebuild(args.rebuild)
                          .set_threads(args.threads)
-                         .set_dict_size(64*1024*1024)
-                         .set_pruned_dict_size(32*1024*1024)
+                         .set_dict_size(args.dict_size_in_bytes)
                          .build_or_load(col);
 
     verify_index(col, rlz_store);

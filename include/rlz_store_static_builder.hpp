@@ -27,6 +27,7 @@ public:
     using factor_encoder = t_factor_coder;
     using factorization_strategy = factorizor<t_factorization_block_size, dictionary_index, factor_selection_strategy, factor_encoder>;
     using block_map = t_block_map;
+
 public:
     builder& set_rebuild(bool r)
     {
@@ -49,7 +50,6 @@ public:
         return *this;
     };
 
-
     static std::string blockmap_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_BLOCKMAP + "-"
@@ -69,22 +69,21 @@ public:
 
         // (2) prune the dictionary if necessary
         LOG(INFO) << "Prune dictionary with " << dictionary_pruning_strategy::type();
-        dictionary_pruning_strategy::template prune<dictionary_index_type,factorization_strategy>(col, 
-                                rebuild,pruned_dict_size_bytes,num_threads);
+        dictionary_pruning_strategy::template prune<dictionary_index_type, factorization_strategy>(col,
+                                                                                                   rebuild, pruned_dict_size_bytes, num_threads);
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (3) create factorized text using the dict
         auto factor_file_name = factorization_strategy::factor_file_name(col);
-        if(rebuild || !utils::file_exists(factor_file_name)) {
-            factorization_strategy::template parallel_factorize<factor_storage>(col,rebuild,num_threads);
+        if (rebuild || !utils::file_exists(factor_file_name)) {
+            factorization_strategy::template parallel_factorize<factor_storage>(col, rebuild, num_threads);
         } else {
             LOG(INFO) << "Factorized text exists.";
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
-            col.file_map[KEY_FCODER] = factorization_strategy::factorcoder_file_name(col);
         }
-       
+
         // (4) encode document start pos
         LOG(INFO) << "Create block map (" << block_map_type::type() << ")";
         auto blockmap_file = blockmap_file_name(col);
@@ -122,7 +121,6 @@ public:
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
-            col.file_map[KEY_FCODER] = factorization_strategy::factorcoder_file_name(col);
         }
 
         /* (2) check blockmap */

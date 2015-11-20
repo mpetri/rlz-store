@@ -12,7 +12,6 @@
 #include <cctype>
 #include <future>
 
-
 template <uint32_t t_block_size,
           class t_index,
           class t_factor_selector,
@@ -41,10 +40,12 @@ struct factorizor {
         return col.path + "/index/" + KEY_BLOCKFACTORS + "-fs=" + type() + "-dhash=" + dict_hash + ".sdsl";
     }
 
-    template <class t_factor_store,class t_itr>
+    template <class t_factor_store, class t_itr>
     static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end)
     {
-        auto factor_itr = idx.factorize(itr, end);
+        utils::rlz_timer<std::chrono::milliseconds> fbt("factorize_block");
+        uint64_t encoding_block_size = std::distance(itr,end);
+        auto factor_itr = idx.factorize_local(itr, end);
         fs.start_new_block();
         size_t syms_encoded = 0;
         while (!factor_itr.finished()) {
@@ -52,7 +53,12 @@ struct factorizor {
                 fs.add_to_block_factor(coder, itr + syms_encoded, 0, 1);
                 syms_encoded++;
             } else {
-                auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
+                auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr,encoding_block_size);
+                if(offset < encoding_block_size) {
+                    LOG(INFO) << "L <" << offset << "," << factor_itr.len << ">";
+                } else {
+                    // LOG(INFO) << "G <" << offset << "," << factor_itr.len << ">";
+                }
                 fs.add_to_block_factor(coder, itr + syms_encoded, offset, factor_itr.len);
                 syms_encoded += factor_itr.len;
             }
@@ -62,20 +68,19 @@ struct factorizor {
         fs.encode_current_block(coder);
     }
 
-    template <class t_factor_store,class t_itr>
+    template <class t_factor_store, class t_itr>
     static typename t_factor_store::result_type
     factorize(collection& col, t_index& idx, t_itr _itr, t_itr _end, size_t offset = 0)
     {
         const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
-        auto itr = text.begin()+_itr;
-        auto end = text.begin()+_end;
+        auto itr = text.begin() + _itr;
+        auto end = text.begin() + _end;
 
         /* (1) create output files */
         t_factor_store fs(col, t_block_size, offset);
 
-        /* (2) create encoder and load priming data from file if necessary */
+        /* (2) create encoder  */
         t_coder coder;
-        sdsl::load_from_file(coder, col.file_map[KEY_FCODER]);
 
         /* (3) compute text stats */
         auto block_size = t_block_size;
@@ -104,7 +109,6 @@ struct factorizor {
         return fs.result();
     }
 
-
     static std::string factorcoder_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_FCODER + "-"
@@ -112,74 +116,12 @@ struct factorizor {
                + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
-    static void create_priming(t_coder& coder,
-        const sdsl::int_vector_mapped_buffer<8>& text,
-        t_index& idx) 
-    {
-        uint64_t prime_bytes = t_coder::prime_bytes;
-        uint64_t prime_factors = prime_bytes / 4;
-        uint64_t prime_fact_block_size = 1024;
-        // LOG(INFO) << "prime_bytes = " << prime_bytes;
-        // LOG(INFO) << "prime_factors = " << prime_factors;
-        /* perform uniform random encodings */
-        sdsl::int_vector<32> offsets(prime_factors);
-        sdsl::int_vector<32> lens(prime_factors);
-        auto n = text.size();
-        // LOG(INFO) << "n = " << n;
-        std::mt19937 gen(4711);
-        std::uniform_int_distribution<uint64_t> dis(0,n-1-prime_fact_block_size);
-        // LOG(INFO) << "prime_fact_block_size = " << prime_fact_block_size;
-        block_factor_data tmp_block_factor_data(prime_fact_block_size);
-        size_t factors_created = 0;
-        while(factors_created != prime_factors) {
-            auto pos = dis(gen);
-            // LOG(INFO) << "prime from pos = " << pos;
-            auto itr = text.begin()+pos;
-            auto end = itr + prime_fact_block_size;
-
-            auto factor_itr = idx.factorize(itr, end);
-            size_t syms_encoded = 0;
-            while (!factor_itr.finished()) {
-                if (factor_itr.len == 0) {
-                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, 0, 1);
-                } else {
-                    auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr.sp, factor_itr.ep, factor_itr.len);
-                    tmp_block_factor_data.add_factor(coder, itr + syms_encoded, offset, factor_itr.len);
-                }
-                ++factor_itr;
-            }
-
-            /* copy lens and offset_literals */
-            // LOG(INFO) << "copy num_factors = " << tmp_block_factor_data.num_factors;
-            for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
-                if(factors_created == prime_factors) break;
-                lens[factors_created] = tmp_block_factor_data.lengths[i];
-                offsets[factors_created] = tmp_block_factor_data.offset_literals[i];
-                factors_created++;
-            }
-            tmp_block_factor_data.reset();
-        }
-        coder.set_offset_prime(offsets);
-        coder.set_length_prime(lens);
-    }
-
-
     template <class t_factor_store>
     static typename t_factor_store::result_type
-    parallel_factorize(collection& col,bool rebuild,uint32_t num_threads)
+    parallel_factorize(collection& col, bool rebuild, uint32_t num_threads)
     {
         LOG(INFO) << "Create/Load dictionary index";
         t_index idx(col, rebuild);
-        LOG(INFO) << "Create priming data for factor coder";
-        {
-            const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
-            t_coder tmp_coder;
-            create_priming(tmp_coder,text,idx);
-            auto factorcoder_file = factorcoder_file_name(col);
-            sdsl::store_to_file(tmp_coder, factorcoder_file);
-            col.file_map[KEY_FCODER] = factorcoder_file;
-        }
-
         std::vector<typename t_factor_store::result_type> efs;
         {
             auto text_size = 0ULL;
@@ -190,9 +132,9 @@ struct factorizor {
             auto text_size_mb = text_size / (1024 * 1024.0);
             auto start_fact = hrclock::now();
             LOG(INFO) << "Factorize text - " << text_size_mb << " MiB (" << num_threads << " threads) - (" << type() << ")";
-                  
+
             std::vector<std::future<typename t_factor_store::result_type> > fis;
-            
+
             auto num_blocks = text_size / t_block_size;
             auto blocks_per_thread = num_blocks / num_threads;
             auto syms_per_thread = blocks_per_thread * t_block_size;
@@ -222,11 +164,9 @@ struct factorizor {
             LOG(INFO) << "Factorize done. (" << type() << ")";
         }
         LOG(INFO) << "Output factorization statistics";
-        output_encoding_stats(col,efs);
+        output_encoding_stats(col, efs);
 
         LOG(INFO) << "Merge factorized text blocks";
-        return merge_factor_encodings<factorizor<t_block_size,t_index,t_factor_selector,t_coder>>(col, efs);
+        return merge_factor_encodings<factorizor<t_block_size, t_index, t_factor_selector, t_coder> >(col, efs);
     }
-
-
 };

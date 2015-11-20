@@ -19,15 +19,13 @@ struct vbyte {
         return "vbyte";
     }
 
-    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
-    {
-
-    }
-
-    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
     {
     }
 
+    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
+    {
+    }
 
     template <typename T>
     inline uint64_t encoded_length(const T& x) const
@@ -114,15 +112,13 @@ public:
         return "u" + std::to_string(t_width);
     }
 
-    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
-    {
-
-    }
-
-    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
     {
     }
 
+    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
+    {
+    }
 
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, T* in_buf, size_t n) const
@@ -147,19 +143,18 @@ public:
         return "u" + std::to_string(8 * sizeof(t_int_type)) + "a";
     }
 
-    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
+    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
     {
-
     }
 
-    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
     {
     }
 
     template <class t_bit_ostream>
     inline void encode(t_bit_ostream& os, const t_int_type* in_buf, size_t n) const
     {
-        os.expand_if_needed(8 + 8*sizeof(t_int_type) * n);
+        os.expand_if_needed(8 + 8 * sizeof(t_int_type) * n);
         os.align8();
         uint8_t* out = os.cur_data8();
         t_int_type* outA = (t_int_type*)out;
@@ -188,6 +183,7 @@ private:
     mutable z_stream istrm;
     mutable const uint8_t* dict_ptr = nullptr;
     mutable uint32_t dict_size = 0;
+
 public:
     zlib()
     {
@@ -219,7 +215,7 @@ public:
 
     inline void set_deflate_dictionary(const uint8_t* dict_ptr, uint32_t n) const
     {
-        auto ret = deflateSetDictionary(&dstrm,dict_ptr,n);
+        auto ret = deflateSetDictionary(&dstrm, dict_ptr, n);
         if (ret != Z_OK) {
             LOG(FATAL) << "zlib-encode: set dictionary error:" << ret;
         }
@@ -307,8 +303,8 @@ public:
         istrm.avail_out = out_size;
         istrm.next_out = (uint8_t*)out_buf;
         auto error = inflate(&istrm, Z_FINISH);
-        if(error == Z_NEED_DICT) {
-            auto sdret = inflateSetDictionary(&istrm,dict_ptr,dict_size);
+        if (error == Z_NEED_DICT) {
+            auto sdret = inflateSetDictionary(&istrm, dict_ptr, dict_size);
             if (sdret != Z_OK) {
                 LOG(FATAL) << "zlib-decode: set dictionary error:" << sdret;
             }
@@ -351,6 +347,7 @@ public:
 private:
     mutable lzma_stream strm_enc;
     mutable lzma_stream strm_dec;
+
 public:
     lzma()
     {
@@ -396,10 +393,10 @@ public:
         }
 
         auto total_written_bytes = 0ULL;
-        while(res != LZMA_STREAM_END) {
+        while (res != LZMA_STREAM_END) {
             strm_enc.next_out = out_buf;
             strm_enc.avail_out = osize;
-            if ((res = lzma_code(&strm_enc, LZMA_FINISH)) != LZMA_OK && res != LZMA_STREAM_END ) {
+            if ((res = lzma_code(&strm_enc, LZMA_FINISH)) != LZMA_OK && res != LZMA_STREAM_END) {
                 LOG(FATAL) << "lzma-encode: error code LZMA_FINISH < n!: " << res;
             }
             auto written_bytes = osize - strm_enc.avail_out;
@@ -429,27 +426,28 @@ public:
         if ((res = lzma_auto_decoder(&strm_dec, lzma_mem_limit, 0)) != LZMA_OK) {
             LOG(FATAL) << "lzma-decode: error init LMZA decoder:" << res;
         }
-        
+
         strm_dec.next_in = in_buf;
         strm_dec.avail_in = in_size;
         auto total_decoded = 0ULL;
-        while(res != LZMA_STREAM_END) {
+        while (res != LZMA_STREAM_END) {
             strm_dec.next_out = (uint8_t*)out_buf;
             strm_dec.avail_out = out_size;
             /* decode */
-            res = lzma_code (&strm_dec, LZMA_RUN);
+            res = lzma_code(&strm_dec, LZMA_RUN);
             auto decoded = out_size - strm_dec.avail_out;
             total_decoded += decoded;
             out_buf += decoded;
             out_size -= decoded;
-            if(res != LZMA_OK && res != LZMA_STREAM_END) {
+            if (res != LZMA_OK && res != LZMA_STREAM_END) {
                 lzma_end(&strm_dec);
                 LOG(FATAL) << "lzma-decode: error decoding LZMA_RUN: " << res;
             }
-            if(res == LZMA_STREAM_END) break;
+            if (res == LZMA_STREAM_END)
+                break;
         }
-        
-        if(total_decoded != n * sizeof(T)) {
+
+        if (total_decoded != n * sizeof(T)) {
             LOG(ERROR) << "lzma-decode: decoded bytes = " << total_decoded << " should be = " << n * sizeof(T);
         }
 
@@ -459,13 +457,13 @@ public:
     }
 };
 
-
 template <uint8_t t_level = 9>
 struct lz4hc {
 private:
     mutable void* lz4_state = nullptr;
     mutable const char* dict_ptr = nullptr;
     mutable uint32_t dict_size = 0;
+
 public:
     lz4hc()
     {
@@ -485,13 +483,13 @@ public:
 
     inline void set_deflate_dictionary(const uint8_t* dptr, uint32_t n) const
     {
-        dict_ptr = (const char*) dptr;
+        dict_ptr = (const char*)dptr;
         dict_size = n;
     }
 
     inline void set_inflate_dictionary(const uint8_t* dptr, uint32_t n) const
     {
-        dict_ptr = (const char*) dptr;
+        dict_ptr = (const char*)dptr;
         dict_size = n;
     }
 
@@ -502,17 +500,17 @@ public:
         os.expand_if_needed(bits_required);
         os.align8(); // align to bytes if needed
         /* compress */
-        char* out_buf = (char*) os.cur_data8();
+        char* out_buf = (char*)os.cur_data8();
         uint64_t in_size = n * sizeof(T);
-        LZ4_resetStreamHC((LZ4_streamHC_t*)lz4_state,t_level);
-        if(dict_size != 0) { /* prime with dict */
-            LZ4_loadDictHC((LZ4_streamHC_t*)lz4_state,dict_ptr,dict_size);
+        LZ4_resetStreamHC((LZ4_streamHC_t*)lz4_state, t_level);
+        if (dict_size != 0) { /* prime with dict */
+            LZ4_loadDictHC((LZ4_streamHC_t*)lz4_state, dict_ptr, dict_size);
         }
-        auto bytes_written = LZ4_compress_HC_continue((LZ4_streamHC_t*)lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3);
+        auto bytes_written = LZ4_compress_HC_continue((LZ4_streamHC_t*)lz4_state, (const char*)in_buf, out_buf, in_size, bits_required >> 3);
         os.skip(bytes_written * 8);
         // } else {
         //     auto bytes_written = LZ4_compress_HC_extStateHC(lz4_state,(const char*)in_buf,out_buf,in_size,bits_required >> 3,t_level);
-        //     os.skip(bytes_written * 8); // skip over the written content            
+        //     os.skip(bytes_written * 8); // skip over the written content
         // }
     }
 
@@ -520,13 +518,13 @@ public:
     inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
     {
         is.align8(); // align to bytes if needed
-        const char* in_buf = (const char*) is.cur_data8();
+        const char* in_buf = (const char*)is.cur_data8();
         uint64_t out_size = n * sizeof(T);
         int comp_size = 0;
-        if(dict_size != 0) { /* prime with dict */
-            comp_size = LZ4_decompress_fast_usingDict(in_buf,(char*)out_buf,out_size,dict_ptr,dict_size);
+        if (dict_size != 0) { /* prime with dict */
+            comp_size = LZ4_decompress_fast_usingDict(in_buf, (char*)out_buf, out_size, dict_ptr, dict_size);
         } else {
-            comp_size = LZ4_decompress_fast(in_buf,(char*)out_buf,out_size);
+            comp_size = LZ4_decompress_fast(in_buf, (char*)out_buf, out_size);
         }
         is.skip(comp_size * 8); // skip over the read content
     }
@@ -538,21 +536,20 @@ public:
     static const int bzip_verbose_level = 0;
     static const int bzip_work_factor = 0;
     static const int bzip_use_small_mem = 0;
+
 public:
     static std::string type()
     {
         return "bzip2-" + std::to_string(t_level);
     }
 
-    inline void set_deflate_dictionary(const uint8_t* , uint32_t ) const
-    {
-
-    }
-
-    inline void set_inflate_dictionary(const uint8_t* , uint32_t ) const
+    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
     {
     }
 
+    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
+    {
+    }
 
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
@@ -570,10 +567,10 @@ public:
         uint64_t in_size = n * sizeof(T);
 
         uint32_t written_bytes = bits_required >> 3;
-        auto ret = BZ2_bzBuffToBuffCompress((char*)out_buf,&written_bytes,
-            (char*)in_buf,in_size,t_level,bzip_verbose_level,bzip_work_factor);
+        auto ret = BZ2_bzBuffToBuffCompress((char*)out_buf, &written_bytes,
+                                            (char*)in_buf, in_size, t_level, bzip_verbose_level, bzip_work_factor);
 
-        if(ret != BZ_OK) {
+        if (ret != BZ_OK) {
             LOG(FATAL) << "bzip2-encode: encoding error: " << ret;
         }
 
@@ -596,9 +593,9 @@ public:
         uint32_t out_size = n * sizeof(T);
 
         auto ret = BZ2_bzBuffToBuffDecompress((char*)out_buf,
-            &out_size,(char*)in_buf,in_size,bzip_use_small_mem,bzip_verbose_level);
+                                              &out_size, (char*)in_buf, in_size, bzip_use_small_mem, bzip_verbose_level);
 
-        if(ret != BZ_OK) {
+        if (ret != BZ_OK) {
             LOG(FATAL) << "bzip2-decode: decode error: " << ret;
         }
 
@@ -608,7 +605,6 @@ public:
         is.skip(in_size * 8); // skip over the read content
     }
 };
-
 
 //with the dict_index_sa_length_selector strategy - match lengths are a known multiple of LM. This coder simply removes/adds the LM component, before
 // passing on to the next stage of coding say U32 or Zlib (given by t_coder c)

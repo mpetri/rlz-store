@@ -50,6 +50,7 @@ public:
     std::string m_dict_hash;
     std::string m_dict_file;
     std::string m_factor_file;
+
 public:
     class builder;
 
@@ -74,9 +75,6 @@ public:
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
-
-        LOG(INFO) << "\tLoad factor coder";
-        sdsl::load_from_file(m_factor_coder, col.file_map[KEY_FCODER]);
 
         // (3) load dictionary from disk
         LOG(INFO) << "\tLoad dictionary";
@@ -116,19 +114,17 @@ public:
         return text_size;
     }
 
-    size_type size_in_bytes() const {
-        return m_dict.size() +
-            (m_factored_text.size()>>3)+
-            m_blockmap.size_in_bytes() +
-            m_factor_coder.size_in_bytes();
+    size_type size_in_bytes() const
+    {
+        return m_dict.size() + (m_factored_text.size() >> 3) + m_blockmap.size_in_bytes();
     }
 
-    inline void decode_factors(size_t offset,
+    inline coder_size_info decode_factors(size_t offset,
                                block_factor_data& bfd,
                                size_t num_factors) const
     {
         m_factor_stream.seek(offset);
-        m_factor_coder.decode_block(m_factor_stream, bfd, num_factors);
+        return m_factor_coder.decode_block(m_factor_stream, bfd, num_factors);
     }
 
     inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data& bfd) const
@@ -152,8 +148,13 @@ public:
             } else {
                 /* copy from dict */
                 const auto& factor_offset = bfd.offsets[offsets_used];
-                auto begin = m_dict.begin() + factor_offset;
-                std::copy(begin, begin + factor_len, out_itr);
+                if(factor_offset <= block_size) { // local factor instead of global factor
+                    auto beg = text.begin() + factor_offset;
+                    std::copy(beg, beg + factor_len, out_itr);
+                } else {
+                    auto begin = m_dict.begin() + factor_offset - block_size;
+                    std::copy(begin, begin + factor_len, out_itr);
+                }
                 out_itr += factor_len;
                 offsets_used++;
             }
@@ -172,5 +173,19 @@ public:
         return block_content;
     }
 
-
+    std::pair<coder_size_info,std::vector<factor_data>>
+    block_factors(const size_t block_id) const
+    {
+        auto num_factors = m_blockmap.block_factors(block_id);
+        factor_iterator<decltype(*this)> fitr(*this,block_id,0);
+        std::vector<factor_data> fdata(num_factors);
+        coder_size_info csi;
+        for(size_t i=0;i<num_factors;i++) {
+            factor_data fd = *fitr;
+            fdata[i] = fd;
+            ++fitr;
+            if(i==0) csi = fitr.cur_block_size_info;
+        }
+        return make_pair(csi,fdata);
+    }
 };
