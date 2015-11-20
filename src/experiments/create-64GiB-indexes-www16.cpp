@@ -30,62 +30,13 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
                   << 100.0 * (double) rlz_store_0.size_in_bytes() / (double) rlz_store_0.text_size;
       
 	utils::flush_cache(); 
-        // auto rlz_store_1 = rlz_type_zzz_greedy_sp_4::builder{}
-        //                      .set_rebuild(args.rebuild)
-        //                      .set_threads(args.threads)
-        //                      .set_dict_size(dict_size_in_bytes)
-        //                      .build_or_load(col);
-
-        // compare_indexes(col,rlz_store_1, "Regular sampling - 4kb");
-        // LOG(INFO) << "Regular sampling compression - 4kb ratio = "
-        //           << 100.0 * (double) rlz_store_1.size_in_bytes() / (double) rlz_store_1.text_size;
-
-        // auto rlz_store_2 = rlz_type_zzz_greedy_sp_8::builder{}
-        //                      .set_rebuild(args.rebuild)
-        //                      .set_threads(args.threads)
-        //                      .set_dict_size(dict_size_in_bytes)
-        //                      .build_or_load(col);
-
-        // compare_indexes(col,rlz_store_2, "Regular sampling - 8kb");
-        // LOG(INFO) << "Regular sampling compression ratio - 8kb = "
-        //           << 100.0 * (double) rlz_store_2.size_in_bytes() / (double) rlz_store_2.text_size;
-
-        // auto rlz_store_3 = rlz_type_zzz_greedy_sp_16::builder{}
-        //                      .set_rebuild(args.rebuild)
-        //                      .set_threads(args.threads)
-        //                      .set_dict_size(dict_size_in_bytes)
-        //                      .build_or_load(col);
-
-        // compare_indexes(col,rlz_store_3, "Regular sampling - 16kb");
-        // LOG(INFO) << "Regular sampling compression ratio - 16kb = "
-        //           << 100.0 * (double) rlz_store_3.size_in_bytes() / (double) rlz_store_3.text_size;
-
+         auto rlz_store_1 = rlz_type_zzz_greedy_sp_4::builder{}
+                              .set_rebuild(args.rebuild)
+                              .set_threads(args.threads)
+                              .set_dict_size(dict_size_in_bytes)
+                              .build_or_load(col);
 		
-
-
-        auto rlz_store_3 = rlz_type_zzz_greedy_sp_local_cms_rand::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(dict_size_in_bytes)
-                             .build_or_load(col);
-        compare_indexes(col,rlz_store_3, "Local_cms_rand");
-    	LOG(INFO) << "Local_cms_rand compression ratio = "
-                  << 100.0 * (double) rlz_store_3.size_in_bytes() / (double) rlz_store_3.text_size;
-
-
-
-        auto rlz_store_5 = rlz_type_zzz_greedy_sp_local_cms_seq::builder{}
-                             .set_rebuild(args.rebuild)
-                             .set_threads(args.threads)
-                             .set_dict_size(dict_size_in_bytes)
-                             .build_or_load(col);
-
-        compare_indexes(col,rlz_store_5, "Local_cms_seq");
-    	LOG(INFO) << "Local_cms_seq compression ratio = "
-                  << 100.0 * (double) rlz_store_5.size_in_bytes() / (double) rlz_store_5.text_size;
-	
         
-
         //combining with pruning strategies
         //rem + regular sampling
         auto rlz_store_6 = rlz_type_zzz_greedy_sp_rem_regsamp::builder{}
@@ -128,6 +79,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
                   << 100.0 * (double) rlz_store_11.size_in_bytes() / (double) rlz_store_11.text_size;
  
 	utils::flush_cache();
+
         auto rlz_store_12 = rlz_type_zzz_greedy_sp_local_half_norm_rand::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
@@ -136,7 +88,7 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_12, "Local_half_norm_rand");
         LOG(INFO) << "Local_half_norm_rand compression ratio = "
                   << 100.0 * (double) rlz_store_12.size_in_bytes() / (double) rlz_store_12.text_size;
-*/
+
 	auto rlz_store_12 = rlz_type_zzz_greedy_sp_local_zero_norm_rand::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
@@ -145,7 +97,16 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         compare_indexes(col,rlz_store_12, "Local_zero_norm_rand");
         LOG(INFO) << "Local_zero_norm_rand compression ratio = "
                   << 100.0 * (double) rlz_store_12.size_in_bytes() / (double) rlz_store_12.text_size;
-/*
+
+        auto rlz_store_12 = rlz_type_zzz_greedy_sp_local_one_norm_rand::builder{}
+                             .set_rebuild(args.rebuild)
+                             .set_threads(args.threads)
+                             .set_dict_size(dict_size_in_bytes)
+                             .build_or_load(col);
+        compare_indexes(col,rlz_store_12, "Local_one_norm_rand");
+        LOG(INFO) << "Local_one_norm_rand compression ratio = "
+                  << 100.0 * (double) rlz_store_12.size_in_bytes() / (double) rlz_store_12.text_size;
+
 	auto rlz_store_13 = rlz_type_zzz_greedy_sp_local_onehalf_norm_rand::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
@@ -167,6 +128,14 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         LOG(INFO) << "CARE + Local_half_norm compression ratio = "
                   << 100.0 * (double) rlz_store_11.size_in_bytes() / (double) rlz_store_11.text_size;	
  */
+        auto rlz_store_12 = rlz_type_zzz_greedy_sp_assembly::builder{}
+            .set_rebuild(args.rebuild)
+            .set_threads(args.threads)
+            .set_dict_size(dict_size_in_bytes)
+            .build_or_load(col);
+        compare_indexes(col,rlz_store_12, "Assembly");
+        LOG(INFO) << "Assembly compression ratio = "
+                  << 100.0 * (double) rlz_store_12.size_in_bytes() / (double) rlz_store_12.text_size;
   }
 }
 
@@ -184,9 +153,9 @@ int main(int argc, const char* argv[])
     collection col(args.collection_dir);
 
     /* create rlz indices */
-//    create_indexes<16*1024*1024>(col,args);
+    create_indexes<16*1024*1024>(col,args);
 //    create_indexes<32*1024*1024>(col,args); 
-    create_indexes<64*1024*1024>(col,args);
+//    create_indexes<64*1024*1024>(col,args);
 //    create_indexes<128*1024*1024>(col,args);
 //    create_indexes<256*1024*1024>(col,args);
 //    create_indexes<512*1024*1024>(col,args);

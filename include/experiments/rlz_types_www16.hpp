@@ -185,3 +185,13 @@ using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize4096 =  rlz_store_stat
                                                                          factor_select_first,
                                                                          factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                                                         block_map_uncompressed>;
+
+
+//new assembly strategy
+using rlz_type_zzz_greedy_sp_assembly =  rlz_store_static<dict_assemble_gsc<2048,16,256, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
