@@ -30,10 +30,10 @@ struct factorization_statistics {
         using namespace sdsl;
         structure_tree_node* child = structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
-        written_bytes += dict_usage.serialize(out,child,"dict byte usage");
-        written_bytes += sdsl::serialize(total_encoded_factors,out,child,"total factors");
-        written_bytes += sdsl::serialize(block_size,out,child,"block_size");
-        written_bytes += sdsl::serialize(total_encoded_blocks,out,child,"total encoded blocks");
+        written_bytes += dict_usage.serialize(out, child, "dict byte usage");
+        written_bytes += sdsl::serialize(total_encoded_factors, out, child, "total factors");
+        written_bytes += sdsl::serialize(block_size, out, child, "block_size");
+        written_bytes += sdsl::serialize(total_encoded_blocks, out, child, "total encoded blocks");
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
     }
@@ -41,9 +41,9 @@ struct factorization_statistics {
     inline void load(std::istream& in)
     {
         dict_usage.load(in);
-        sdsl::read_member(total_encoded_factors,in);
-        sdsl::read_member(block_size,in);
-        sdsl::read_member(total_encoded_blocks,in);
+        sdsl::read_member(total_encoded_factors, in);
+        sdsl::read_member(block_size, in);
+        sdsl::read_member(total_encoded_blocks, in);
     }
 };
 
@@ -53,13 +53,15 @@ struct factor_tracker {
     hrclock::time_point encoding_start;
     block_factor_data tmp_block_factor_data;
     size_t toffset;
-    factor_tracker(collection& col, size_t _block_size, size_t _offset) : toffset(_offset)
+    factor_tracker(collection& col, size_t _block_size, size_t _offset)
+        : toffset(_offset)
     {
         {
             const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
             fs.dict_usage.resize(dict.size());
-	    for(size_t i=0;i<dict.size();i++) fs.dict_usage[i] = 0;
-            fs.block_size =_block_size;
+            for (size_t i = 0; i < dict.size(); i++)
+                fs.dict_usage[i] = 0;
+            fs.block_size = _block_size;
         }
         // create a buffer we can write to without reallocating
         tmp_block_factor_data.resize(_block_size);
@@ -78,15 +80,15 @@ struct factor_tracker {
     template <class t_coder>
     void encode_current_block(t_coder& coder)
     {
-	size_t offsets_seen = 0;
-        for(size_t i=0;i<tmp_block_factor_data.num_factors;i++) {
+        size_t offsets_seen = 0;
+        for (size_t i = 0; i < tmp_block_factor_data.num_factors; i++) {
             auto len = tmp_block_factor_data.lengths[i];
-            if( len > coder.literal_threshold ) {
+            if (len > coder.literal_threshold) {
                 auto offset = tmp_block_factor_data.offsets[offsets_seen];
-                for(size_t j=0;j<len;j++) {
-                    fs.dict_usage[offset+j]++;
+                for (size_t j = 0; j < len; j++) {
+                    fs.dict_usage[offset + j]++;
                 }
-		offsets_seen++;
+                offsets_seen++;
             }
         }
         fs.total_encoded_factors += tmp_block_factor_data.num_factors;
@@ -116,26 +118,24 @@ struct factor_tracker {
 };
 
 void
-output_encoding_stats(collection& ,std::vector<factorization_statistics>& )
+output_encoding_stats(collection&, std::vector<factorization_statistics>&)
 {
 }
 
-
 template <class t_fact_strategy>
-factorization_statistics 
-merge_factor_encodings(collection& , std::vector<factorization_statistics>& efs)
+factorization_statistics
+merge_factor_encodings(collection&, std::vector<factorization_statistics>& efs)
 {
     factorization_statistics fs;
     fs.block_size = efs[0].block_size;
     fs.dict_usage.resize(efs[0].dict_usage.size());
-    for(size_t i=0;i<efs.size();i++) {
-        for(size_t j=0;j<efs[i].dict_usage.size();j++) {
-            fs.dict_usage[j] += efs[i].dict_usage[j]; 
+    for (size_t i = 0; i < efs.size(); i++) {
+        for (size_t j = 0; j < efs[i].dict_usage.size(); j++) {
+            fs.dict_usage[j] += efs[i].dict_usage[j];
         }
     }
     return fs;
 }
-
 
 struct factor_storage {
     using result_type = factorization_info;
@@ -210,7 +210,7 @@ struct factor_storage {
 };
 
 void
-output_encoding_stats(collection& col,std::vector<factorization_info>& efs)
+output_encoding_stats(collection& col, std::vector<factorization_info>& efs)
 {
     size_t text_size_bytes = 0;
     {
@@ -241,14 +241,14 @@ output_encoding_stats(collection& col,std::vector<factorization_info>& efs)
     LOG(INFO) << "compression ratio  = " << 100.0 * (((double)nb / (double)text_size_bytes)) << " %";
     LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)nb / (double)text_size_bytes)) << " %";
     LOG(INFO) << "number of factors  = " << num_factors;
-    LOG(INFO) << "bits per factor    = " << (double) (8*nb) / (double) num_factors;
+    LOG(INFO) << "bits per factor    = " << (double)(8 * nb) / (double)num_factors;
     LOG(INFO) << "number of blocks   = " << num_blocks;
     LOG(INFO) << "avg factors/block  = " << (double)num_factors / (double)num_blocks;
     LOG(INFO) << "=====================================================================";
 }
 
 template <class t_fact_strategy>
-factorization_info 
+factorization_info
 merge_factor_encodings(collection& col, std::vector<factorization_info>& efs)
 {
     auto dict_hash = col.param_map[PARAM_DICT_HASH];

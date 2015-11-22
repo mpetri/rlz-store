@@ -9,13 +9,16 @@ struct factor_select_first {
         return "factor_select_first";
     }
 
-    template <class t_index>
-    static uint32_t pick_offset(const t_index& idx, size_t sp, size_t, size_t factor_len)
+    template <class t_index,class t_itr>
+    static uint32_t pick_offset(const t_index& idx,const t_itr factor_itr,uint32_t block_size)
     {
-        if (idx.is_reverse()) {
-            return idx.sa.size() - (idx.sa[sp] + factor_len) - 1;
+        if(factor_itr.local) {
+            return factor_itr.local_offset;
         }
-        return idx.sa[sp];
+        if (idx.is_reverse()) {
+            return block_size + (idx.sa.size() - (idx.sa[factor_itr.sp] + factor_itr.len) - 1);
+        }
+        return block_size + idx.sa[factor_itr.sp];
     }
 };
 

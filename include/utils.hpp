@@ -21,7 +21,6 @@ using hrclock = std::chrono::high_resolution_clock;
 
 namespace utils {
 
-
 bool is_root()
 {
     return getuid() == 0;
@@ -29,7 +28,7 @@ bool is_root()
 
 void flush_cache() /* requires root */
 {
-    if(is_root()) {
+    if (is_root()) {
         sync();
         {
             std::ofstream ofs("/proc/sys/vm/drop_caches");
@@ -211,11 +210,37 @@ parse_args(int argc, const char* argv[])
         print_usage(argv[0]);
         exit(EXIT_FAILURE);
     }
-    if(args.pruned_dict_size_in_bytes == 0) {
+    if (args.pruned_dict_size_in_bytes == 0) {
         args.pruned_dict_size_in_bytes = args.dict_size_in_bytes;
     }
 
     return args;
 }
+
+using namespace std::chrono;
+using watch = std::chrono::high_resolution_clock;
+
+template<class t_dur = std::chrono::milliseconds>
+struct rlz_timer {
+    watch::time_point start;
+    std::string name;
+    bool output;
+    rlz_timer(const std::string& _n,bool o = true) : name(_n), output(o)
+    {
+        if (output) LOG(INFO) << "START(" << name << ")";
+        start = watch::now();
+    }
+    ~rlz_timer()
+    {
+        auto stop = watch::now();
+        auto time_spent = stop-start;
+        if (output) LOG(INFO) << "STOP(" << name << ") - " << duration_cast<t_dur>(time_spent).count();
+    }
+    watch::duration
+    elapsed() const
+    {
+        return watch::now() - start;
+    }
+};
 
 } // end of util namespace

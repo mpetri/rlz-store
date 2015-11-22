@@ -32,3 +32,21 @@ using rlz_type_standard = rlz_store_static<default_dict_creation_strategy,
                                            default_factor_selection_strategy,
                                            default_factor_encoder,
                                            default_block_map>;
+
+template <uint32_t t_factorization_blocksize>
+using rlz_type_u32v_greedy_sp = rlz_store_static<dict_uniform_sample_budget<default_dict_sample_block_size>,
+                                                 dict_prune_none,
+                                                 default_dict_index_type,
+                                                 t_factorization_blocksize,
+                                                 factor_select_first,
+                                                 factor_coder_blocked<3, coder::aligned_fixed<uint8_t>, coder::aligned_fixed<uint32_t>, coder::vbyte>,
+                                                 block_map_uncompressed>;
+
+template <uint32_t t_factorization_blocksize>
+using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<default_dict_sample_block_size>,
+                                                dict_prune_none,
+                                                default_dict_index_type,
+                                                t_factorization_blocksize,
+                                                factor_select_first,
+                                                factor_coder_blocked<3, coder::zlib<9>, coder::zlib<9>, coder::zlib<9> >,
+                                                block_map_uncompressed>;

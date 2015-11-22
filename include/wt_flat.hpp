@@ -40,105 +40,112 @@
  *
  *   @ingroup wt
  */
-template<class t_bitvector   = sdsl::bit_vector,
-         class t_rank        = typename t_bitvector::rank_1_type,
-         class t_select      = typename t_bitvector::select_1_type,
-         class t_select_zero = typename t_bitvector::select_0_type>
-class wt_flat
-{
-    public:
-        typedef sdsl::int_vector<>::size_type               size_type;
-        typedef sdsl::int_vector<>::value_type              value_type;
-        typedef typename t_bitvector::difference_type 		difference_type;
-        typedef t_bitvector                           		bit_vector_type;
-        typedef t_rank                                		rank_1_type;
-        typedef t_select                              		select_1_type;
-        typedef t_select_zero                         		select_0_type;
-        typedef sdsl::wt_tag                                index_category;
-        typedef sdsl::byte_alphabet_tag                     alphabet_category;
+template <class t_bitvector = sdsl::bit_vector,
+          class t_rank = typename t_bitvector::rank_1_type,
+          class t_select = typename t_bitvector::select_1_type,
+          class t_select_zero = typename t_bitvector::select_0_type>
+class wt_flat {
+public:
+    typedef sdsl::int_vector<>::size_type size_type;
+    typedef sdsl::int_vector<>::value_type value_type;
+    typedef typename t_bitvector::difference_type difference_type;
+    typedef t_bitvector bit_vector_type;
+    typedef t_rank rank_1_type;
+    typedef t_select select_1_type;
+    typedef t_select_zero select_0_type;
+    typedef sdsl::wt_tag index_category;
+    typedef sdsl::byte_alphabet_tag alphabet_category;
 
-    protected:
+protected:
+    size_type m_size = 0;
+    size_type m_sigma = 0; //<- \f$ |\Sigma| \f$
+    std::array<bit_vector_type, 256> m_bvs;
+    std::array<rank_1_type, 256> m_bvs_rank;
 
-        size_type              m_size  = 0;
-        size_type              m_sigma = 0;    //<- \f$ |\Sigma| \f$
-        std::array<bit_vector_type,256> m_bvs;
-        std::array<rank_1_type,256> m_bvs_rank;
-    public:
-        const size_type&       sigma = m_sigma;
-        //! Default constructor
-        wt_flat() = default;
+public:
+    const size_type& sigma = m_sigma;
+    //! Default constructor
+    wt_flat() = default;
 
-        template<uint8_t int_width>
-        wt_flat(sdsl::int_vector_buffer<int_width>& buf, size_type size,
-               uint32_t max_level=0) : m_size(size) {
-            if (0 == m_size)
-                return;
-            size_type n = buf.size();  // set n
+    template <uint8_t int_width>
+    wt_flat(sdsl::int_vector_buffer<int_width>& buf, size_type size,
+            uint32_t max_level = 0)
+        : m_size(size)
+    {
+        if (0 == m_size)
+            return;
+        size_type n = buf.size(); // set n
 
-            sdsl::int_vector<int_width> T(n);
-            for(size_t i=0;i<n;i++) T[i] = buf[i];
+        sdsl::int_vector<int_width> T(n);
+        for (size_t i = 0; i < n; i++)
+            T[i] = buf[i];
 
-            /* make at most sigma passes over the text */
-            std::array<uint64_t,256> C{0};
-            for(size_t i=0;i<n;i++) {
-            	C[T[i]]++;
+        /* make at most sigma passes over the text */
+        std::array<uint64_t, 256> C{ 0 };
+        for (size_t i = 0; i < n; i++) {
+            C[T[i]]++;
+        }
+        for (size_t i = 0; i < 256; i++) {
+            if (C[i] != 0) {
+                sdsl::bit_vector bv(n);
+                for (size_t j = 0; j < n; j++)
+                    if (T[j] == i)
+                        bv[j] = 1;
+                m_bvs[i] = std::move(bit_vector_type(bv));
+                m_bvs_rank[i] = std::move(rank_1_type(&m_bvs[i]));
+                m_sigma++;
             }
-            for(size_t i=0;i<256;i++) {
-            	if(C[i]!=0) {
-            		std::cout << "bv for sym " << i << std::endl;
-            		sdsl::bit_vector bv(n);
-            		for(size_t j=0;j<n;j++) if(T[j] == i) bv[j] = 1;
-            		m_bvs[i] = std::move(bit_vector_type(bv));
-            		m_bvs_rank[i] = std::move(rank_1_type(& m_bvs[i]));
-            		m_sigma++;
-            	}
-            }
         }
+    }
 
-        //! Copy constructor
-        wt_flat(const wt_flat& wt) = default;
-        //! Copy constructor
-        wt_flat(wt_flat&& wt) = default;
-        //! Assignment operator
-        wt_flat& operator=(const wt_flat& wt) = default;
+    //! Copy constructor
+    wt_flat(const wt_flat& wt) = default;
+    //! Copy constructor
+    wt_flat(wt_flat&& wt) = default;
+    //! Assignment operator
+    wt_flat& operator=(const wt_flat& wt) = default;
 
-        //! Assignment move operator
-        wt_flat& operator=(wt_flat&& wt) = default;
+    //! Assignment move operator
+    wt_flat& operator=(wt_flat&& wt) = default;
 
-        //! Returns the size of the original vector.
-        size_type size()const {
-            return m_size;
-        }
+    //! Returns the size of the original vector.
+    size_type size() const
+    {
+        return m_size;
+    }
 
-        //! Returns whether the wavelet tree contains no data.
-        bool empty()const {
-            return m_size == 0;
-        }
+    //! Returns whether the wavelet tree contains no data.
+    bool empty() const
+    {
+        return m_size == 0;
+    }
 
-        //! Recovers the i-th symbol of the original vector.
-        /*! \param i The index of the symbol in the original vector.
+    //! Recovers the i-th symbol of the original vector.
+    /*! \param i The index of the symbol in the original vector.
          *  \returns The i-th symbol of the original vector.
          *  \par Precondition
          *       \f$ i < size() \f$
          */
-        value_type operator[](size_type i)const {
-        	static_assert(true,"does not work!");
-            return 0;
-        };
+    value_type operator[](size_type) const
+    {
+        static_assert(true, "does not work!");
+        return 0;
+    };
 
-        void swap(wt_flat& wt) {
-            if (this != &wt) {
-                std::swap(m_size, wt.m_size);
-                std::swap(m_sigma,  wt.m_sigma);
-                m_bvs.swap(wt.m_bvs);
-                for(size_t i=0;i<256;i++) {
-                	sdsl::util::swap_support(m_bvs_rank[i], wt.m_bvs_rank[i], &m_bvs[i], &(wt.m_bvs[i]));
-                }
+    void swap(wt_flat& wt)
+    {
+        if (this != &wt) {
+            std::swap(m_size, wt.m_size);
+            std::swap(m_sigma, wt.m_sigma);
+            m_bvs.swap(wt.m_bvs);
+            for (size_t i = 0; i < 256; i++) {
+                sdsl::util::swap_support(m_bvs_rank[i], wt.m_bvs_rank[i], &m_bvs[i], &(wt.m_bvs[i]));
             }
         }
+    }
 
-        //! Calculates how many symbols c are in the prefix [0..i-1] of the supported vector.
-        /*!
+    //! Calculates how many symbols c are in the prefix [0..i-1] of the supported vector.
+    /*!
          *  \param i The exclusive index of the prefix range [0..i-1], so \f$i\in[0..size()]\f$.
          *  \param c The symbol to count the occurrences in the prefix.
          *    \returns The number of occurrences of symbol c in the prefix [0..i-1] of the supported vector.
@@ -147,35 +154,40 @@ class wt_flat
          *  \par Precondition
          *       \f$ i \leq size() \f$
          */
-        size_type rank(size_type i, value_type c)const {
-            assert(i <= size());
-	    assert(c <= 256);
-            if(m_bvs[c].size()==0) return 0;
-            return m_bvs_rank[c].rank(i);
-        };
+    size_type rank(size_type i, value_type c) const
+    {
+        assert(i <= size());
+        assert(c <= 256);
+        if (m_bvs[c].size() == 0)
+            return 0;
+        return m_bvs_rank[c].rank(i);
+    };
 
-        std::pair<size_type,size_type> double_rank(size_type i,size_type j, value_type c)const {
-            assert(i <= size());
-	    assert(c <= 256);
-            if(m_bvs[c].size()==0) return {0,0};
-            return {m_bvs_rank[c].rank(i),m_bvs_rank[c].rank(j)};
-        };
+    std::pair<size_type, size_type> double_rank(size_type i, size_type j, value_type c) const
+    {
+        assert(i <= size());
+        assert(c <= 256);
+        if (m_bvs[c].size() == 0)
+            return { 0, 0 };
+        return { m_bvs_rank[c].rank(i), m_bvs_rank[c].rank(j) };
+    };
 
-        //! Calculates how many occurrences of symbol wt[i] are in the prefix [0..i-1] of the original sequence.
-        /*!
+    //! Calculates how many occurrences of symbol wt[i] are in the prefix [0..i-1] of the original sequence.
+    /*!
          *  \param i The index of the symbol.
          *  \return  Pair (rank(wt[i],i),wt[i])
          *  \par Precondition
          *       \f$ i < size() \f$
          */
-        std::pair<size_type, value_type>
-        inverse_select(size_type i)const {
-            static_assert(true,"does not work!");
-            return {0,0};
-        }
+    std::pair<size_type, value_type>
+        inverse_select(size_type) const
+    {
+        static_assert(true, "does not work!");
+        return { 0, 0 };
+    }
 
-        //! Calculates the i-th occurrence of the symbol c in the supported vector.
-        /*!
+    //! Calculates the i-th occurrence of the symbol c in the supported vector.
+    /*!
          *  \param i The i-th occurrence.
          *  \param c The symbol c.
          *  \par Time complexity
@@ -183,34 +195,37 @@ class wt_flat
          *  \par Precondition
          *       \f$ 1 \leq i \leq rank(size(), c) \f$
          */
-        size_type select(size_type i, value_type c) const {
-        	static_assert(true,"does not work!");
-        	return 0;
-        };
+    size_type select(size_type, value_type) const
+    {
+        static_assert(true, "does not work!");
+        return 0;
+    };
 
-        //! Serializes the data structure into the given ostream
-        size_type serialize(std::ostream& out, sdsl::structure_tree_node* v=nullptr, std::string name="")const {
-            sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
-            size_type written_bytes = 0;
-            written_bytes += sdsl::write_member(m_size, out, child, "size");
-            written_bytes += sdsl::write_member(m_sigma, out, child, "sigma");
-            for(size_t i=0;i<256;i++) {
-            	written_bytes += m_bvs[i].serialize(out,child,"bv");
-            	written_bytes += m_bvs_rank[i].serialize(out,child,"rank_bv");
-            }
-            sdsl::structure_tree::add_size(child, written_bytes);
-            return written_bytes;
+    //! Serializes the data structure into the given ostream
+    size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const
+    {
+        sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(*this));
+        size_type written_bytes = 0;
+        written_bytes += sdsl::write_member(m_size, out, child, "size");
+        written_bytes += sdsl::write_member(m_sigma, out, child, "sigma");
+        for (size_t i = 0; i < 256; i++) {
+            written_bytes += m_bvs[i].serialize(out, child, "bv");
+            written_bytes += m_bvs_rank[i].serialize(out, child, "rank_bv");
         }
+        sdsl::structure_tree::add_size(child, written_bytes);
+        return written_bytes;
+    }
 
-        //! Loads the data structure from the given istream.
-        void load(std::istream& in) {
-            sdsl::read_member(m_size, in);
-            sdsl::read_member(m_sigma, in);
-            for(size_t i=0;i<256;i++) {
-            	m_bvs[i].load(in);
-            	m_bvs_rank[i].load(in,&m_bvs[i]);
-            }
+    //! Loads the data structure from the given istream.
+    void load(std::istream& in)
+    {
+        sdsl::read_member(m_size, in);
+        sdsl::read_member(m_sigma, in);
+        for (size_t i = 0; i < 256; i++) {
+            m_bvs[i].load(in);
+            m_bvs_rank[i].load(in, &m_bvs[i]);
         }
+    }
 };
 
 #endif

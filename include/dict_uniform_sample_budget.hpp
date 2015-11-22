@@ -54,7 +54,7 @@ public:
             auto wdict = sdsl::write_out_buffer<8>::create(col.file_map[KEY_DICT]);
             std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
             auto end_total = hrclock::now();
-            LOG(INFO) << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total-start_total).count() / 1000.0f << " sec";
+            LOG(INFO) << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total - start_total).count() / 1000.0f << " sec";
         } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
@@ -64,13 +64,13 @@ public:
         col.compute_dict_hash();
     }
 
-    static uint64_t compute_closest_dict_offset(size_t text_offset,size_t dict_size_bytes,size_t text_size,size_t prime_size)
+    static uint64_t compute_closest_dict_offset(size_t text_offset, size_t dict_size_bytes, size_t text_size, size_t prime_size)
     {
         double text_percent = text_offset / text_size;
         double num_samples = dict_size_bytes / t_block_size_bytes;
         uint64_t dict_block_id = text_percent * num_samples;
         uint64_t dict_offset = dict_block_id * t_block_size_bytes;
-        if(dict_offset > (dict_size_bytes - prime_size) )
+        if (dict_offset > (dict_size_bytes - prime_size))
             return (dict_size_bytes - prime_size);
         return dict_offset;
     }
