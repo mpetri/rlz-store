@@ -75,5 +75,8 @@ target_link_libraries(create-collection.x sdsl pthread zlib boost_system boost_i
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lzma lz4 bzip2)
 
+add_executable(create-64GiB-indexes-www16.x src/experiments/create-64GiB-indexes-www16.cpp)
+target_link_libraries(create-64GiB-indexes-www16.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+
 add_executable(rlzs-index-statistics.x src/rlzs-index-statistics.cpp)
 target_link_libraries(rlzs-index-statistics.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
