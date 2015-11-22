@@ -29,8 +29,9 @@ public:
     {
 	sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
 	auto ratio = (text.size()/size_in_bytes)/2;
-        return (ratio >= t_down_size? t_down_size : ratio);
-    }
+        //return (ratio >= t_down_size? t_down_size : ratio);
+	return 256;   
+ }
  	
     static std::string container_type()
     {
