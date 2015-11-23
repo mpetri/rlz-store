@@ -151,7 +151,7 @@ public:
                 /* copy from dict */
                 const auto& factor_offset = bfd.offsets[offsets_used];
                 if(t_search_local_block_context) {
-                    if(factor_offset <= block_size) { // local factor instead of global factor
+                    if(factor_offset < block_size) { // local factor instead of global factor
                         auto beg = text.begin() + factor_offset;
                         std::copy(beg, beg + factor_len, out_itr);
                     } else {
