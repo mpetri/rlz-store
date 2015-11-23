@@ -150,8 +150,8 @@ void create_indexes(collection& col,utils::cmdargs_t& args)
         LOG(INFO) << "CARE + Local_half_norm compression ratio = "
                   << 100.0 * (double) rlz_store_11.size_in_bytes() / (double) rlz_store_11.text_size;	
 
- */
-        auto rlz_store_12 = rlz_type_zzz_greedy_sp_assembly::builder{}
+ */     const uint32_t factorization_blocksize = 64 * 1024;
+        auto rlz_store_12 = rlz_type_zzz_greedy_sp_assembly<factorization_blocksize,false>::builder{}
             .set_rebuild(args.rebuild)
             .set_threads(args.threads)
             .set_dict_size(dict_size_in_bytes)
