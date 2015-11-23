@@ -9,14 +9,6 @@ const uint32_t www_uniform_sample_block_size = 1024;
 const uint32_t www_factorization_blocksize = 64*1024;
 
 //regular sampling baseline
-using rlz_type_zzz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_uniform_sample_block_size>,
-                              	dict_prune_none,
-                             	dict_index_csa<www_csa_type>,
-                             	www_factorization_blocksize,
-                             	factor_select_first,
-                             	factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                             	block_map_uncompressed>;
-
 using rlz_type_zzz_greedy_sp_4 = rlz_store_static<dict_uniform_sample_budget<1024*4>,
                                     dict_prune_none,
                                     dict_index_csa<www_csa_type>,
@@ -43,7 +35,7 @@ using rlz_type_zzz_greedy_sp_16 = rlz_store_static<dict_uniform_sample_budget<10
 
 
 
-using rlz_type_zz_greedy_sp = rlz_store_static<dict_uniform_sample_budget<www_uniform_sample_block_size>,
+using rlz_type_zz_greedy_sp_org = rlz_store_static<dict_uniform_sample_budget<www_uniform_sample_block_size>,
                                 dict_prune_none,
                                 dict_index_csa<www_csa_type>,
                                 www_factorization_blocksize,
