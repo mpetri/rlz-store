@@ -43,6 +43,7 @@ private:
 
 public:
     enum { block_size = t_factorization_block_size };
+    enum { search_local_block_context = t_search_local_block_context };
     uint64_t encoding_block_size = block_size;
     block_map_type& block_map = m_blockmap;
     sdsl::int_vector<8>& dict = m_dict;
