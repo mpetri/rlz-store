@@ -13,13 +13,14 @@
 #include <future>
 
 template <uint32_t t_block_size,
+          bool t_search_local_block_context,
           class t_index,
           class t_factor_selector,
           class t_coder>
 struct factorizor {
     static std::string type()
     {
-        return "factorizor-" + std::to_string(t_block_size) + "-" + t_factor_selector::type() + "-" + t_coder::type();
+        return "factorizor-" + std::to_string(t_block_size) + "-l" + std::to_string(t_search_local_block_context) + "-" + t_factor_selector::type() + "-" + t_coder::type();
     }
 
     static std::string factor_file_name(collection& col)
@@ -43,28 +44,34 @@ struct factorizor {
     template <class t_factor_store, class t_itr>
     static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end)
     {
-        utils::rlz_timer<std::chrono::milliseconds> fbt("factorize_block");
+        // utils::rlz_timer<std::chrono::milliseconds> fbt("factorize_block");
         uint64_t encoding_block_size = std::distance(itr,end);
-        auto factor_itr = idx.factorize_local(itr, end);
+        auto factor_itr = idx.factorize<decltype(itr),t_search_local_block_context>(itr, end);
         fs.start_new_block();
         size_t syms_encoded = 0;
+        double local = 0;
+        double global = 0;
+        double factors = 0;
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
                 fs.add_to_block_factor(coder, itr + syms_encoded, 0, 1);
                 syms_encoded++;
             } else {
-                auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr,encoding_block_size);
+                auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr,t_search_local_block_context,encoding_block_size);
                 if(offset < encoding_block_size) {
-                    LOG(INFO) << "L <" << offset << "," << factor_itr.len << ">";
+                    local++;
+                    // LOG(INFO) << "L <" << offset << "," << factor_itr.len << ">";
                 } else {
+                    global++;
                     // LOG(INFO) << "G <" << offset << "," << factor_itr.len << ">";
                 }
                 fs.add_to_block_factor(coder, itr + syms_encoded, offset, factor_itr.len);
                 syms_encoded += factor_itr.len;
             }
-
+            factors++;
             ++factor_itr;
         }
+        //LOG(INFO) << "local = " << local << " global = " << global << " local / (local+global) = " << 100.0*local/factors;
         fs.encode_current_block(coder);
     }
 
@@ -167,6 +174,6 @@ struct factorizor {
         output_encoding_stats(col, efs);
 
         LOG(INFO) << "Merge factorized text blocks";
-        return merge_factor_encodings<factorizor<t_block_size, t_index, t_factor_selector, t_coder> >(col, efs);
+        return merge_factor_encodings<factorizor<t_block_size,t_search_local_block_context, t_index, t_factor_selector, t_coder> >(col, efs);
     }
 };
