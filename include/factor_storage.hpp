@@ -23,7 +23,7 @@ struct factorization_statistics {
     uint64_t block_size;
     uint64_t total_encoded_factors = 0;
     uint64_t total_encoded_blocks = 0;
-    sdsl::int_vector<64> dict_usage;
+    sdsl::int_vector<32> dict_usage;
 
     inline size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = NULL, std::string name = "") const
     {
