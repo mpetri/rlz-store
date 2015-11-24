@@ -29,7 +29,8 @@ public:
     using factor_encoder = t_factor_coder;
     using factorization_strategy = factorizor<t_factorization_block_size,t_search_local_block_context, dictionary_index, factor_selection_strategy, factor_encoder>;
     using block_map = t_block_map;
-
+    enum { block_size = t_factorization_block_size };
+    enum { search_local_block_context = t_search_local_block_context };
 public:
     builder& set_rebuild(bool r)
     {
@@ -134,6 +135,101 @@ public:
         }
 
         /* load */
+        return rlz_store_static(col);
+    }
+
+    template<class t_idx>
+    rlz_store_static reencode(t_idx& old,collection& col) const
+    {
+        auto start = hrclock::now();
+        /* (0) make sure we use the same dict, and coding strategy etc. */
+        static_assert(std::is_same<typename t_idx::dictionary_creation_strategy, dictionary_creation_strategy>::value,
+                      "different dictionary creation strategy");
+        static_assert(std::is_same<typename t_idx::dictionary_pruning_strategy, dictionary_pruning_strategy>::value,
+                      "different dictionary pruning strategy");
+        static_assert(std::is_same<typename t_idx::dictionary_index, dictionary_index>::value,
+                      "different dictionary index");
+        static_assert(std::is_same<typename t_idx::factor_selection_strategy, factor_selection_strategy>::value,
+                      "different factor selection strategy");
+        static_assert(t_idx::block_size == t_factorization_block_size,
+                      "different factorization block size");
+        static_assert(t_idx::factor_coder_type::literal_threshold == factor_coder_type::literal_threshold,
+                      "different factor literal coding threshold");
+        static_assert(t_idx::search_local_block_context == search_local_block_context,
+                      "different local search strategy");
+
+        /* (1) check dict */
+        auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
+        if (!utils::file_exists(dict_file_name)) {
+            throw std::runtime_error("Cannot find dictionary.");
+        } else {
+            col.file_map[KEY_DICT] = dict_file_name;
+            col.compute_dict_hash();
+        }
+
+        /* (2) reencode the factors */
+        LOG(INFO) << "Reencoding factors (" << t_factor_coder::type() << ")";
+        auto itr = old.factors_begin();
+        auto end = old.factors_end();
+        block_factor_data bfd(t_factorization_block_size);
+        auto factor_file_name = factorization_strategy::factor_file_name(col);
+        auto boffsets_file_name = factorization_strategy::boffsets_file_name(col);
+        auto bfactors_file_name = factorization_strategy::bfactors_file_name(col);
+        if (rebuild || !utils::file_exists(factor_file_name)) {
+            auto factor_buf = sdsl::write_out_buffer<1>::create(factor_file_name);
+            auto block_offsets = sdsl::write_out_buffer<0>::create(boffsets_file_name);
+            auto block_factors = sdsl::write_out_buffer<0>::create(bfactors_file_name);
+            bit_ostream<sdsl::int_vector_mapper<1> > factor_stream(factor_buf);
+            size_t cur_block_offset = itr.block_id;
+            t_factor_coder coder;
+            auto num_blocks = old.block_map.num_blocks();
+            auto num_blocks10p = (uint64_t)(num_blocks * 0.1);
+
+            size_t syms_encoded = 0;
+            while (itr != end) {
+                const auto& f = *itr;
+                if (itr.block_id != cur_block_offset) {
+                    block_offsets.push_back(factor_stream.tellp());
+                    block_factors.push_back(bfd.num_factors);
+                    coder.encode_block(factor_stream,bfd);
+                    cur_block_offset = itr.block_id;
+                    bfd.reset();
+                    syms_encoded = 0;
+                    if ((cur_block_offset + 1) % num_blocks10p == 0) {
+                        LOG(INFO) << "\t"
+                                  << "Encoded " << 100 * (cur_block_offset + 1) / num_blocks << "% ("
+                                  << (cur_block_offset + 1) << "/" << num_blocks << ")";
+                    }
+                }
+
+                if(f.is_literal) {
+                    bfd.add_factor(coder,f.literal_ptr,0,f.len);
+                } else {
+                    bfd.add_factor(coder,f.literal_ptr,f.offset,f.len);
+                }
+                syms_encoded += f.len;
+                ++itr;
+            }
+            if ( bfd.num_factors != 0) {
+                block_offsets.push_back(factor_stream.tellp());
+                block_factors.push_back(bfd.num_factors);
+                coder.encode_block(factor_stream,bfd);
+            }
+        }
+        col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
+        col.file_map[KEY_BLOCKOFFSETS] = boffsets_file_name;
+        col.file_map[KEY_BLOCKFACTORS] = bfactors_file_name;
+
+        LOG(INFO) << "\t"
+                  << "Create block map (" << block_map_type::type() << ")";
+        auto blockmap_file = blockmap_file_name(col);
+        if (rebuild || !utils::file_exists(blockmap_file)) {
+            block_map_type tmp(col);
+            sdsl::store_to_file(tmp, blockmap_file);
+        }
+        col.file_map[KEY_BLOCKMAP] = blockmap_file;
+        auto stop = hrclock::now();
+        LOG(INFO) << "RLZ factor reencode complete. time = " << duration_cast<seconds>(stop - start).count() << " sec";
         return rlz_store_static(col);
     }
 
