@@ -208,6 +208,7 @@ void output_stats(t_idx& idx, std::string name = std::string())
         auto num_literals = 0ULL;
         auto non_literals = 0ULL;
         auto num_factors = 0ULL;
+        auto num_local = 0ULL;
         auto fitr = idx.factors_begin();
         auto fend = idx.factors_end();
         std::vector<uint64_t> flen_dist(idx.encoding_block_size);
@@ -217,16 +218,31 @@ void output_stats(t_idx& idx, std::string name = std::string())
             auto fd = *fitr;
             if(fd.is_literal) num_literals++;
             else {
-                flen_dist[fd.len]++;
-                non_literals++;
-                for(size_t i=0;i<fd.len;i++) {
-                    dict_usage[fd.offset+i]++;
+                if(idx.search_local_block_context) {
+                    non_literals++;
+                    if(fd.offset < idx.encoding_block_size) {
+                        num_local++;
+                    } else {
+                        flen_dist[fd.len]++;
+                        for(size_t i=0;i<fd.len;i++) {
+                            dict_usage[fd.offset-idx.encoding_block_size+i]++;
+                        }
+                    }
+                } else {
+                    flen_dist[fd.len]++;
+                    non_literals++;
+                    for(size_t i=0;i<fd.len;i++) {
+                        dict_usage[fd.offset+i]++;
+                    }
                 }
             }
             ++fitr;
         }
         LOG(INFO) << name << " num_literals = " << num_literals;
         LOG(INFO) << name << " percent_literals = " << 100.0*num_literals / num_factors << " %";
+
+        LOG(INFO) << name << " num_local = " << num_local;
+        LOG(INFO) << name << " percent_local = " << 100.0*num_local / non_literals << " %";
 
         uint64_t flen_sum = 0;
         for(size_t i=0;i<flen_dist.size();i++) {
