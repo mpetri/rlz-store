@@ -20,9 +20,10 @@ struct factor_itr_csa {
     uint8_t sym;
     bool done;
     bool local;
+    bool debug;
 
-    std::unordered_map<uint32_t,std::vector<uint32_t>> qgrams;
-    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end)
+    // std::unordered_map<uint32_t,std::vector<uint32_t>> qgrams;
+    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end,bool dbg = false)
         : sa(_csa)
         , factor_start(begin)
         , itr(begin)
@@ -35,8 +36,10 @@ struct factor_itr_csa {
         , sym(0)
         , done(false)
         , local(false)
+        , debug(dbg)
     {
         find_next_factor();
+        //qgrams.reserve(64000);
     }
     factor_itr_csa& operator++()
     {
@@ -49,78 +52,86 @@ struct factor_itr_csa {
         local = false;
         // (1) local search enabled?
         if(!t_local_search) return;
-        // (2) is the global factor already quite long?
-        if(len >= 20) return;
+        // (2) is the global factor already quite long? are we in the first part of the block?
+        // if( std::distance(start,itr) > 1024 && len >= 20) return;
 
-
-        // (3) search for a better factor locally
-        {
-            // utils::rlz_timer<std::chrono::nanoseconds> fbt("search q-gram");
-            uint32_t trigram = 0; uint8_t* tg8 = (uint8_t*) &trigram;
-            tg8[0] = *factor_start; tg8[1] = *(factor_start+1); tg8[2] = *(factor_start+2);  tg8[3] = *(factor_start+3);
-            auto qitr = qgrams.find(trigram);
-            if( qitr != qgrams.end()) { // found the trigram at the start of the current factor?
-                const auto& qpos = qitr->second;
-                bool found = false;
-                size_t max_match_len = 0;
-                local_offset = 0;
-                for(const auto& p : qpos) { // check all pos of trigram for better matches
-                    auto tmp = start + p;
-                    auto pitr = factor_start;
-                    size_t match_len = 0;
-                    while(tmp != factor_start && pitr != end && *tmp == *pitr) {
-                        match_len++;
-                        ++tmp;
-                        ++pitr;
-                    }
-                    if(match_len > max_match_len) {
-                        local_offset = p;
-                        max_match_len = match_len;
-                        found = true;
-                    }
-                }
-                if(found && max_match_len > len) {
-                    local = true;
-                    len = max_match_len;
-                    itr = factor_start + len;
-                    // LOG(INFO) << "found local. local_offset = " << local_offset << " max_match_len = " << max_match_len << " factor_start = " << std::distance(start,factor_start) << " itr = " << std::distance(start,itr) << " end = " << std::distance(start,end);
-                }
-            }
-        }
-        // (4) update the local q-gram index 
-        {
-            // (4a) only update at the start
-            // if(std::distance(start,factor_start) > 1024*10) return;
-
-            // LOG(INFO) << "len = " << len << " factor_start_offset = " << std::distance(start,factor_start) << " itr = " << std::distance(start,itr) << " end = " << std::distance(start,end);
-            // utils::rlz_timer<std::chrono::nanoseconds> fbt("update q-gram");
-            uint32_t trigram = 0; uint8_t* tg8 = (uint8_t*) &trigram;
-            auto tmp = factor_start;
-            size_t syms_seen = 0;
-            while(tmp != itr) {
-                tg8[syms_seen] = *tmp;
-                syms_seen++;
-                if(syms_seen == 4) {
-                    auto offset = std::distance(start,tmp) - 3;
-                    qgrams[trigram].push_back(offset);
-                    // auto seen = qgrams[trigram].push_back(offset);
-                    // LOG(INFO) << "ADD(" << (int) tg8[0] << " " << (int) tg8[1] << " " << (int) tg8[2] << ") = " << offset;
-                    tg8[0] = tg8[1];
-                    tg8[1] = tg8[2];
-                    tg8[2] = tg8[3];
-                    syms_seen = 3;
-                }
-                ++tmp;
-            }
-        }
+        // // (3) search for a better factor locally
+        // {
+        //     utils::rlz_timer<std::chrono::nanoseconds> fbt("search q-gram");
+        //     uint32_t qgram = 0; uint8_t* qg8 = (uint8_t*) &qgram;
+        //     qg8[0] = *factor_start; qg8[1] = *(factor_start+1); qg8[2] = *(factor_start+2);  qg8[3] = *(factor_start+3);
+        //     auto qitr = qgrams.find(qgram);
+        //     if( qitr != qgrams.end()) { // found the qgram at the start of the current factor?
+        //         const auto& qpos = qitr->second;
+        //         bool found = false;
+        //         size_t max_match_len = 0;
+        //         local_offset = 0;
+        //         for(const auto& p : qpos) { // check all pos of qgram for better matches
+        //             auto tmp = start + p;
+        //             auto pitr = factor_start;
+        //             size_t match_len = 0;
+        //             while(tmp != factor_start && pitr != end && *tmp == *pitr) {
+        //                 match_len++;
+        //                 ++tmp;
+        //                 ++pitr;
+        //             }
+        //             if(match_len > max_match_len) {
+        //                 local_offset = p;
+        //                 max_match_len = match_len;
+        //                 found = true;
+        //             }
+        //         }
+        //         if(found && max_match_len > len) {
+        //             local = true;
+        //             len = max_match_len;
+        //             itr = factor_start + len;
+        //         }
+        //     }
+        // }
+        // // (4) update the local q-gram index 
+        // {
+        //     utils::rlz_timer<std::chrono::nanoseconds> fbt("update q-gram");
+        //     uint32_t qgram = 0; uint8_t* qg8 = (uint8_t*) &qgram;
+        //     auto tmp = factor_start;
+        //     size_t syms_seen = 0;
+        //     while(tmp != itr) {
+        //         qg8[syms_seen] = *tmp;
+        //         syms_seen++;
+        //         if(syms_seen == 4) {
+        //             auto offset = std::distance(start,tmp) - 3;
+        //             qgrams[qgram].push_back(offset);
+        //             qg8[0] = qg8[1];
+        //             qg8[1] = qg8[2];
+        //             qg8[2] = qg8[3];
+        //             syms_seen = 3;
+        //         }
+        //         ++tmp;
+        //     }
+        // }
     }
 
     inline void find_next_factor()
     {
         sp = 0;
         ep = sa.size() - 1;
+        if(debug) LOG(INFO) << "START FIND NEXT FACTOR [0," << ep << "]";
         while (itr != end) {
             sym = *itr;
+            if(debug) LOG(INFO) << "FIND NEXT FACTOR ["<<sp<<"," << ep << "] |<sp,ep>| = " << ep-sp+1;
+            if(debug) LOG(INFO) << "NEXT SYM (" << (int) sym << ")";
+            if(debug) {
+                std::string cur_factor = "";
+                auto tmp = factor_start;
+                while(tmp != itr) {
+                    auto tsym = *tmp;
+                    if(isprint(tsym)) cur_factor += tsym;
+                    else cur_factor += "?";
+                    ++tmp;
+                }
+                if(isprint(sym)) cur_factor += sym;
+                else cur_factor += "?";
+                LOG(INFO) << "CURRENT FACTOR = '" << cur_factor << "'";
+            }
             auto mapped_sym = sa.char2comp[sym];
             bool sym_exists_in_dict = mapped_sym != 0;
             uint64_t res_sp, res_ep;
@@ -143,6 +154,7 @@ struct factor_itr_csa {
                 }
                 find_longer_local_factor();
                 factor_start = itr;
+                if(debug) LOG(INFO) << "END FIND NEXT FACTOR!";
                 return;
             } else { // found substring
                 sp = res_sp;
@@ -310,9 +322,9 @@ struct dict_index_csa {
     }
 
     template <class t_itr,bool t_search_local_block_context>
-    factor_itr_csa<t_csa, t_itr,t_search_local_block_context> factorize(t_itr itr, t_itr end) const
+    factor_itr_csa<t_csa, t_itr,t_search_local_block_context> factorize(t_itr itr, t_itr end,bool debug = false) const
     {
-        return factor_itr_csa<t_csa, t_itr,t_search_local_block_context>(sa, itr, end);
+        return factor_itr_csa<t_csa, t_itr,t_search_local_block_context>(sa, itr, end, debug);
     }
 
     template <class t_itr>

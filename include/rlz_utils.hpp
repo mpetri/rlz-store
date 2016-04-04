@@ -201,102 +201,105 @@ void output_stats(t_idx& idx, std::string name = std::string())
         LOG(INFO) << name << " bits_per_factor = " << idx.factor_text.size() / (double)block_factors_sum;
         auto space_of_bmap = sdsl::size_in_bytes(idx.block_map);
         auto space_on_disk = idx.factor_text.size() + (idx.dict.size() * 8) + (space_of_bmap * 8);
-        LOG(INFO) << name << " space_savings = " << 100.0 * (1 - ((double)space_on_disk / ((double)idx.text_size * 8))) << " %";
+        double space_savings = 100.0 * (1 - ((double)space_on_disk / ((double)idx.text_size * 8)));
+        double cr = 100.0 - space_savings;
+        LOG(INFO) << name << " space_savings = " << space_savings << " %";
+        LOG(INFO) << name << " compression_ratio = " << cr << " %";
     }
-    /* analyze factors */
-    {
-        auto num_literals = 0ULL;
-        auto non_literals = 0ULL;
-        auto num_factors = 0ULL;
-        auto num_local = 0ULL;
-        auto fitr = idx.factors_begin();
-        auto fend = idx.factors_end();
-        std::vector<uint64_t> flen_dist(idx.encoding_block_size);
-        std::vector<uint64_t> dict_usage(idx.dict.size());
-        while(fitr != fend) {
-            num_factors++;
-            auto fd = *fitr;
-            if(fd.is_literal) num_literals++;
-            else {
-                if(idx.search_local_block_context) {
-                    non_literals++;
-                    if(fd.offset < idx.encoding_block_size) {
-                        num_local++;
-                    } else {
-                        flen_dist[fd.len]++;
-                        for(size_t i=0;i<fd.len;i++) {
-                            dict_usage[fd.offset-idx.encoding_block_size+i]++;
-                        }
-                    }
-                } else {
-                    flen_dist[fd.len]++;
-                    non_literals++;
-                    for(size_t i=0;i<fd.len;i++) {
-                        dict_usage[fd.offset+i]++;
-                    }
-                }
-            }
-            ++fitr;
-        }
-        LOG(INFO) << name << " num_literals = " << num_literals;
-        LOG(INFO) << name << " percent_literals = " << 100.0*num_literals / num_factors << " %";
+    // /* analyze factors */
+    // {
+    //     auto num_literals = 0ULL;
+    //     auto non_literals = 0ULL;
+    //     auto num_factors = 0ULL;
+    //     auto num_local = 0ULL;
+    //     auto fitr = idx.factors_begin();
+    //     auto fend = idx.factors_end();
+    //     std::vector<uint64_t> flen_dist(idx.encoding_block_size);
+    //     std::vector<uint64_t> dict_usage(idx.dict.size());
+    //     while(fitr != fend) {
+    //         num_factors++;
+    //         auto fd = *fitr;
+    //         if(fd.is_literal) num_literals++;
+    //         else {
+    //             if(idx.search_local_block_context) {
+    //                 non_literals++;
+    //                 if(fd.offset < idx.encoding_block_size) {
+    //                     num_local++;
+    //                 } else {
+    //                     flen_dist[fd.len]++;
+    //                     for(size_t i=0;i<fd.len;i++) {
+    //                         dict_usage[fd.offset-idx.encoding_block_size+i]++;
+    //                     }
+    //                 }
+    //             } else {
+    //                 flen_dist[fd.len]++;
+    //                 non_literals++;
+    //                 for(size_t i=0;i<fd.len;i++) {
+    //                     dict_usage[fd.offset+i]++;
+    //                 }
+    //             }
+    //         }
+    //         ++fitr;
+    //     }
+    //     LOG(INFO) << name << " num_literals = " << num_literals;
+    //     LOG(INFO) << name << " percent_literals = " << 100.0*num_literals / num_factors << " %";
 
-        LOG(INFO) << name << " num_local = " << num_local;
-        LOG(INFO) << name << " percent_local = " << 100.0*num_local / non_literals << " %";
+    //     LOG(INFO) << name << " num_local = " << num_local;
+    //     LOG(INFO) << name << " percent_local = " << 100.0*num_local / non_literals << " %";
 
-        uint64_t flen_sum = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            flen_sum += i*flen_dist[i];
-        }
-        auto flen_mean = flen_sum / (double)non_literals;
-        uint64_t flen_min = 0;
-        uint64_t flen_max = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            if(flen_min == 0 && flen_dist[i] != 0) flen_min = i;
-            if(flen_dist[i] != 0) flen_max = i;
-        }
-        uint64_t flen_1qrt_v = non_literals * 0.25;
-        uint64_t flen_median_v = non_literals * 0.5;
-        uint64_t flen_3qrt_v = non_literals * 0.75;
+    //     uint64_t flen_sum = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         flen_sum += i*flen_dist[i];
+    //     }
+    //     auto flen_mean = flen_sum / (double)non_literals;
+    //     uint64_t flen_min = 0;
+    //     uint64_t flen_max = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         if(flen_min == 0 && flen_dist[i] != 0) flen_min = i;
+    //         if(flen_dist[i] != 0) flen_max = i;
+    //     }
+    //     uint64_t flen_1qrt_v = non_literals * 0.25;
+    //     uint64_t flen_median_v = non_literals * 0.5;
+    //     uint64_t flen_3qrt_v = non_literals * 0.75;
 
-        uint64_t sum = 0;
-        uint64_t flen_1qrt = 0;
-        uint64_t flen_median = 0;
-        uint64_t flen_3qrt = 0;
-        for(size_t i=0;i<flen_dist.size();i++) {
-            sum += flen_dist[i];
-            if(sum >= flen_1qrt_v && flen_1qrt == 0) {
-                flen_1qrt = i;
-            }
-            if(sum >= flen_median_v && flen_median == 0) {
-                flen_median = i;
-            }
-            if(sum >= flen_3qrt_v && flen_3qrt == 0) {
-                flen_3qrt = i;
-            }
-        }
+    //     uint64_t sum = 0;
+    //     uint64_t flen_1qrt = 0;
+    //     uint64_t flen_median = 0;
+    //     uint64_t flen_3qrt = 0;
+    //     for(size_t i=0;i<flen_dist.size();i++) {
+    //         sum += flen_dist[i];
+    //         if(sum >= flen_1qrt_v && flen_1qrt == 0) {
+    //             flen_1qrt = i;
+    //         }
+    //         if(sum >= flen_median_v && flen_median == 0) {
+    //             flen_median = i;
+    //         }
+    //         if(sum >= flen_3qrt_v && flen_3qrt == 0) {
+    //             flen_3qrt = i;
+    //         }
+    //     }
 
-        LOG(INFO) << name << " factor lens ";
-        LOG(INFO) << " min=" << flen_min
-            << " 1.qrt=" << flen_1qrt
-            << " med=" << flen_median
-            << " mean=" << flen_mean
-            << " 3.qrt=" << flen_3qrt
-            << " max=" << flen_max;
+    //     LOG(INFO) << name << " factor lens ";
+    //     LOG(INFO) << " min=" << flen_min
+    //         << " 1.qrt=" << flen_1qrt
+    //         << " med=" << flen_median
+    //         << " mean=" << flen_mean
+    //         << " 3.qrt=" << flen_3qrt
+    //         << " max=" << flen_max;
 
-        LOG(INFO) << name << " dict usage ";
-        double ds = idx.dict.size();
-        auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
-        LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
+    //     LOG(INFO) << name << " dict usage ";
+    //     double ds = idx.dict.size();
+    //     auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
+    //     LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
         
-        uint64_t thres = 1;
-        uint64_t cnt = 1;
-        while(cnt) {
-            cnt = std::count_if(dict_usage.begin(),dict_usage.end(), [&thres](uint64_t i) {return i >= thres;});
-            if(cnt) LOG(INFO) << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
-            thres *= 2;
-        }
-    }
+    //     uint64_t thres = 1;
+    //     uint64_t cnt = 1;
+    //     while(cnt) {
+    //         cnt = std::count_if(dict_usage.begin(),dict_usage.end(), [&thres](uint64_t i) {return i >= thres;});
+    //         if(cnt) LOG(INFO) << " b-" << thres <<"="<<cnt<<" ("<<100*cnt/ds<<"%)";
+    //         thres *= 2;
+    //     }
+    // }
 }
 
 template <class t_idx>
