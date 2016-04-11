@@ -160,6 +160,7 @@ parse_dir(const std::string& dir)
             }
         }
     }
+    std::sort(matches.begin(),matches.end());
     LOG(INFO) << "Found " << matches.size() << " files";
     return matches;
 }
@@ -173,49 +174,77 @@ int main(int argc, const char* argv[])
     utils::create_directory(args.collection_dir);
     std::string output_file = args.collection_dir + "/" + KEY_PREFIX + KEY_TEXT;
 
-    LOG(INFO) << "Parse " << args.input_dir << " to retrieve file names ";
-
-    auto out = sdsl::write_out_buffer<8>::create(output_file);
-    if (args.format == data_format::raw) {
-        if (!utils::file_exists(args.input_file)) {
-            LOG(FATAL) << "Input file " << args.input_file << " does not exist.";
+    {
+        auto out = sdsl::write_out_buffer<8>::create(output_file);
+        if (args.format == data_format::raw) {
+            if (!utils::file_exists(args.input_file)) {
+                LOG(FATAL) << "Input file " << args.input_file << " does not exist.";
+            }
+            LOG(INFO) << "Processing " << args.input_file;
+            sdsl::read_only_mapper<8> input(args.input_file, true);
+            auto itr = input.begin();
+            auto end = input.end();
+            auto replaced_zeros = 0;
+            auto replaced_ones = 0;
+            while (itr != end) {
+                auto sym = *itr;
+                if (sym == 0) {
+                    sym = 0xFE;
+                    replaced_zeros++;
+                }
+                if (sym == 1) {
+                    replaced_ones++;
+                    sym = 0xFF;
+                }
+                out.push_back(sym);
+                ++itr;
+            }
+            LOG(INFO) << "Replaced zeros = " << replaced_zeros;
+            LOG(INFO) << "Replaced ones = " << replaced_ones;
+        } else {
+            LOG(INFO) << "Parse " << args.input_dir << " to retrieve file names ";
+            if (!utils::directory_exists(args.input_dir)) {
+                LOG(FATAL) << "Input directory " << args.input_file << " does not exist.";
+            }
+            /* (1) read file list */
+            auto input_files = parse_dir(args.input_dir);
+            /* (2) process files */
+            for (size_t i = 0; i < input_files.size(); i++) {
+                parse_gz_file(out, input_files[i], args.format);
+                if (i + 1 >= args.max_num_files) {
+                    LOG(INFO) << "Only processing " << i + 1 << " files. STOP";
+                    break;
+                }
+            }
         }
-        sdsl::read_only_mapper<8> input(args.input_file, true);
-        auto itr = input.begin();
-        auto end = input.end();
-        auto replaced_zeros = 0;
-        auto replaced_ones = 0;
+        LOG(INFO) << "Copied " << out.size() << " bytes.";
+    }
+    {
+        LOG(INFO) << "Writing document order file.";
+        std::string docorder_file = args.collection_dir + "/" + KEY_PREFIX + KEY_DOCORDER;
+        std::ofstream dof(docorder_file);
+        sdsl::read_only_mapper<8> output(output_file);
+        auto beg = output.begin();
+        auto itr = output.begin();
+        auto end = output.end();
+        const std::string docno_start("<DOCNO>");
+        const std::string docno_end("</DOCNO>");
         while (itr != end) {
-            auto sym = *itr;
-            if (sym == 0) {
-                sym = 0xFE;
-                replaced_zeros++;
-            }
-            if (sym == 1) {
-                replaced_ones++;
-                sym = 0xFF;
-            }
-            out.push_back(sym);
-            ++itr;
-        }
-        LOG(INFO) << "Replaced zeros = " << replaced_zeros;
-        LOG(INFO) << "Replaced ones = " << replaced_ones;
-    } else {
-        if (!utils::directory_exists(args.input_dir)) {
-            LOG(FATAL) << "Input directory " << args.input_file << " does not exist.";
-        }
-        /* (1) read file list */
-        auto input_files = parse_dir(args.input_dir);
-        /* (2) process files */
-        for (size_t i = 0; i < input_files.size(); i++) {
-            parse_gz_file(out, input_files[i], args.format);
-            if (i + 1 >= args.max_num_files) {
-                LOG(INFO) << "Only processing " << i + 1 << " files. STOP";
-                break;
+            itr = std::search(itr, end, docno_start.begin(), docno_start.end());
+            auto pos = std::distance(beg,itr);
+            std::string cur_docno;
+            if (itr != end) {
+                /* found response */
+                std::advance(itr, docno_start.size());
+                auto resp_end = std::search(itr, end, docno_end.begin(), docno_end.end());
+                while (itr != resp_end && itr != end) {
+                    cur_docno += *itr;
+                    ++itr;
+                }
+                dof << cur_docno << " " << pos << "\n";
             }
         }
     }
-    LOG(INFO) << "Copied " << out.size() << " bytes.";
 
     return 0;
 }

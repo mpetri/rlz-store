@@ -19,14 +19,6 @@ struct vbyte {
         return "vbyte";
     }
 
-    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
-    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
     template <typename T>
     inline uint64_t encoded_length(const T& x) const
     {
@@ -112,14 +104,6 @@ public:
         return "u" + std::to_string(t_width);
     }
 
-    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
-    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, T* in_buf, size_t n) const
     {
@@ -141,14 +125,6 @@ public:
     static std::string type()
     {
         return "u" + std::to_string(8 * sizeof(t_int_type)) + "a";
-    }
-
-    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
-    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
-    {
     }
 
     template <class t_bit_ostream>
@@ -211,20 +187,6 @@ public:
     static std::string type()
     {
         return "zlib-" + std::to_string(t_level);
-    }
-
-    inline void set_deflate_dictionary(const uint8_t* dict_ptr, uint32_t n) const
-    {
-        auto ret = deflateSetDictionary(&dstrm, dict_ptr, n);
-        if (ret != Z_OK) {
-            LOG(FATAL) << "zlib-encode: set dictionary error:" << ret;
-        }
-    }
-
-    inline void set_inflate_dictionary(const uint8_t* dptr, uint32_t n) const
-    {
-        dict_ptr = dptr;
-        dict_size = n;
     }
 
     template <class t_bit_ostream, class T>
@@ -481,18 +443,6 @@ public:
         return "lz4hc-" + std::to_string(t_level);
     }
 
-    inline void set_deflate_dictionary(const uint8_t* dptr, uint32_t n) const
-    {
-        dict_ptr = (const char*)dptr;
-        dict_size = n;
-    }
-
-    inline void set_inflate_dictionary(const uint8_t* dptr, uint32_t n) const
-    {
-        dict_ptr = (const char*)dptr;
-        dict_size = n;
-    }
-
     template <class t_bit_ostream, class T>
     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
     {
@@ -541,14 +491,6 @@ public:
     static std::string type()
     {
         return "bzip2-" + std::to_string(t_level);
-    }
-
-    inline void set_deflate_dictionary(const uint8_t*, uint32_t) const
-    {
-    }
-
-    inline void set_inflate_dictionary(const uint8_t*, uint32_t) const
-    {
     }
 
     template <class t_bit_ostream, class T>
@@ -606,37 +548,37 @@ public:
     }
 };
 
-//with the dict_index_sa_length_selector strategy - match lengths are a known multiple of LM. This coder simply removes/adds the LM component, before
-// passing on to the next stage of coding say U32 or Zlib (given by t_coder c)
-template <int lm, class t_coder>
-struct length_multiplier {
-public:
-    static const uint32_t lm_buf_len = 100000;
-
-private:
-    mutable uint32_t buf[lm_buf_len];
-    t_coder next_stage_coder;
-
+struct interpolative {
 public:
     static std::string type()
     {
-        return "length_multiplier-" + std::to_string(lm) + "-" + t_coder::type();
+        return "interpolative";
     }
+
+    void encode_sequence(const T* in_buf, size_t n) const {
+        
+    }
+
     template <class t_bit_ostream, class T>
-    inline void encode(t_bit_ostream& os, T* in_buf, size_t n) const
+    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
     {
-        for (size_t i = 0; i < n; i++) {
-            buf[i] = in_buf[i] / lm;
-        }
-        next_stage_coder.encode(os, buf, n);
+        uint64_t bits_required = 32 + n * 512; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+
+
+
+
+        // write the len. assume it fits in 32bits
+        *out_size = (uint32_t)written_bytes;
+        os.skip(written_bytes * 8); // skip over the written content
     }
     template <class t_bit_istream, class T>
     inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
     {
-        next_stage_coder.decode(is, out_buf, n);
-        for (size_t i = 0; i < n; i++) {
-            out_buf[i] = out_buf[i] * lm;
-        }
+
     }
 };
+
+
 }

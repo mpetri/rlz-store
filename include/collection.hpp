@@ -18,6 +18,8 @@ const std::string KEY_BLOCKFACTORS = "BLOCKFACTORS";
 const std::string KEY_FCODER = "FCODER";
 const std::string KEY_DICT_STATISTICS = "DICT_STATS";
 const std::string KEY_LZ = "LZ";
+const std::string KEY_DOCORDER = "DOCORDER";
+const std::string KEY_URLORDER = "URLORDER";
 
 const std::string PARAM_DICT_HASH = "DICT_HASH";
 
