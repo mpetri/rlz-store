@@ -432,7 +432,7 @@ template <class t_idx>
 void compare_indexes(collection& col, t_idx& idx, std::string s)
 {
     /* (1) output encoding stats of baseline 1 */
-    output_stats(idx, s);
+    // output_stats(idx, s);
 
     /* (2) output encoding stats of baseline 2 */
     // output_stats(baseline2,"baseline2");

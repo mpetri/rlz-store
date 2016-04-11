@@ -184,7 +184,7 @@ using rlz_type_zzz_greedy_sp_local_half_norm_rand_downsize4096 =  rlz_store_stat
                                                                          factor_select_first,
                                                                          factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                                                         block_map_uncompressed>;
-*/
+
 
 //new assembly strategy
 template <uint32_t t_factorization_blocksize,bool t_local_search = false>
@@ -196,3 +196,46 @@ using rlz_type_zzz_greedy_sp_assembly =  rlz_store_static<dict_assemble_gsc<2048
                                      factor_select_first,
                                      factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                      block_map_uncompressed>;
+
+template <uint32_t t_factorization_blocksize,bool t_local_search = false>
+using rlz_type_zzz_greedy_sp_deduplicate =  rlz_store_static<deduplicator<256>,
+                                    dict_prune_none,
+                                    dict_index_csa<csa_type >,
+                                    t_factorization_blocksize,
+                                    t_local_search,
+                                    factor_select_first,
+                                    factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                    block_map_uncompressed>;
+*/
+template <uint32_t t_factorization_blocksize, uint32_t t_sampling_blocksize, bool t_local_search = false>
+using rlz_type_zzz_greedy_sp_initial_rs = rlz_store_static<init_dict_regularSampling<t_sampling_blocksize>,
+                                    dict_prune_none,
+                                    dict_index_csa<csa_type>,
+                                    t_factorization_blocksize,
+                                    t_local_search,
+                                    factor_select_first,
+                                    factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                    block_map_uncompressed>;
+
+// template <uint32_t t_factorization_blocksize, uint32_t t_sampling_blocksize, bool t_local_search = false>
+// using rlz_type_zzz_greedy_sp_initial_localremplusplus = rlz_store_static<init_dict_local_remplusplus<t_sampling_blocksize, 16, 256>,
+//                                     dict_prune_none,
+//                                     dict_index_csa<csa_type>,
+//                                     t_factorization_blocksize,
+//                                     t_local_search,
+//                                     factor_select_first,
+//                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+//                                     block_map_uncompressed>;
+
+template <uint32_t t_factorization_blocksize, uint32_t t_sampling_blocksize, bool t_local_search = false>
+//CARE + regular sampling
+ using rlz_type_zzz_greedy_sp_care_regsamp =  rlz_store_static<init_dict_regularSampling<t_sampling_blocksize>,
+                                                                         dict_prune_care<10,20,FFT>,
+                                                                         dict_index_csa<csa_type>,
+                                                                         t_factorization_blocksize,
+                                                                         t_local_search,     
+                                                                         factor_select_first,
+                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                                                         block_map_uncompressed>;
+
+//CARE++ with regular sampling
