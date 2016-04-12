@@ -27,11 +27,11 @@ public:
     }
     static uint32_t adjusted_down_size(collection& col, uint64_t size_in_bytes)
     {
-	sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-	auto ratio = (text.size()/size_in_bytes)/2;
+		sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
+		// auto ratio = (text.size()/size_in_bytes)/2;
         //return (ratio >= t_down_size? t_down_size : ratio);
-	return 256;   
- }
+		return 256;   
+ 	}
  	
     static std::string container_type()
     {
@@ -56,7 +56,7 @@ public:
         // check if we store it already and load it
         auto fname = dict_file_name(col, size_in_bytes);
         col.file_map[KEY_DICT] = fname;
-	auto down_size = adjusted_down_size(col, size_in_bytes);
+		auto down_size = adjusted_down_size(col, size_in_bytes);
 		if (! utils::file_exists(fname) || rebuild ) {  // construct
 			auto start_total = hrclock::now();
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
@@ -81,7 +81,7 @@ public:
 			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
-			uint64_t rs_size = (text.size()-t_estimator_block_size)/down_size;
+			uint64_t rs_size = (text.size()-t_estimator_block_size+1)/down_size;
 			std::vector<uint64_t> rs; //filter out frequency less than 64
 			if (! utils::file_exists(rs_name) || rebuild) {		
 			auto start = hrclock::now();
@@ -100,7 +100,7 @@ public:
 				for(size_t i=0;i<text.size();i++) {
 					auto sym = text[i];
 					auto hash = rk.update(sym);
-
+			// LOG(INFO) << "\t" << "B";
 					if(i < t_estimator_block_size-1) continue;
 					else {
 						if(count < rs_size) 
@@ -157,7 +157,7 @@ public:
 			//build exact counts of sampled elements
 			LOG(INFO) << "\t" << "Calculating exact frequencies of small rolling blocks...";
 			std::unordered_map<uint64_t,uint32_t> block_counts;
-			block_counts.max_load_factor(0.2);
+			block_counts.max_load_factor(0.1);
 			for(uint64_t s : rs) {
 				block_counts[s]++;	
 			}
@@ -198,7 +198,7 @@ public:
 
 			// 2nd pass: process max coverage using the sorted order by density
 			std::unordered_set<uint64_t> step_blocks;
-			step_blocks.max_load_factor(0.2);
+			step_blocks.max_load_factor(0.1);
 			std::vector<uint64_t> picked_blocks;
 			LOG(INFO) << "\t" << "Second pass: perform ordered max coverage..."; 
 			start = hrclock::now();
@@ -215,18 +215,22 @@ public:
 					local_blocks.max_load_factor(0.1);
 					double sum_weights_current = 0;
 
-					for(size_t k=0;k<t_block_size;k++) {//bytes
+					//computational expensive place
+					for(size_t k=0;k<t_block_size;k++) {//bytes?k=k+2?
 						auto sym = text[step_pos+j+k];
 						auto hash = rk.update(sym);
 
 						if(k < t_estimator_block_size-1) continue;
 
-						if(local_blocks.find(hash) == local_blocks.end() && step_blocks.find(hash) == step_blocks.end() && block_counts.find(hash) != block_counts.end()) //continues rolling
-						{//expensive checking					
-							local_blocks.emplace(hash);
-							auto freq = block_counts[hash];
-							//compute norms
-							sum_weights_current += std::pow(freq,norm); //L0.5
+						if(local_blocks.find(hash) == local_blocks.end() && step_blocks.find(hash) == step_blocks.end()) //continues rolling
+						{//expensive checking		
+							if(block_counts.find(hash) != block_counts.end()) {
+								local_blocks.emplace(hash);
+								auto freq = block_counts[hash];
+								block_counts.erase(hash);
+								//compute norms
+								sum_weights_current += std::pow(freq,norm); //L0.5
+							}			
 						}
 					}
 					//sum_weights_current = std::sqrt(sum_weights_current);

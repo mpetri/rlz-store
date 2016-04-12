@@ -548,37 +548,37 @@ public:
     }
 };
 
-struct interpolative {
-public:
-    static std::string type()
-    {
-        return "interpolative";
-    }
+// struct interpolative {
+// public:
+//     static std::string type()
+//     {
+//         return "interpolative";
+//     }
 
-    void encode_sequence(const T* in_buf, size_t n) const {
+//     // void encode_sequence(const T* in_buf, size_t n) const {
         
-    }
+//     // }
 
-    template <class t_bit_ostream, class T>
-    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
-    {
-        uint64_t bits_required = 32 + n * 512; // upper bound
-        os.expand_if_needed(bits_required);
-        os.align8(); // align to bytes if needed
-
-
+//     template <class t_bit_ostream, class T>
+//     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
+//     {
+//         uint64_t bits_required = 32 + n * 512; // upper bound
+//         os.expand_if_needed(bits_required);
+//         os.align8(); // align to bytes if needed
 
 
-        // write the len. assume it fits in 32bits
-        *out_size = (uint32_t)written_bytes;
-        os.skip(written_bytes * 8); // skip over the written content
-    }
-    template <class t_bit_istream, class T>
-    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
-    {
 
-    }
-};
+
+//         // write the len. assume it fits in 32bits
+//         *out_size = (uint32_t)written_bytes;
+//         os.skip(written_bytes * 8); // skip over the written content
+//     }
+//     template <class t_bit_istream, class T>
+//     inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
+//     {
+
+//     }
+// };
 
 
 }

@@ -207,11 +207,11 @@ using rlz_type_zzz_greedy_sp_deduplicate =  rlz_store_static<deduplicator<256>,
                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
                                     block_map_uncompressed>;
 */
-template <uint32_t t_factorization_blocksize, uint32_t t_sampling_blocksize, bool t_local_search = false>
-using rlz_type_zzz_greedy_sp_initial_rs = rlz_store_static<init_dict_regularSampling<t_sampling_blocksize>,
+template <uint32_t t_factorization_blocksize, bool t_local_search = false>
+using rlz_type_zzz_greedy_sp_rs = rlz_store_static<dict_uniform_sample_budget<1024>,
                                     dict_prune_none,
-                                    dict_index_csa<csa_type>,
-                                    t_factorization_blocksize,
+                                    dict_index_csa<www_csa_type>,
+                                    www_factorization_blocksize,
                                     t_local_search,
                                     factor_select_first,
                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
@@ -227,15 +227,25 @@ using rlz_type_zzz_greedy_sp_initial_rs = rlz_store_static<init_dict_regularSamp
 //                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
 //                                     block_map_uncompressed>;
 
-template <uint32_t t_factorization_blocksize, uint32_t t_sampling_blocksize, bool t_local_search = false>
+
 //CARE + regular sampling
- using rlz_type_zzz_greedy_sp_care_regsamp =  rlz_store_static<init_dict_regularSampling<t_sampling_blocksize>,
-                                                                         dict_prune_care<10,20,FFT>,
-                                                                         dict_index_csa<csa_type>,
-                                                                         t_factorization_blocksize,
-                                                                         t_local_search,     
-                                                                         factor_select_first,
-                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
-                                                                         block_map_uncompressed>;
+ // using rlz_type_zzz_greedy_sp_care_regsamp =  rlz_store_static<init_dict_regularSampling<t_sampling_blocksize>,
+ //                                                                         dict_prune_care<10,20,FFT>,
+ //                                                                         dict_index_csa<csa_type>,
+ //                                                                         t_factorization_blocksize,
+ //                                                                         t_local_search,     
+ //                                                                         factor_select_first,
+ //                                                                         factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+ //                                                                         block_map_uncompressed>;
+
+template <uint32_t t_factorization_blocksize, bool t_local_search = false>
+using rlz_type_zzz_greedy_sp_local_half_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<1,2>, RAND>,
+                                     dict_prune_none,
+                                     dict_index_csa<www_csa_type>,
+                                     www_factorization_blocksize,
+                                     t_local_search, 
+                                     factor_select_first,
+                                     factor_coder_blocked<3,coder::zlib<9>,coder::zlib<9>,coder::zlib<9>>,
+                                     block_map_uncompressed>;
 
 //CARE++ with regular sampling
