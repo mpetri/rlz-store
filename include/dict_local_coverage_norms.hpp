@@ -227,7 +227,6 @@ public:
 							if(block_counts.find(hash) != block_counts.end()) {
 								local_blocks.emplace(hash);
 								auto freq = block_counts[hash];
-								block_counts.erase(hash);
 								//compute norms
 								sum_weights_current += std::pow(freq,norm); //L0.5
 							}			
@@ -248,6 +247,10 @@ public:
 				// LOG(INFO) << "\t" << "Blocks picked: " << picked_blocks.size(); 
 				if(picked_blocks.size() >= num_samples) break; //breakout if dict is filled since adjusted is bigger
 				step_blocks.insert(best_local_blocks.begin(), best_local_blocks.end());
+				// //erase selected blocks
+				// for(auto hash : best_local_blocks) {
+				// 	block_counts.erase(hash);
+				// }
 		    }   
 			LOG(INFO) << "\t" << "Blocks size to check = " << step_blocks.size(); 
 		    step_blocks.clear(); //save mem
