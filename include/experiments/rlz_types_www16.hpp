@@ -210,7 +210,7 @@ using rlz_type_zzz_greedy_sp_deduplicate =  rlz_store_static<deduplicator<256>,
 template <uint32_t t_factorization_blocksize, bool t_local_search = false>
 using rlz_type_zzz_greedy_sp_rs = rlz_store_static<dict_uniform_sample_budget<1024>,
                                     dict_prune_none,
-                                    dict_index_csa<www_csa_type>,
+                                    dict_index_csa<csa_type>,
                                     www_factorization_blocksize,
                                     t_local_search,
                                     factor_select_first,
@@ -239,9 +239,9 @@ using rlz_type_zzz_greedy_sp_rs = rlz_store_static<dict_uniform_sample_budget<10
  //                                                                         block_map_uncompressed>;
 
 template <uint32_t t_factorization_blocksize, bool t_local_search = false>
-using rlz_type_zzz_greedy_sp_local_half_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,256, std::ratio<1,2>, RAND>,
+using rlz_type_zzz_greedy_sp_local_half_norm_rand =  rlz_store_static<dict_local_coverage_norms<2048,16,512, std::ratio<1,2>, RAND>,
                                      dict_prune_none,
-                                     dict_index_csa<www_csa_type>,
+                                     dict_index_csa<csa_type>,
                                      www_factorization_blocksize,
                                      t_local_search, 
                                      factor_select_first,

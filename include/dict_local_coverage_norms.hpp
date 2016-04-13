@@ -15,8 +15,8 @@ using namespace std::chrono;
 template <
 uint32_t t_block_size = 1024,
 uint32_t t_estimator_block_size = 16,
-uint32_t t_down_size = 256,
-class t_norm = std::ratio<1,1>,
+uint32_t t_down_size = 512,
+class t_norm = std::ratio<1,2>,
 ACCESS_TYPE t_method = SEQ
 >
 class dict_local_coverage_norms{
@@ -28,9 +28,9 @@ public:
     static uint32_t adjusted_down_size(collection& col, uint64_t size_in_bytes)
     {
 		sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-		// auto ratio = (text.size()/size_in_bytes)/2;
-        //return (ratio >= t_down_size? t_down_size : ratio);
-		return 256;   
+		auto thres = (text.size()/size_in_bytes)/2;
+        // return (thres >= t_down_size? thres : t_down_size);
+		return 512;   
  	}
  	
     static std::string container_type()
@@ -51,7 +51,7 @@ public:
 	static void create(collection& col, bool rebuild,size_t size_in_bytes) {
 		uint32_t budget_bytes = size_in_bytes;
 		uint32_t budget_mb = size_in_bytes / (1024 * 1024);
-		uint32_t num_blocks_required = (budget_bytes / t_estimator_block_size) + 1;
+		// uint32_t num_blocks_required = budget_bytes / t_block_size;
 
         // check if we store it already and load it
         auto fname = dict_file_name(col, size_in_bytes);
@@ -61,19 +61,26 @@ public:
 			auto start_total = hrclock::now();
 			LOG(INFO) << "\t" << "Create dictionary with budget " << budget_mb << " MiB";
 			LOG(INFO) << "\t" << "Block size = " << t_block_size; 
-			LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required; 
+			// LOG(INFO) << "\t" << "Num blocks = " << num_blocks_required; 
 
-			sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-			auto num_samples = budget_bytes / t_block_size;
-            LOG(INFO) << "\tDictionary samples = " << num_samples;
+			sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);       
             auto n = text.size();
-            size_t sample_step = n / num_samples;   
+            size_t num_samples = budget_bytes / t_block_size; //hopefully much smaller than the adjusted
+
+            // size_t sample_step = n / num_samples;   
+            // size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
+            // size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
+
+            //fix sampling every 1mb pick 1kb until dictionary is filled
+
+            size_t sample_step = 1*1024*1024;   //1mb
             size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
             size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
 
-            LOG(INFO) << "\tSample steps = " << sample_step;
-            LOG(INFO) << "\tAdjusted sample steps = " << sample_step_adjusted;
-            LOG(INFO) << "\tAdjusted dictionary samples  = " << num_samples_adjusted;
+            LOG(INFO) << "\tDictionary samples to be picked = " << num_samples;
+            LOG(INFO) << "\tText epoch size = " << sample_step;
+            LOG(INFO) << "\tAdjusted epoch size = " << sample_step_adjusted;
+            LOG(INFO) << "\tAdjusted dictionary samples in the text = " << num_samples_adjusted;
 
 			// (1) create frequency estimates
 			// try to load the estimates instead of recomputing
@@ -81,10 +88,10 @@ public:
 			auto rs_name = container_file_name(col,size_in_bytes) + "-RSample-" +std::to_string(down_size);
 			fixed_hasher<t_estimator_block_size> rk;
 
-			uint64_t rs_size = (text.size()-t_estimator_block_size+1)/down_size;
+			uint64_t rs_size = text.size()/down_size;
 			std::vector<uint64_t> rs; //filter out frequency less than 64
 			if (! utils::file_exists(rs_name) || rebuild) {		
-			auto start = hrclock::now();
+				auto start = hrclock::now();
 				LOG(INFO) << "\t" << "Building Reservoir sample with downsize: " << down_size;
 				//make a reservoir sampler and keep it in RAM
 				uint64_t count = 0;
@@ -100,7 +107,7 @@ public:
 				for(size_t i=0;i<text.size();i++) {
 					auto sym = text[i];
 					auto hash = rk.update(sym);
-			// LOG(INFO) << "\t" << "B";
+			
 					if(i < t_estimator_block_size-1) continue;
 					else {
 						if(count < rs_size) 
@@ -151,7 +158,7 @@ public:
 					itr++;
 				}
 			}
-			
+			// LOG(INFO) << "\t" << "Reservoir sample block hashes = " << rs; 
 			LOG(INFO) << "\t" << "Reservoir sample blocks = " << rs.size(); 	
 			LOG(INFO) << "\t" << "Reservoir sample size = " << rs.size()*8/(1024*1024) << " MiB";
 			//build exact counts of sampled elements
@@ -161,7 +168,8 @@ public:
 			for(uint64_t s : rs) {
 				block_counts[s]++;	
 			}
-			rs.clear();
+			rs.clear(); //might be able to do it in place!!!!
+
 			//auto itr = rs.begin();
 			// while(rs.begin() != rs.end()) {
 			// 	block_counts[*rs.begin()]++;	
