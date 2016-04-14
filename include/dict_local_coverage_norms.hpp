@@ -66,6 +66,10 @@ public:
 			sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);       
             auto n = text.size();
             size_t num_samples = budget_bytes / t_block_size; //hopefully much smaller than the adjusted
+            size_t scale =  n / budget_bytes; //hopefully much smaller than the adjusted, may not be divisible, can fix later
+            size_t sample_step = scale * t_block_size;   //1mb
+            size_t sample_step_adjusted = sample_step / 8; //make a tempate para later
+            size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
 
             // size_t sample_step = n / num_samples;   
             // size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
@@ -73,9 +77,7 @@ public:
 
             //fix sampling every 1mb pick 1kb until dictionary is filled
 
-            size_t sample_step = 1*1024*1024;   //1mb
-            size_t sample_step_adjusted = sample_step / t_block_size * t_block_size;
-            size_t num_samples_adjusted = n / sample_step_adjusted; //may contain more samples
+            
 
             LOG(INFO) << "\tDictionary samples to be picked = " << num_samples;
             LOG(INFO) << "\tText epoch size = " << sample_step;
