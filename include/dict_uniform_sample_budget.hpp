@@ -9,7 +9,7 @@ public:
     static std::string type()
     {
         return "dict_uniform_sample_budget-"
-               + std::to_string(t_block_size_bytes);
+            + std::to_string(t_block_size_bytes);
     }
 
     static std::string file_name(collection& col, uint64_t size_in_bytes)
@@ -55,7 +55,8 @@ public:
             std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
             auto end_total = hrclock::now();
             LOG(INFO) << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total - start_total).count() / 1000.0f << " sec";
-        } else {
+        }
+        else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
         }

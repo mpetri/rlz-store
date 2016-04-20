@@ -117,8 +117,7 @@ struct factor_tracker {
     }
 };
 
-void
-output_encoding_stats(collection&, std::vector<factorization_statistics>&)
+void output_encoding_stats(collection&, std::vector<factorization_statistics>&)
 {
 }
 
@@ -209,8 +208,7 @@ struct factor_storage {
     }
 };
 
-void
-output_encoding_stats(collection& col, std::vector<factorization_info>& efs)
+void output_encoding_stats(collection& col, std::vector<factorization_info>& efs)
 {
     size_t text_size_bytes = 0;
     {

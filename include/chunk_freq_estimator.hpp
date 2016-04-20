@@ -118,7 +118,8 @@ public:
     {
         if (cur_block.size() != t_block_size) {
             hash = (hash * num_chars + sym) % prime;
-        } else {
+        }
+        else {
             auto tail = cur_block.front();
             cur_block.pop();
             // /* (1) scale up */
@@ -171,8 +172,8 @@ struct hash<chunk_info> {
 }
 
 template <uint32_t t_chunk_size = 16,
-          class t_hasher = fixed_hasher<t_chunk_size>,
-          class t_sketch = count_min_sketch<> >
+    class t_hasher = fixed_hasher<t_chunk_size>,
+    class t_sketch = count_min_sketch<> >
 struct chunk_freq_estimator {
 public:
     using size_type = uint64_t;
@@ -190,7 +191,7 @@ public:
     static std::string type()
     {
         return "chunk_freq_estimator-" + std::to_string(t_chunk_size) + "-" + hasher_type::type()
-               + "-" + sketch_type::type();
+            + "-" + sketch_type::type();
     }
 
     uint32_t chunk_size = t_chunk_size;
@@ -290,7 +291,7 @@ public:
             auto cbeg = itr;
             auto cend = cbeg + syms_per_chunk;
             fcfes.push_back(std::async(std::launch::async, [syms_per_chunk, cbeg, cend] {
-				return chunk_freq_estimator<t_chunk_size,t_hasher,t_sketch>(cbeg,cend);
+                return chunk_freq_estimator<t_chunk_size, t_hasher, t_sketch>(cbeg, cend);
             }));
             itr += syms_per_chunk;
         }
@@ -306,8 +307,8 @@ public:
 };
 
 template <uint32_t t_chunk_size = 16,
-          uint32_t t_k = 1000,
-          class t_sketch = count_min_sketch<> >
+    uint32_t t_k = 1000,
+    class t_sketch = count_min_sketch<> >
 struct chunk_freq_estimator_topk {
 public:
     using size_type = uint64_t;

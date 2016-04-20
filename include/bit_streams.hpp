@@ -16,7 +16,7 @@ public:
     {
         if (m_bv.size() < min_bv_size)
             m_bv.resize(min_bv_size);
-        data_ptr = bv.data() + (start_offset >> 6);
+        data_ptr = m_bv.data() + (start_offset >> 6);
         in_word_offset = start_offset & 63;
         cur_size = m_bv.size();
     }
@@ -97,6 +97,34 @@ public:
             put_int_no_size_check(*tmp++, len);
         }
     }
+
+    // append data stored in a bitvector
+    void inline append_aligned64(const sdsl::bit_vector& bv,size_t n = 0)
+    {
+        if(n == 0) n = bv.size();
+        expand_if_needed(n);
+        size_t num_bytes = n / 8;
+        const uint64_t* bv_data_ptr = bv.data();
+        memcpy(data_ptr, bv_data_ptr, num_bytes);
+        size_t num_u64 = n / 64;
+        data_ptr += num_u64;
+        uint64_t left = n % 64;
+        put_int_no_size_check(*bv_data_ptr, left);
+    }
+
+    void inline append(const sdsl::bit_vector& bv)
+    {
+        expand_if_needed(bv.size());
+        const uint64_t* bv_data_ptr = bv.data();
+        size_t num_u64 = bv.size() / 64;
+        for(size_t i=0;i<num_u64;i++) {
+            put_int_no_size_check(*bv_data_ptr,64);
+            bv_data_ptr++;
+        }
+        uint64_t left = bv.size() % 64;
+        put_int_no_size_check(*bv_data_ptr,left);
+    }
+
     // current pos in the bv
     pos_type inline tellp() const
     {

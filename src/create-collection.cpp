@@ -31,8 +31,7 @@ typedef struct cmdargs {
     data_format format;
 } cmdargs_t;
 
-void
-print_usage(const char* program)
+void print_usage(const char* program)
 {
     fprintf(stdout, "%s -c <collection directory> \n", program);
     fprintf(stdout, "where\n");
@@ -160,7 +159,7 @@ parse_dir(const std::string& dir)
             }
         }
     }
-    std::sort(matches.begin(),matches.end());
+    std::sort(matches.begin(), matches.end());
     LOG(INFO) << "Found " << matches.size() << " files";
     return matches;
 }
@@ -201,7 +200,8 @@ int main(int argc, const char* argv[])
             }
             LOG(INFO) << "Replaced zeros = " << replaced_zeros;
             LOG(INFO) << "Replaced ones = " << replaced_ones;
-        } else {
+        }
+        else {
             LOG(INFO) << "Parse " << args.input_dir << " to retrieve file names ";
             if (!utils::directory_exists(args.input_dir)) {
                 LOG(FATAL) << "Input directory " << args.input_file << " does not exist.";
@@ -231,7 +231,7 @@ int main(int argc, const char* argv[])
         const std::string docno_end("</DOCNO>");
         while (itr != end) {
             itr = std::search(itr, end, docno_start.begin(), docno_start.end());
-            auto pos = std::distance(beg,itr);
+            auto pos = std::distance(beg, itr);
             std::string cur_docno;
             if (itr != end) {
                 /* found response */

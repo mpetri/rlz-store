@@ -11,15 +11,15 @@ struct coder_size_info {
     uint32_t literal_bytes = 0;
     uint32_t length_bytes = 0;
     uint32_t offset_bytes = 0;
-}; 
+};
 
 /*
 	encode factors in blocks.
  */
 template <uint32_t t_literal_threshold = 1,
-          class t_coder_literal = coder::fixed<32>,
-          class t_coder_offset = coder::aligned_fixed<uint32_t>,
-          class t_coder_len = coder::vbyte>
+    class t_coder_literal = coder::fixed<32>,
+    class t_coder_offset = coder::aligned_fixed<uint32_t>,
+    class t_coder_len = coder::vbyte>
 struct factor_coder_blocked {
     typedef typename sdsl::int_vector<>::size_type size_type;
     enum { literal_threshold = t_literal_threshold };
@@ -29,7 +29,7 @@ struct factor_coder_blocked {
     static std::string type()
     {
         return "factor_coder_blocked-t=" + std::to_string(t_literal_threshold)
-               + "-" + t_coder_literal::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
+            + "-" + t_coder_literal::type() + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
     }
 
     template <class t_ostream>
@@ -51,7 +51,7 @@ struct factor_coder_blocked {
 
         auto len_pos = ifs.tellg();
         len_coder.decode(ifs, bfd.lengths.data(), num_factors);
-        csi.length_bytes = (ifs.tellg() - len_pos)/8;
+        csi.length_bytes = (ifs.tellg() - len_pos) / 8;
 
         std::for_each(bfd.lengths.begin(), bfd.lengths.begin() + num_factors, [](uint32_t& n) { n++; });
         bfd.num_literals = 0;
@@ -65,13 +65,13 @@ struct factor_coder_blocked {
         if (bfd.num_literals) {
             auto lit_pos = ifs.tellg();
             literal_coder.decode(ifs, bfd.literals.data(), bfd.num_literals);
-            csi.literal_bytes = (ifs.tellg() - lit_pos)/8;
+            csi.literal_bytes = (ifs.tellg() - lit_pos) / 8;
         }
         bfd.num_offsets = bfd.num_factors - num_literal_factors;
         if (bfd.num_offsets) {
             auto off_pos = ifs.tellg();
             offset_coder.decode(ifs, bfd.offsets.data(), bfd.num_offsets);
-            csi.offset_bytes = (ifs.tellg() - off_pos)/8;
+            csi.offset_bytes = (ifs.tellg() - off_pos) / 8;
         }
         return csi;
     }
@@ -81,8 +81,8 @@ struct factor_coder_blocked {
     encode factors in blocks as two streams.
  */
 template <uint32_t t_literal_threshold = 1,
-          class t_coder_offset = coder::aligned_fixed<uint32_t>,
-          class t_coder_len = coder::vbyte>
+    class t_coder_offset = coder::aligned_fixed<uint32_t>,
+    class t_coder_len = coder::vbyte>
 struct factor_coder_blocked_twostream {
     typedef typename sdsl::int_vector<>::size_type size_type;
     enum { literal_threshold = t_literal_threshold };
@@ -91,11 +91,12 @@ private:
     t_coder_offset offsetliteral_coder;
     t_coder_len len_coder;
     std::string dummy = "abc";
+
 public:
     static std::string type()
     {
         return "factor_coder_blocked_twostream-t=" + std::to_string(t_literal_threshold)
-               + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
+            + "-" + t_coder_offset::type() + "-" + t_coder_len::type();
     }
 
     template <class t_ostream>
@@ -119,7 +120,8 @@ public:
             if (bfd.lengths[i] <= literal_threshold) {
                 std::copy(bfd.offset_literals.begin() + i, bfd.offset_literals.begin() + i + bfd.lengths[i], bfd.literals.begin() + bfd.num_literals);
                 bfd.num_literals += bfd.lengths[i];
-            } else {
+            }
+            else {
                 bfd.offsets[bfd.num_offsets++] = bfd.offset_literals[i];
             }
         }

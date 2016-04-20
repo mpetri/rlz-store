@@ -49,7 +49,8 @@ struct collection {
         if (!utils::file_exists(path + "/" + KEY_PREFIX + KEY_TEXT)) {
             LOG(FATAL) << "Collection path does not contain text.";
             throw std::runtime_error("Collection path does not contain text.");
-        } else {
+        }
+        else {
             sdsl::int_vector_mapped_buffer<8> text(file_map[KEY_TEXT]);
             LOG(INFO) << "Found input text with size " << text.size() / (1024.0 * 1024.0) << " MiB";
         }

@@ -23,7 +23,7 @@ struct vbyte {
     inline uint64_t encoded_length(const T& x) const
     {
         const uint8_t vbyte_len[64] = { 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
-                                        5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8 };
+            5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8 };
         return 8 * vbyte_len[sdsl::bits::hi(x) + 1];
     }
     template <class t_bit_ostream, typename T>
@@ -157,8 +157,6 @@ public:
 private:
     mutable z_stream dstrm;
     mutable z_stream istrm;
-    mutable const uint8_t* dict_ptr = nullptr;
-    mutable uint32_t dict_size = 0;
 
 public:
     zlib()
@@ -167,11 +165,11 @@ public:
         dstrm.zfree = Z_NULL;
         dstrm.opaque = Z_NULL;
         deflateInit2(&dstrm,
-                     t_level,
-                     Z_DEFLATED,
-                     window_bits,
-                     mem_level,
-                     Z_DEFAULT_STRATEGY);
+            t_level,
+            Z_DEFLATED,
+            window_bits,
+            mem_level,
+            Z_DEFAULT_STRATEGY);
         istrm.zalloc = Z_NULL;
         istrm.zfree = Z_NULL;
         istrm.opaque = Z_NULL;
@@ -216,7 +214,7 @@ public:
 
         /* If the parameter flush is set to Z_FINISH, pending input
          is processed, pending output is flushed and deflate returns
-         with Z_STREAM_END if there was enough output space; if 
+         with Z_STREAM_END if there was enough output space; if
          deflate returns with Z_OK, this function must be called
          again with Z_FINISH and more output spac */
         if (error != Z_STREAM_END) {
@@ -264,14 +262,8 @@ public:
         istrm.next_in = (uint8_t*)in_buf;
         istrm.avail_out = out_size;
         istrm.next_out = (uint8_t*)out_buf;
+
         auto error = inflate(&istrm, Z_FINISH);
-        if (error == Z_NEED_DICT) {
-            auto sdret = inflateSetDictionary(&istrm, dict_ptr, dict_size);
-            if (sdret != Z_OK) {
-                LOG(FATAL) << "zlib-decode: set dictionary error:" << sdret;
-            }
-            error = inflate(&istrm, Z_FINISH);
-        }
         inflateReset(&istrm); // after finish we need to reset
         if (error != Z_STREAM_END) {
             switch (error) {
@@ -300,131 +292,10 @@ public:
     }
 };
 
-template <uint8_t t_level = 3>
-struct lzma {
-public:
-    static const uint32_t lzma_mem_limit = 128 * 1024 * 1024;
-    static const uint32_t lzma_max_mem_limit = 1024 * 1024 * 1024;
-
-private:
-    mutable lzma_stream strm_enc;
-    mutable lzma_stream strm_dec;
-
-public:
-    lzma()
-    {
-        strm_enc = LZMA_STREAM_INIT;
-        strm_dec = LZMA_STREAM_INIT;
-    }
-    ~lzma()
-    {
-        lzma_end(&strm_enc);
-        lzma_end(&strm_dec);
-    }
-
-public:
-    static std::string type()
-    {
-        return "lzma-" + std::to_string(t_level);
-    }
-
-    template <class t_bit_ostream, class T>
-    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
-    {
-        uint64_t bits_required = 2048 + n * 256; // upper bound
-        os.expand_if_needed(bits_required);
-        os.align8(); // align to bytes if needed
-
-        /* space for writing the encoding size */
-        uint32_t* out_size = (uint32_t*)os.cur_data8();
-        os.skip(32);
-
-        /* init compressor */
-        uint32_t osize = bits_required >> 3;
-        uint8_t* out_buf = os.cur_data8();
-        uint64_t in_size = n * sizeof(T);
-        strm_enc.next_in = (uint8_t*)in_buf;
-        strm_enc.avail_in = in_size;
-        strm_enc.total_out = 0;
-        strm_enc.total_in = 0;
-
-        /* compress */
-        int res;
-        if ((res = lzma_easy_encoder(&strm_enc, t_level, LZMA_CHECK_NONE)) != LZMA_OK) {
-            LOG(FATAL) << "lzma-encode: error init LMZA encoder < n!";
-        }
-
-        auto total_written_bytes = 0ULL;
-        while (res != LZMA_STREAM_END) {
-            strm_enc.next_out = out_buf;
-            strm_enc.avail_out = osize;
-            if ((res = lzma_code(&strm_enc, LZMA_FINISH)) != LZMA_OK && res != LZMA_STREAM_END) {
-                LOG(FATAL) << "lzma-encode: error code LZMA_FINISH < n!: " << res;
-            }
-            auto written_bytes = osize - strm_enc.avail_out;
-            total_written_bytes += written_bytes;
-            osize -= written_bytes;
-            out_buf += written_bytes;
-        }
-
-        *out_size = (uint32_t)total_written_bytes;
-        os.skip(total_written_bytes * 8); // skip over the written content
-    }
-
-    template <class t_bit_istream, class T>
-    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
-    {
-        is.align8(); // align to bytes if needed
-
-        /* read the encoding size */
-        uint32_t* pin_size = (uint32_t*)is.cur_data8();
-        uint32_t in_size = *pin_size;
-        is.skip(32);
-
-        /* setup decoder */
-        auto in_buf = is.cur_data8();
-        uint64_t out_size = n * sizeof(T);
-        int res;
-        if ((res = lzma_auto_decoder(&strm_dec, lzma_mem_limit, 0)) != LZMA_OK) {
-            LOG(FATAL) << "lzma-decode: error init LMZA decoder:" << res;
-        }
-
-        strm_dec.next_in = in_buf;
-        strm_dec.avail_in = in_size;
-        auto total_decoded = 0ULL;
-        while (res != LZMA_STREAM_END) {
-            strm_dec.next_out = (uint8_t*)out_buf;
-            strm_dec.avail_out = out_size;
-            /* decode */
-            res = lzma_code(&strm_dec, LZMA_RUN);
-            auto decoded = out_size - strm_dec.avail_out;
-            total_decoded += decoded;
-            out_buf += decoded;
-            out_size -= decoded;
-            if (res != LZMA_OK && res != LZMA_STREAM_END) {
-                lzma_end(&strm_dec);
-                LOG(FATAL) << "lzma-decode: error decoding LZMA_RUN: " << res;
-            }
-            if (res == LZMA_STREAM_END)
-                break;
-        }
-
-        if (total_decoded != n * sizeof(T)) {
-            LOG(ERROR) << "lzma-decode: decoded bytes = " << total_decoded << " should be = " << n * sizeof(T);
-        }
-
-        /* finish decoding */
-        // lzma_end(&strm);
-        is.skip(in_size * 8); // skip over the read content
-    }
-};
-
 template <uint8_t t_level = 9>
 struct lz4hc {
 private:
     mutable void* lz4_state = nullptr;
-    mutable const char* dict_ptr = nullptr;
-    mutable uint32_t dict_size = 0;
 
 public:
     lz4hc()
@@ -453,9 +324,6 @@ public:
         char* out_buf = (char*)os.cur_data8();
         uint64_t in_size = n * sizeof(T);
         LZ4_resetStreamHC((LZ4_streamHC_t*)lz4_state, t_level);
-        if (dict_size != 0) { /* prime with dict */
-            LZ4_loadDictHC((LZ4_streamHC_t*)lz4_state, dict_ptr, dict_size);
-        }
         auto bytes_written = LZ4_compress_HC_continue((LZ4_streamHC_t*)lz4_state, (const char*)in_buf, out_buf, in_size, bits_required >> 3);
         os.skip(bytes_written * 8);
         // } else {
@@ -471,11 +339,7 @@ public:
         const char* in_buf = (const char*)is.cur_data8();
         uint64_t out_size = n * sizeof(T);
         int comp_size = 0;
-        if (dict_size != 0) { /* prime with dict */
-            comp_size = LZ4_decompress_fast_usingDict(in_buf, (char*)out_buf, out_size, dict_ptr, dict_size);
-        } else {
-            comp_size = LZ4_decompress_fast(in_buf, (char*)out_buf, out_size);
-        }
+        comp_size = LZ4_decompress_fast(in_buf, (char*)out_buf, out_size);
         is.skip(comp_size * 8); // skip over the read content
     }
 };
@@ -510,7 +374,7 @@ public:
 
         uint32_t written_bytes = bits_required >> 3;
         auto ret = BZ2_bzBuffToBuffCompress((char*)out_buf, &written_bytes,
-                                            (char*)in_buf, in_size, t_level, bzip_verbose_level, bzip_work_factor);
+            (char*)in_buf, in_size, t_level, bzip_verbose_level, bzip_work_factor);
 
         if (ret != BZ_OK) {
             LOG(FATAL) << "bzip2-encode: encoding error: " << ret;
@@ -535,7 +399,7 @@ public:
         uint32_t out_size = n * sizeof(T);
 
         auto ret = BZ2_bzBuffToBuffDecompress((char*)out_buf,
-                                              &out_size, (char*)in_buf, in_size, bzip_use_small_mem, bzip_verbose_level);
+            &out_size, (char*)in_buf, in_size, bzip_use_small_mem, bzip_verbose_level);
 
         if (ret != BZ_OK) {
             LOG(FATAL) << "bzip2-decode: decode error: " << ret;
@@ -547,38 +411,4 @@ public:
         is.skip(in_size * 8); // skip over the read content
     }
 };
-
-// struct interpolative {
-// public:
-//     static std::string type()
-//     {
-//         return "interpolative";
-//     }
-
-//     // void encode_sequence(const T* in_buf, size_t n) const {
-        
-//     // }
-
-//     template <class t_bit_ostream, class T>
-//     inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
-//     {
-//         uint64_t bits_required = 32 + n * 512; // upper bound
-//         os.expand_if_needed(bits_required);
-//         os.align8(); // align to bytes if needed
-
-
-
-
-//         // write the len. assume it fits in 32bits
-//         *out_size = (uint32_t)written_bytes;
-//         os.skip(written_bytes * 8); // skip over the written content
-//     }
-//     template <class t_bit_istream, class T>
-//     inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
-//     {
-
-//     }
-// };
-
-
 }

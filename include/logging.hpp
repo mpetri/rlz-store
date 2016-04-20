@@ -5,8 +5,7 @@
 
 #include "easylogging++.h"
 
-void
-setup_logger(int argc, const char** argv, bool log_stdout = true)
+void setup_logger(int argc, const char** argv, bool log_stdout = true)
 {
     START_EASYLOGGINGPP(argc, argv);
     el::Loggers::addFlag(el::LoggingFlag::ColoredTerminalOutput);

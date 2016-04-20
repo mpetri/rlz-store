@@ -11,9 +11,9 @@
 using namespace std::chrono;
 
 template <uint32_t t_block_size = 1024,
-          uint32_t t_estimator_block_size = 16,
-          uint32_t t_down_size = 256,
-          uint32_t topk = 2>
+    uint32_t t_estimator_block_size = 16,
+    uint32_t t_down_size = 256,
+    uint32_t topk = 2>
 class dict_local_weighted_coverage_random_CMS_topk {
 public:
     static std::string type()
@@ -118,7 +118,8 @@ public:
                                     s = std::floor(std::log(dis(gen)) / std::log(1 - w));
                                     skip = 0;
                                 }
-                            } else
+                            }
+                            else
                                 break;
                         }
                         count++;
@@ -139,7 +140,8 @@ public:
                         itr++;
                     }
                 }
-            } else {
+            }
+            else {
                 LOG(INFO) << "\t"
                           << "Load reservoir sample from file " << rs_name;
                 // sdsl::load_from_file(rs,sketch_name);
@@ -168,7 +170,8 @@ public:
                 LOG(INFO) << "\t"
                           << "Store sketch to file " << sketch_name;
                 sdsl::store_to_file(cfe, sketch_name);
-            } else {
+            }
+            else {
                 LOG(INFO) << "\t"
                           << "Load sketch from file " << sketch_name;
                 sdsl::load_from_file(cfe, sketch_name);
@@ -326,7 +329,8 @@ public:
             LOG(INFO) << "\t"
                       << "Final dictionary size = " << dict.size() / (1024 * 1024) << " MiB";
             dict.push_back(0); // zero terminate for SA construction
-        } else {
+        }
+        else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
         }

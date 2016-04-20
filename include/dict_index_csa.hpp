@@ -4,8 +4,7 @@
 #include <string>
 #include <sdsl/rmq_support.hpp>
 
-
-template <class t_csa, class t_itr,bool t_local_search>
+template <class t_csa, class t_itr, bool t_local_search>
 struct factor_itr_csa {
     const t_csa& sa;
     t_itr factor_start;
@@ -23,7 +22,7 @@ struct factor_itr_csa {
     bool debug;
 
     // std::unordered_map<uint32_t,std::vector<uint32_t>> qgrams;
-    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end,bool dbg = false)
+    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end, bool dbg = false)
         : sa(_csa)
         , factor_start(begin)
         , itr(begin)
@@ -51,7 +50,8 @@ struct factor_itr_csa {
     {
         local = false;
         // (1) local search enabled?
-        if(!t_local_search) return;
+        if (!t_local_search)
+            return;
         // (2) is the global factor already quite long? are we in the first part of the block?
         // if( std::distance(start,itr) > 1024 && len >= 20) return;
 
@@ -88,7 +88,7 @@ struct factor_itr_csa {
         //         }
         //     }
         // }
-        // // (4) update the local q-gram index 
+        // // (4) update the local q-gram index
         // {
         //     utils::rlz_timer<std::chrono::nanoseconds> fbt("update q-gram");
         //     uint32_t qgram = 0; uint8_t* qg8 = (uint8_t*) &qgram;
@@ -114,22 +114,29 @@ struct factor_itr_csa {
     {
         sp = 0;
         ep = sa.size() - 1;
-        if(debug) LOG(INFO) << "START FIND NEXT FACTOR [0," << ep << "]";
+        if (debug)
+            LOG(INFO) << "START FIND NEXT FACTOR [0," << ep << "]";
         while (itr != end) {
             sym = *itr;
-            if(debug) LOG(INFO) << "FIND NEXT FACTOR ["<<sp<<"," << ep << "] |<sp,ep>| = " << ep-sp+1;
-            if(debug) LOG(INFO) << "NEXT SYM (" << (int) sym << ")";
-            if(debug) {
+            if (debug)
+                LOG(INFO) << "FIND NEXT FACTOR [" << sp << "," << ep << "] |<sp,ep>| = " << ep - sp + 1;
+            if (debug)
+                LOG(INFO) << "NEXT SYM (" << (int)sym << ")";
+            if (debug) {
                 std::string cur_factor = "";
                 auto tmp = factor_start;
-                while(tmp != itr) {
+                while (tmp != itr) {
                     auto tsym = *tmp;
-                    if(isprint(tsym)) cur_factor += tsym;
-                    else cur_factor += "?";
+                    if (isprint(tsym))
+                        cur_factor += tsym;
+                    else
+                        cur_factor += "?";
                     ++tmp;
                 }
-                if(isprint(sym)) cur_factor += sym;
-                else cur_factor += "?";
+                if (isprint(sym))
+                    cur_factor += sym;
+                else
+                    cur_factor += "?";
                 LOG(INFO) << "CURRENT FACTOR = '" << cur_factor << "'";
             }
             auto mapped_sym = sa.char2comp[sym];
@@ -140,7 +147,8 @@ struct factor_itr_csa {
                     // small optimization
                     res_sp = sa.C[mapped_sym];
                     res_ep = sa.C[mapped_sym + 1] - 1;
-                } else {
+                }
+                else {
                     sdsl::backward_search(sa, sp, ep, sym, res_sp, res_ep);
                 }
             }
@@ -149,14 +157,17 @@ struct factor_itr_csa {
                 len = std::distance(factor_start, itr);
                 if (len == 0) { // unknown symbol factor found
                     ++itr;
-                } else {
+                }
+                else {
                     // substring not found. but we found a factor!
                 }
                 find_longer_local_factor();
                 factor_start = itr;
-                if(debug) LOG(INFO) << "END FIND NEXT FACTOR!";
+                if (debug)
+                    LOG(INFO) << "END FIND NEXT FACTOR!";
                 return;
-            } else { // found substring
+            }
+            else { // found substring
                 sp = res_sp;
                 ep = res_ep;
                 ++itr;
@@ -220,7 +231,8 @@ struct factor_itr_csa_restricted {
                     // small optimization
                     res_sp = sa.C[mapped_sym];
                     res_ep = sa.C[mapped_sym + 1] - 1;
-                } else {
+                }
+                else {
                     sdsl::backward_search(sa, sp, ep, sym, res_sp, res_ep);
                 }
             }
@@ -229,12 +241,14 @@ struct factor_itr_csa_restricted {
                 len = std::distance(factor_start, itr);
                 if (len == 0) { // unknown symbol factor found
                     ++itr;
-                } else {
+                }
+                else {
                     // substring not found. but we found a factor!
                 }
                 factor_start = itr;
                 return;
-            } else { // found substring
+            }
+            else { // found substring
                 sp = res_sp;
                 ep = res_ep;
                 ++itr;
@@ -273,7 +287,8 @@ struct dict_index_csa {
             LOG(INFO) << "\tDictionary index exists. Loading index from file.";
             std::ifstream ifs(file_name);
             load(ifs);
-        } else {
+        }
+        else {
             LOG(INFO) << "\tConstruct and store dictionary index";
             sdsl::cache_config cfg;
             cfg.delete_files = false;
@@ -321,10 +336,10 @@ struct dict_index_csa {
         rmq.load(in);
     }
 
-    template <class t_itr,bool t_search_local_block_context>
-    factor_itr_csa<t_csa, t_itr,t_search_local_block_context> factorize(t_itr itr, t_itr end,bool debug = false) const
+    template <class t_itr, bool t_search_local_block_context>
+    factor_itr_csa<t_csa, t_itr, t_search_local_block_context> factorize(t_itr itr, t_itr end, bool debug = false) const
     {
-        return factor_itr_csa<t_csa, t_itr,t_search_local_block_context>(sa, itr, end, debug);
+        return factor_itr_csa<t_csa, t_itr, t_search_local_block_context>(sa, itr, end, debug);
     }
 
     template <class t_itr>

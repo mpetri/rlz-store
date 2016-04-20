@@ -8,8 +8,6 @@
 #include "factor_selector.hpp"
 #include "factorizor.hpp"
 #include "factor_coder.hpp"
-#include "dict_strategies.hpp"
-#include "dict_indexes.hpp"
 
 #include <sdsl/suffix_arrays.hpp>
 
@@ -17,22 +15,17 @@
 
 using namespace std::chrono;
 
-template <class t_coder,
-          uint32_t t_block_size,
-          class t_dictionary_creation_strategy = dict_none,
-          uint32_t t_prime_size = 0>
+template <class t_coder, uint32_t t_block_size>
 class lz_store_static {
 public:
     using coder_type = t_coder;
     using block_map_type = block_map_uncompressed;
     using size_type = uint64_t;
-    using dictionary_creation_strategy = t_dictionary_creation_strategy;
 
 private:
     sdsl::int_vector_mapper<1, std::ios_base::in> m_compressed_text;
     bit_istream<sdsl::int_vector_mapper<1, std::ios_base::in> > m_compressed_stream;
     block_map_type m_blockmap;
-    sdsl::int_vector<8> m_dict;
 
 public:
     enum { block_size = t_block_size };
@@ -42,15 +35,13 @@ public:
     sdsl::int_vector_mapper<1, std::ios_base::in>& compressed_text = m_compressed_text;
     uint64_t text_size;
     mutable block_factor_data dummy;
-    std::string m_dict_hash;
-    std::string m_dict_file;
 
 public:
     class builder;
 
     static std::string type()
     {
-        return coder_type::type() + "-" + std::to_string(t_block_size) + "-" + std::to_string(t_prime_size) + "-" + dictionary_creation_strategy::type();
+        return coder_type::type() + "-" + std::to_string(t_block_size);
     }
 
     lz_store_static() = delete;
@@ -64,14 +55,6 @@ public:
         // (2) load the block map
         LOG(INFO) << "\tLoad block map";
         sdsl::load_from_file(m_blockmap, col.file_map[KEY_BLOCKMAP]);
-        // (3) load dictionary from disk
-        if (col.file_map.count(KEY_DICT) != 0) {
-            LOG(INFO) << "\tLoad dictionary";
-            m_dict_hash = col.param_map[PARAM_DICT_HASH];
-            m_dict_file = col.file_map[KEY_DICT];
-            sdsl::load_from_file(m_dict, col.file_map[KEY_DICT]);
-            LOG(INFO) << "\tDict size = " << m_dict.size();
-        }
         {
             LOG(INFO) << "\tDetermine text size";
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
@@ -97,7 +80,7 @@ public:
 
     size_type size_in_bytes() const
     {
-        return (m_compressed_text.size() >> 3) + m_blockmap.size_in_bytes() + m_dict.size();
+        return (m_compressed_text.size() >> 3) + m_blockmap.size_in_bytes();
     }
 
     inline uint64_t decode_block(uint64_t block_id, std::vector<uint8_t>& text, block_factor_data&) const
@@ -109,13 +92,6 @@ public:
             auto left = text_size % block_size;
             if (left != 0)
                 out_size = left;
-        }
-        if (m_dict.size() != 0) {
-            /* prime */
-            auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(block_id * t_block_size,
-                                                                                         m_dict.size(), text_size, t_prime_size);
-            auto dict_ptr = (const uint8_t*)(m_dict.data() + dict_offset);
-            coder.set_inflate_dictionary(dict_ptr, t_prime_size);
         }
         coder.decode(m_compressed_stream, text.data(), out_size);
         return out_size;
@@ -132,22 +108,23 @@ public:
     }
 };
 
-template <class t_coder,
-          uint32_t t_block_size,
-          class t_dictionary_creation_strategy,
-          uint32_t t_prime_size>
+template <class t_coder, uint32_t t_block_size>
 class lz_store_static<t_coder,
-                      t_block_size,
-                      t_dictionary_creation_strategy,
-                      t_prime_size>::builder {
+    t_block_size>::builder {
 public:
-    using base_type = lz_store_static<t_coder,
-                                      t_block_size,
-                                      t_dictionary_creation_strategy,
-                                      t_prime_size>;
+    using base_type = lz_store_static<t_coder, t_block_size>;
     using coder_type = t_coder;
     using block_map_type = block_map_uncompressed;
-    using dictionary_creation_strategy = t_dictionary_creation_strategy;
+
+    struct block_encodings {
+        size_t id;
+        std::vector<uint64_t> offsets;
+        sdsl::bit_vector data;
+        bool operator<(const block_encodings& fi) const
+        {
+            return id < fi.id;
+        }
+    };
 
 public:
     builder& set_rebuild(bool r)
@@ -155,52 +132,47 @@ public:
         rebuild = r;
         return *this;
     };
-    builder& set_threads(uint8_t)
+    builder& set_threads(uint8_t nt)
     {
+        num_threads = nt;
         return *this;
     };
-    builder& set_dict_size(uint64_t ds)
-    {
-        dict_size_bytes = ds;
-        return *this;
-    };
-
     static std::string blockmap_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_BLOCKMAP + "-" + base_type::type() + "-"
-               + block_map_type::type() + "-" + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+            + block_map_type::type() + ".sdsl";
     }
 
     static std::string blockoffsets_file_name(collection& col)
     {
-        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-" + base_type::type()
-               + "-" + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+        return col.path + "/tmp/" + KEY_BLOCKOFFSETS + "-" + base_type::type() + ".sdsl";
     }
 
-    static std::string encoding_file_name(collection& col, size_t dict_size_bytes)
+    static std::string encoding_file_name(collection& col)
     {
-        auto dict_size_mb = dict_size_bytes / (1024 * 1024);
-        return col.path + "/index/" + KEY_LZ + "-"
-               + block_map_type::type() + "-" + base_type::type() + "-" + std::to_string(dict_size_mb) + ".sdsl";
+        return col.path + "/index/" + KEY_LZ + "-" + block_map_type::type() + "-" + base_type::type() + ".sdsl";
+    }
+
+    static block_encodings encode_blocks(const uint8_t* data_ptr, size_t block_size, size_t blocks_to_encode, size_t id)
+    {
+        block_encodings be;
+        be.id = id;
+        coder_type c;
+        {
+            bit_ostream<sdsl::bit_vector> encoded_stream(be.data);
+            for (size_t i = 0; i < blocks_to_encode; i++) {
+                be.offsets.push_back(encoded_stream.tellp());
+                c.encode(encoded_stream, data_ptr, block_size);
+                data_ptr += block_size;
+            }
+        }
+        return be;
     }
 
     lz_store_static build_or_load(collection& col) const
     {
         auto start = hrclock::now();
-
-        sdsl::int_vector<8> dict;
-        if (dict_size_bytes != 0) {
-            // (1) create dictionary based on parametrized
-            // dictionary creation strategy if necessary
-            LOG(INFO) << "Create dictionary (" << dictionary_creation_strategy::type() << ")";
-            dictionary_creation_strategy::create(col, rebuild, dict_size_bytes);
-            LOG(INFO) << "Dictionary hash '" << col.param_map[PARAM_DICT_HASH] << "'";
-            sdsl::load_from_file(dict, col.file_map[KEY_DICT]);
-        } else {
-            col.param_map[PARAM_DICT_HASH] = "0";
-        }
-
-        auto lz_file_name = encoding_file_name(col, dict_size_bytes);
+        auto lz_file_name = encoding_file_name(col);
         auto bo_file_name = blockoffsets_file_name(col);
         if (rebuild || !utils::file_exists(lz_file_name)) {
             LOG(INFO) << "Encoding text (" << base_type::type() << ")";
@@ -212,28 +184,34 @@ public:
             auto num_blocks = text.size() / t_block_size;
             auto left = text.size() % t_block_size;
             const uint8_t* data_ptr = (const uint8_t*)text.data();
-            coder_type coder;
-            for (size_t i = 0; i < num_blocks; i++) {
-                block_offsets.push_back(encoded_stream.tellp());
-                if (dict_size_bytes != 0) {
-                    /* prime */
-                    auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(i * t_block_size,
-                                                                                                 dict_size_bytes, text.size(), t_prime_size);
-                    auto dict_ptr = (const uint8_t*)(dict.data() + dict_offset);
-                    coder.set_deflate_dictionary(dict_ptr, t_prime_size);
+            const size_t blocks_per_thread = (512 * 1024 * 1024) / t_block_size; // 0.5GiB Ram used per thread
+            size_t init_blocks = num_blocks;
+            while (num_blocks) {
+                std::vector<std::future<block_encodings> > fis;
+                for (size_t i = 0; i < num_threads; i++) {
+                    size_t blocks_to_encode = std::min(blocks_per_thread, num_blocks);
+                    fis.push_back(std::async(std::launch::async, [data_ptr, blocks_to_encode, i] {
+                        return encode_blocks(data_ptr, t_block_size, blocks_to_encode, i);
+                    }));
+                    data_ptr += (t_block_size * blocks_to_encode);
+                    num_blocks -= blocks_to_encode;
+                    if (num_blocks == 0)
+                        break;
                 }
-                coder.encode(encoded_stream, data_ptr, t_block_size);
-                data_ptr += t_block_size;
+                // join the threads
+                for (auto& fbe : fis) {
+                    const auto& be = fbe.get();
+                    size_t size_offset = encoded_stream.tellp();    
+                    for (const auto& o : be.offsets) {
+                        block_offsets.push_back(size_offset + o);
+                    }
+                    encoded_stream.append(be.data);
+                }
+                LOG(INFO) << "\t encoded blocks: " << init_blocks - num_blocks << "/" << init_blocks;
             }
-            if (left) {
+            if (left) { // last block
                 block_offsets.push_back(encoded_stream.tellp());
-                if (dict_size_bytes != 0) {
-                    /* prime */
-                    auto dict_offset = dictionary_creation_strategy::compute_closest_dict_offset(num_blocks * t_block_size,
-                                                                                                 dict_size_bytes, text.size(), t_prime_size);
-                    auto dict_ptr = (const uint8_t*)(dict.data() + dict_offset);
-                    coder.set_deflate_dictionary(dict_ptr, t_prime_size);
-                }
+                coder_type coder;
                 coder.encode(encoded_stream, data_ptr, left);
                 data_ptr += left;
             }
@@ -246,12 +224,13 @@ public:
             LOG(INFO) << "encoding size      = " << bytes_written << " bytes (" << bytes_written / (1024 * 1024.0) << " MB)";
             LOG(INFO) << "compression ratio  = " << 100.0 * (((double)bytes_written / (double)text.size())) << " %";
             LOG(INFO) << "space savings      = " << 100.0 * (1 - ((double)bytes_written / (double)text.size())) << " %";
-            LOG(INFO) << "number of blocks   = " << num_blocks;
+            LOG(INFO) << "number of blocks   = " << init_blocks;
             LOG(INFO) << "=====================================================================";
             LOG(INFO) << "Encoding time = " << enc_seconds << " sec";
             LOG(INFO) << "Encoding speed = " << text_size_mb / enc_seconds << " MB/s";
             LOG(INFO) << "Encoding done. (" << base_type::type() << ")";
-        } else {
+        }
+        else {
             LOG(INFO) << "Encoded text exists.";
         }
         col.file_map[KEY_LZ] = lz_file_name;
@@ -274,20 +253,12 @@ public:
 
     lz_store_static load(collection& col) const
     {
-        /* make sure components exists and register them */
-        if (dict_size_bytes != 0) {
-            auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
-            col.file_map[KEY_DICT] = dict_file_name;
-            col.compute_dict_hash();
-        } else {
-            col.param_map[PARAM_DICT_HASH] = "0";
-        }
-
         /* (2) check factorized text */
-        auto enc_file_name = encoding_file_name(col, dict_size_bytes);
+        auto enc_file_name = encoding_file_name(col);
         if (!utils::file_exists(enc_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find encoded text.");
-        } else {
+        }
+        else {
             col.file_map[KEY_LZ] = enc_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = blockoffsets_file_name(col);
         }
@@ -296,7 +267,8 @@ public:
         auto blockmap_file = blockmap_file_name(col);
         if (!utils::file_exists(blockmap_file)) {
             throw std::runtime_error("LOAD FAILED: Cannot find blockmap.");
-        } else {
+        }
+        else {
             col.file_map[KEY_BLOCKMAP] = blockmap_file;
         }
 
@@ -306,5 +278,5 @@ public:
 
 private:
     bool rebuild = false;
-    uint64_t dict_size_bytes = 0;
+    uint32_t num_threads = 1;
 };

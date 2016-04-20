@@ -52,7 +52,8 @@ struct dict_prune_rem {
         if (rebuild || !utils::file_exists(dict_stats_file)) {
             fstats = t_factorization_strategy::template parallel_factorize<factor_tracker>(col, rebuild, num_threads);
             sdsl::store_to_file(fstats, dict_stats_file);
-        } else {
+        }
+        else {
             sdsl::load_from_file(fstats, dict_stats_file);
         }
 
@@ -108,7 +109,8 @@ struct dict_prune_rem {
                     /* skip the block */
                     cur_block++;
                     i += t_block_size_bytes;
-                } else {
+                }
+                else {
                     wdict.push_back(dict[i]);
                     i++;
                 }

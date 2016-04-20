@@ -159,8 +159,8 @@ void output_stats(t_idx& idx, std::string name = std::string())
     {
         std::vector<uint64_t> block_sizes(idx.block_map.num_blocks());
         std::adjacent_difference(idx.block_map.m_block_offsets.begin(),
-                                 idx.block_map.m_block_offsets.end(),
-                                 block_sizes.begin());
+            idx.block_map.m_block_offsets.end(),
+            block_sizes.begin());
         std::sort(block_sizes.begin(), block_sizes.end());
         auto block_size_min = block_sizes[1] / 8; // bits to bytes
         auto block_size_max = block_sizes.back() / 8; // bits to bytes
@@ -291,7 +291,7 @@ void output_stats(t_idx& idx, std::string name = std::string())
     //     double ds = idx.dict.size();
     //     auto num_zeros = std::count_if(dict_usage.begin(),dict_usage.end(), [](uint64_t i) {return i == 0;});
     //     LOG(INFO) << " b-0=" << num_zeros << " ("<<100*num_zeros/ds<<"%)";
-        
+
     //     uint64_t thres = 1;
     //     uint64_t cnt = 1;
     //     while(cnt) {
@@ -335,13 +335,13 @@ void output_stats_csv(collection& col, t_idx& idx)
         }
 
         double ds = idx.dict.size();
-        auto num_zeros = std::count_if(dict_usage.begin(), dict_usage.end(), [](uint64_t i) {return i == 0; });
+        auto num_zeros = std::count_if(dict_usage.begin(), dict_usage.end(), [](uint64_t i) { return i == 0; });
         LOG(INFO) << "DUSAGE;0;" << num_zeros << ";" << 100 * num_zeros / ds;
 
         uint64_t thres = 1;
         uint64_t cnt = 1;
         while (cnt) {
-            cnt = std::count_if(dict_usage.begin(), dict_usage.end(), [&thres](uint64_t i) {return i >= thres; });
+            cnt = std::count_if(dict_usage.begin(), dict_usage.end(), [&thres](uint64_t i) { return i >= thres; });
             if (cnt)
                 LOG(INFO) << "DUSAGE;" << thres << ";" << cnt << ";" << 100 * cnt / ds;
             thres *= 2;
@@ -352,7 +352,8 @@ void output_stats_csv(collection& col, t_idx& idx)
             for (size_t i = 0; i < dict_usage.size(); i++) {
                 if (dict_usage[i] == 0) {
                     run_len++;
-                } else {
+                }
+                else {
                     if (run_len != 0) {
                         LOG(INFO) << "ZERORUN;" << run_len;
                     }
@@ -441,7 +442,7 @@ void compare_indexes(collection& col, t_idx& idx, std::string s)
     // output_stats(baseline2,"baseline2");
 
     /* (3) output encoding stats of new */
-//    output_stats(idx," new_idx");
+    //    output_stats(idx," new_idx");
 
     // /* (3) compress new_idx with baseline */
     // {

@@ -13,9 +13,9 @@
 using namespace std::chrono;
 
 template <uint32_t t_block_size = 1024,
-          uint32_t t_estimator_block_size = 16,
-          uint32_t t_down_size = 256,
-          ACCESS_TYPE t_method = SEQ>
+    uint32_t t_estimator_block_size = 16,
+    uint32_t t_down_size = 256,
+    ACCESS_TYPE t_method = SEQ>
 class dict_local_weighted_coverage_random_CMS {
 public:
     static std::string type()
@@ -116,7 +116,8 @@ public:
                                     s = std::floor(std::log(dis(gen)) / std::log(1 - w));
                                     skip = 0;
                                 }
-                            } else
+                            }
+                            else
                                 break;
                         }
                         count++;
@@ -137,7 +138,8 @@ public:
                         itr++;
                     }
                 }
-            } else {
+            }
+            else {
                 LOG(INFO) << "\t"
                           << "Load reservoir sample from file " << rs_name;
                 // sdsl::load_from_file(rs,sketch_name);
@@ -277,7 +279,8 @@ public:
             dict.push_back(0); // zero terminate for SA construction
             auto end_total = hrclock::now();
             LOG(INFO) << "\t" << type() << " Total time = " << duration_cast<milliseconds>(end_total - start_total).count() / 1000.0f << " sec";
-        } else {
+        }
+        else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
         }

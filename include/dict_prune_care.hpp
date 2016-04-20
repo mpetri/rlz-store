@@ -11,8 +11,8 @@ enum EST_TYPE : int {
 };
 
 template <uint64_t t_freq_threshold,
-          uint64_t t_length_threshold,
-          EST_TYPE t_method = FF>
+    uint64_t t_length_threshold,
+    EST_TYPE t_method = FF>
 struct dict_prune_care {
     struct segment_info {
         uint64_t offset;
@@ -87,7 +87,8 @@ struct dict_prune_care {
         if (rebuild || !utils::file_exists(dict_stats_file)) {
             fstats = t_factorization_strategy::template parallel_factorize<factor_tracker>(col, rebuild, num_threads);
             sdsl::store_to_file(fstats, dict_stats_file);
-        } else {
+        }
+        else {
             sdsl::load_from_file(fstats, dict_stats_file);
         }
 
@@ -108,7 +109,8 @@ struct dict_prune_care {
                 if (fstats.dict_usage[i] <= freq_threshold) {
                     run_len++;
                     total_byte_usage += fstats.dict_usage[i];
-                } else {
+                }
+                else {
                     if (run_len >= t_length_threshold) {
                         auto seg_start = i - run_len;
                         segments.emplace_back(seg_start, run_len, total_byte_usage, 0);
@@ -140,18 +142,19 @@ struct dict_prune_care {
         if (t_method == FF) {
             /* FF */
             std::sort(segments.begin(), segments.end(), [](const segment_info& a, const segment_info& b) {
-        		double score_a = (double)a.num_factors_req * ((double)a.total_byte_usage/(double)a.length);
-        		double score_b = (double)b.num_factors_req * ((double)b.total_byte_usage/(double)b.length);
-        		return score_a < score_b;
+                double score_a = (double)a.num_factors_req * ((double)a.total_byte_usage / (double)a.length);
+                double score_b = (double)b.num_factors_req * ((double)b.total_byte_usage / (double)b.length);
+                return score_a < score_b;
             });
-        } else {
+        }
+        else {
             /* FFT */
             std::sort(segments.begin(), segments.end(), [](const segment_info& a, const segment_info& b) {
-        		double score_a = (double)a.num_factors_req * ((double)a.total_byte_usage/(double)a.length);
-        		score_a = score_a / (double)a.length;
-        		double score_b = (double)b.num_factors_req * ((double)b.total_byte_usage/(double)b.length);
-        		score_b = score_b / (double)b.length;
-        		return score_a < score_b;
+                double score_a = (double)a.num_factors_req * ((double)a.total_byte_usage / (double)a.length);
+                score_a = score_a / (double)a.length;
+                double score_b = (double)b.num_factors_req * ((double)b.total_byte_usage / (double)b.length);
+                score_b = score_b / (double)b.length;
+                return score_a < score_b;
             });
         }
 
@@ -173,7 +176,7 @@ struct dict_prune_care {
         LOG(INFO) << "Creating pruned dictionary";
         LOG(INFO) << "Sorting segments into offset order";
         std::sort(segments.begin(), segments.end(), [](const segment_info& a, const segment_info& b) {
-    		return a.offset < b.offset;
+            return a.offset < b.offset;
         });
         {
             const sdsl::int_vector_mapper<8, std::ios_base::in> dict(col.file_map[KEY_DICT]);
@@ -184,7 +187,8 @@ struct dict_prune_care {
                     /* skip the segment */
                     i += segments[cur_segment].length;
                     cur_segment++;
-                } else {
+                }
+                else {
                     wdict.push_back(dict[i]);
                     i++;
                 }

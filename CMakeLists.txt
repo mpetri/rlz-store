@@ -42,14 +42,13 @@ else()
 endif()
 
 add_subdirectory(external/sdsl-lite)
-add_subdirectory(external/googletest)
 add_subdirectory(external/zlib)
 add_subdirectory(external/bzip2-1.0.6)
 
 include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/include
                      ${CMAKE_BINARY_DIR}/external/sdsl-lite/include
-                     ${CMAKE_BINARY_DIR}/external/sdsl-lite/external/libdivsufsort-2.0.1/include/
+                     ${CMAKE_BINARY_DIR}/external/sdsl-lite/external/libdivsufsort/include/
                      ${CMAKE_HOME_DIRECTORY}/external/googletest/include
                      ${CMAKE_HOME_DIRECTORY}/external/sdsl-lite/external/FastPFor/headers/
                      ${CMAKE_HOME_DIRECTORY}/external/easyloggingpp/src/
@@ -67,16 +66,14 @@ add_library(lz4 ${LZ4_SRCS_LIB})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
-target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
+target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
+
+add_executable(lzs-create.x src/lzs-create.cpp)
+target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
+
 
 add_executable(create-collection.x src/create-collection.cpp)
 target_link_libraries(create-collection.x sdsl pthread zlib boost_system boost_iostreams boost_filesystem boost_regex lz4 bzip2)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lzma lz4 bzip2)
-
-add_executable(create-64GiB-indexes-www16.x src/experiments/create-64GiB-indexes-www16.cpp)
-target_link_libraries(create-64GiB-indexes-www16.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)
-
-add_executable(rlzs-index-statistics.x src/rlzs-index-statistics.cpp)
-target_link_libraries(rlzs-index-statistics.x sdsl pthread divsufsort divsufsort64 zlib lzma lz4 bzip2)

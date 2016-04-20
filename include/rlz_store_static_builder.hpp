@@ -6,31 +6,32 @@
 #include "rlz_store_static.hpp"
 
 template <class t_dictionary_creation_strategy,
-          class t_dictionary_pruning_strategy,
-          class t_dictionary_index,
-          uint32_t t_factorization_block_size,
-          bool t_search_local_block_context,
-          class t_factor_selection_strategy,
-          class t_factor_coder,
-          class t_block_map>
+    class t_dictionary_pruning_strategy,
+    class t_dictionary_index,
+    uint32_t t_factorization_block_size,
+    bool t_search_local_block_context,
+    class t_factor_selection_strategy,
+    class t_factor_coder,
+    class t_block_map>
 class rlz_store_static<t_dictionary_creation_strategy,
-                       t_dictionary_pruning_strategy,
-                       t_dictionary_index,
-                       t_factorization_block_size,
-                       t_search_local_block_context,
-                       t_factor_selection_strategy,
-                       t_factor_coder,
-                       t_block_map>::builder {
+    t_dictionary_pruning_strategy,
+    t_dictionary_index,
+    t_factorization_block_size,
+    t_search_local_block_context,
+    t_factor_selection_strategy,
+    t_factor_coder,
+    t_block_map>::builder {
 public:
     using dictionary_creation_strategy = t_dictionary_creation_strategy;
     using dictionary_pruning_strategy = t_dictionary_pruning_strategy;
     using dictionary_index_type = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
     using factor_encoder = t_factor_coder;
-    using factorization_strategy = factorizor<t_factorization_block_size,t_search_local_block_context, dictionary_index, factor_selection_strategy, factor_encoder>;
+    using factorization_strategy = factorizor<t_factorization_block_size, t_search_local_block_context, dictionary_index, factor_selection_strategy, factor_encoder>;
     using block_map = t_block_map;
     enum { block_size = t_factorization_block_size };
     enum { search_local_block_context = t_search_local_block_context };
+
 public:
     builder& set_rebuild(bool r)
     {
@@ -56,8 +57,8 @@ public:
     static std::string blockmap_file_name(collection& col)
     {
         return col.path + "/index/" + KEY_BLOCKMAP + "-"
-               + block_map_type::type() + "-" + factorization_strategy::type() + "-"
-               + col.param_map[PARAM_DICT_HASH] + ".sdsl";
+            + block_map_type::type() + "-" + factorization_strategy::type() + "-"
+            + col.param_map[PARAM_DICT_HASH] + ".sdsl";
     }
 
     rlz_store_static build_or_load(collection& col) const
@@ -73,14 +74,15 @@ public:
         // (2) prune the dictionary if necessary
         LOG(INFO) << "Prune dictionary with " << dictionary_pruning_strategy::type();
         dictionary_pruning_strategy::template prune<dictionary_index_type, factorization_strategy>(col,
-                                                                                                   rebuild, pruned_dict_size_bytes, num_threads);
+            rebuild, pruned_dict_size_bytes, num_threads);
         LOG(INFO) << "Dictionary after pruning '" << col.param_map[PARAM_DICT_HASH] << "'";
 
         // (3) create factorized text using the dict
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         if (rebuild || !utils::file_exists(factor_file_name)) {
             factorization_strategy::template parallel_factorize<factor_storage>(col, rebuild, num_threads);
-        } else {
+        }
+        else {
             LOG(INFO) << "Factorized text exists.";
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
@@ -110,7 +112,8 @@ public:
         auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
         if (!utils::file_exists(dict_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find dictionary.");
-        } else {
+        }
+        else {
             col.file_map[KEY_DICT] = dict_file_name;
             col.compute_dict_hash();
         }
@@ -120,7 +123,8 @@ public:
         auto factor_file_name = factorization_strategy::factor_file_name(col);
         if (!utils::file_exists(factor_file_name)) {
             throw std::runtime_error("LOAD FAILED: Cannot find factorized text.");
-        } else {
+        }
+        else {
             col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;
             col.file_map[KEY_BLOCKOFFSETS] = factorization_strategy::boffsets_file_name(col);
             col.file_map[KEY_BLOCKFACTORS] = factorization_strategy::bfactors_file_name(col);
@@ -130,7 +134,8 @@ public:
         auto blockmap_file = blockmap_file_name(col);
         if (!utils::file_exists(blockmap_file)) {
             throw std::runtime_error("LOAD FAILED: Cannot find blockmap.");
-        } else {
+        }
+        else {
             col.file_map[KEY_BLOCKMAP] = blockmap_file;
         }
 
@@ -138,31 +143,32 @@ public:
         return rlz_store_static(col);
     }
 
-    template<class t_idx>
-    rlz_store_static reencode(t_idx& old,collection& col) const
+    template <class t_idx>
+    rlz_store_static reencode(t_idx& old, collection& col) const
     {
         auto start = hrclock::now();
         /* (0) make sure we use the same dict, and coding strategy etc. */
         static_assert(std::is_same<typename t_idx::dictionary_creation_strategy, dictionary_creation_strategy>::value,
-                      "different dictionary creation strategy");
+            "different dictionary creation strategy");
         static_assert(std::is_same<typename t_idx::dictionary_pruning_strategy, dictionary_pruning_strategy>::value,
-                      "different dictionary pruning strategy");
+            "different dictionary pruning strategy");
         static_assert(std::is_same<typename t_idx::dictionary_index, dictionary_index>::value,
-                      "different dictionary index");
+            "different dictionary index");
         static_assert(std::is_same<typename t_idx::factor_selection_strategy, factor_selection_strategy>::value,
-                      "different factor selection strategy");
+            "different factor selection strategy");
         static_assert(t_idx::block_size == t_factorization_block_size,
-                      "different factorization block size");
+            "different factorization block size");
         static_assert(t_idx::factor_coder_type::literal_threshold == factor_coder_type::literal_threshold,
-                      "different factor literal coding threshold");
+            "different factor literal coding threshold");
         static_assert(t_idx::search_local_block_context == search_local_block_context,
-                      "different local search strategy");
+            "different local search strategy");
 
         /* (1) check dict */
         auto dict_file_name = dictionary_creation_strategy::file_name(col, dict_size_bytes);
         if (!utils::file_exists(dict_file_name)) {
             throw std::runtime_error("Cannot find dictionary.");
-        } else {
+        }
+        else {
             col.file_map[KEY_DICT] = dict_file_name;
             col.compute_dict_hash();
         }
@@ -191,7 +197,7 @@ public:
                 if (itr.block_id != cur_block_offset) {
                     block_offsets.push_back(factor_stream.tellp());
                     block_factors.push_back(bfd.num_factors);
-                    coder.encode_block(factor_stream,bfd);
+                    coder.encode_block(factor_stream, bfd);
                     cur_block_offset = itr.block_id;
                     bfd.reset();
                     syms_encoded = 0;
@@ -202,18 +208,19 @@ public:
                     }
                 }
 
-                if(f.is_literal) {
-                    bfd.add_factor(coder,f.literal_ptr,0,f.len);
-                } else {
-                    bfd.add_factor(coder,f.literal_ptr,f.offset,f.len);
+                if (f.is_literal) {
+                    bfd.add_factor(coder, f.literal_ptr, 0, f.len);
+                }
+                else {
+                    bfd.add_factor(coder, f.literal_ptr, f.offset, f.len);
                 }
                 syms_encoded += f.len;
                 ++itr;
             }
-            if ( bfd.num_factors != 0) {
+            if (bfd.num_factors != 0) {
                 block_offsets.push_back(factor_stream.tellp());
                 block_factors.push_back(bfd.num_factors);
-                coder.encode_block(factor_stream,bfd);
+                coder.encode_block(factor_stream, bfd);
             }
         }
         col.file_map[KEY_FACTORIZED_TEXT] = factor_file_name;

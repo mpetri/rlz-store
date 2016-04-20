@@ -17,9 +17,9 @@ enum ACCESS_TYPE : int {
 };
 
 template <uint32_t t_block_size = 1024,
-          uint32_t t_estimator_block_size = 16,
-          uint32_t t_down_size = 256,
-          ACCESS_TYPE t_method = SEQ>
+    uint32_t t_estimator_block_size = 16,
+    uint32_t t_down_size = 256,
+    ACCESS_TYPE t_method = SEQ>
 class dict_local_coverage_random_RS {
 public:
     static std::string container_type()
@@ -119,7 +119,8 @@ public:
                                     s = std::floor(std::log(dis(gen)) / std::log(1 - w));
                                     skip = 0;
                                 }
-                            } else
+                            }
+                            else
                                 break;
                         }
                         count++;
@@ -140,7 +141,8 @@ public:
                         itr++;
                     }
                 }
-            } else {
+            }
+            else {
                 LOG(INFO) << "\t"
                           << "Load reservoir sample from file " << rs_name;
                 // sdsl::load_from_file(rs,sketch_name);
@@ -287,7 +289,8 @@ public:
             auto end_total = hrclock::now();
             LOG(INFO) << "\n"
                       << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total - start_total).count() / 1000.0f << " sec";
-        } else {
+        }
+        else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
         }

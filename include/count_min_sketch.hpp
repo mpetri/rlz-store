@@ -16,7 +16,7 @@ struct hash_params {
 };
 
 template <class t_epsilon = std::ratio<1, 20000>, // default settings ~ 2.5MB
-          class t_delta = std::ratio<1, 1000> >
+    class t_delta = std::ratio<1, 1000> >
 struct count_min_sketch {
 public:
     static std::string type()
@@ -190,7 +190,7 @@ public:
 };
 
 template <class T,
-          class t_cms = count_min_sketch<> >
+    class t_cms = count_min_sketch<> >
 struct sketch_topk {
     using size_type = uint64_t;
     std::string type()
@@ -233,18 +233,21 @@ private:
             if (itr == m_topk_set.end()) {
                 auto handle = m_topk_pq.emplace(item, estimate);
                 m_topk_set[item] = handle;
-            } else {
+            }
+            else {
                 auto handle = itr->second;
                 (*handle).estimate = estimate;
                 m_topk_pq.decrease(handle);
             }
-        } else {
+        }
+        else {
             auto itr = m_topk_set.find(item);
             if (itr != m_topk_set.end()) {
                 auto handle = itr->second;
                 (*handle).estimate = estimate;
                 m_topk_pq.decrease(handle);
-            } else {
+            }
+            else {
                 // check against smallest in pq
                 if (estimate != 1 && m_topk_pq.top().estimate < estimate) {
                     auto cur_smallest = m_topk_pq.top();

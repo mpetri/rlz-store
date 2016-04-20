@@ -43,7 +43,8 @@ struct block_factor_data {
             if (last_factor_was_literal && ((lengths[num_factors - 1] + len) <= coder.literal_threshold)) {
                 // extend last literal
                 lengths[num_factors - 1] += len;
-            } else {
+            }
+            else {
                 lengths[num_factors++] = len;
             }
             std::copy(text_itr, text_itr + len, literals.begin() + num_literals);
@@ -52,7 +53,8 @@ struct block_factor_data {
             // for two stream encoding we need both things combined!
             std::copy(text_itr, text_itr + len, offset_literals.begin() + num_offset_literals);
             num_offset_literals += len;
-        } else {
+        }
+        else {
             offsets[num_offsets] = offset;
             num_offsets++;
             last_factor_was_literal = false;

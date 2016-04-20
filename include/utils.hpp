@@ -42,7 +42,8 @@ void flush_cache() /* requires root */
             std::ofstream ofs("/proc/sys/vm/drop_caches");
             ofs << "3" << std::endl;
         }
-    } else {
+    }
+    else {
         throw std::runtime_error("need to be root to flush cache!");
     }
 }
@@ -55,8 +56,7 @@ crc(const uint8_t* buf, size_t len)
     return crc_val;
 }
 
-bool
-directory_exists(std::string dir)
+bool directory_exists(std::string dir)
 {
     struct stat sb;
     const char* pathname = dir.c_str();
@@ -66,8 +66,7 @@ directory_exists(std::string dir)
     return false;
 }
 
-bool
-file_exists(std::string file_name)
+bool file_exists(std::string file_name)
 {
     std::ifstream in(file_name);
     if (in) {
@@ -77,8 +76,7 @@ file_exists(std::string file_name)
     return false;
 }
 
-bool
-symlink_exists(std::string file)
+bool symlink_exists(std::string file)
 {
     struct stat sb;
     const char* filename = file.c_str();
@@ -88,8 +86,7 @@ symlink_exists(std::string file)
     return false;
 }
 
-void
-create_directory(std::string dir)
+void create_directory(std::string dir)
 {
     if (!directory_exists(dir)) {
         if (mkdir(dir.c_str(), 0777) == -1) {
@@ -99,8 +96,7 @@ create_directory(std::string dir)
     }
 }
 
-void
-rename_file(std::string from, std::string to)
+void rename_file(std::string from, std::string to)
 {
     int rc = std::rename(from.c_str(), to.c_str());
     if (rc) {
@@ -109,14 +105,12 @@ rename_file(std::string from, std::string to)
     }
 }
 
-void
-remove_file(std::string file)
+void remove_file(std::string file)
 {
     std::remove(file.c_str());
 }
 
-void
-remove_all_files_in_dir(std::string dir)
+void remove_all_files_in_dir(std::string dir)
 {
     struct dirent* next_file;
     auto folder = opendir(dir.c_str());
@@ -155,8 +149,7 @@ typedef struct cmdargs {
     bool verify;
 } cmdargs_t;
 
-void
-print_usage(const char* program)
+void print_usage(const char* program)
 {
     fprintf(stdout, "%s <args>\n", program);
     fprintf(stdout, "where\n");
@@ -205,7 +198,7 @@ parse_args(int argc, const char* argv[])
             break;
         }
     }
-    if (args.collection_dir == "" || args.dict_size_in_bytes == 0) {
+    if (args.collection_dir == "") {
         std::cerr << "Missing command line parameters.\n";
         print_usage(argv[0]);
         exit(EXIT_FAILURE);
@@ -220,21 +213,25 @@ parse_args(int argc, const char* argv[])
 using namespace std::chrono;
 using watch = std::chrono::high_resolution_clock;
 
-template<class t_dur = std::chrono::milliseconds>
+template <class t_dur = std::chrono::milliseconds>
 struct rlz_timer {
     watch::time_point start;
     std::string name;
     bool output;
-    rlz_timer(const std::string& _n,bool o = true) : name(_n), output(o)
+    rlz_timer(const std::string& _n, bool o = true)
+        : name(_n)
+        , output(o)
     {
-        if (output) LOG(INFO) << "START(" << name << ")";
+        if (output)
+            LOG(INFO) << "START(" << name << ")";
         start = watch::now();
     }
     ~rlz_timer()
     {
         auto stop = watch::now();
-        auto time_spent = stop-start;
-        if (output) LOG(INFO) << "STOP(" << name << ") - " << duration_cast<t_dur>(time_spent).count();
+        auto time_spent = stop - start;
+        if (output)
+            LOG(INFO) << "STOP(" << name << ") - " << duration_cast<t_dur>(time_spent).count();
     }
     watch::duration
     elapsed() const

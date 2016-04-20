@@ -25,9 +25,11 @@ private:
     block_factor_data m_block_factor_data;
     std::vector<uint32_t> m_offset_buf;
     std::vector<uint32_t> m_len_buf;
+
 public:
     const size_t& block_id = m_block_offset;
     coder_size_info cur_block_size_info;
+
 public:
     factor_iterator(t_idx& idx, size_t block_offset, size_t factor_offset)
         : m_idx(idx)
@@ -59,7 +61,8 @@ public:
             fd.is_literal = true;
             fd.literal_ptr = m_block_factor_data.literals.data() + m_in_block_literals_offset;
             m_in_block_literals_offset += fd.len;
-        } else {
+        }
+        else {
             fd.is_literal = false;
             fd.offset = m_block_factor_data.offsets[m_in_block_offsets_offset];
             m_in_block_offsets_offset++;
@@ -79,7 +82,8 @@ public:
         if (m_factor_offset + 1 == m_factors_in_cur_block) {
             m_block_offset++;
             m_factor_offset = 0;
-        } else {
+        }
+        else {
             m_factor_offset++;
         }
         return *this;
@@ -139,7 +143,8 @@ public:
         if (m_text_block_offset + 1 == m_block_size) {
             m_text_block_offset = 0;
             m_block_offset++;
-        } else {
+        }
+        else {
             m_text_block_offset++;
         }
         m_text_offset++;
@@ -210,7 +215,8 @@ public:
         if (m_text_block_offset + 1 == m_block_size) {
             m_text_block_offset = 0;
             m_block_offset++;
-        } else {
+        }
+        else {
             m_text_block_offset++;
         }
         m_text_offset++;

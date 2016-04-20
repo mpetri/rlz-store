@@ -16,13 +16,13 @@
 using namespace std::chrono;
 
 template <class t_dictionary_creation_strategy,
-          class t_dictionary_pruning_strategy,
-          class t_dictionary_index,
-          uint32_t t_factorization_block_size,
-          bool t_search_local_block_context,
-          class t_factor_selection_strategy,
-          class t_factor_coder,
-          class t_block_map>
+    class t_dictionary_pruning_strategy,
+    class t_dictionary_index,
+    uint32_t t_factorization_block_size,
+    bool t_search_local_block_context,
+    class t_factor_selection_strategy,
+    class t_factor_coder,
+    class t_block_map>
 class rlz_store_static {
 public:
     using dictionary_creation_strategy = t_dictionary_creation_strategy;
@@ -30,8 +30,8 @@ public:
     using dictionary_index = t_dictionary_index;
     using factor_selection_strategy = t_factor_selection_strategy;
     using factor_coder_type = t_factor_coder;
-    using factorization_strategy = factorizor<t_factorization_block_size,t_search_local_block_context, 
-            dictionary_index, factor_selection_strategy, factor_coder_type>;
+    using factorization_strategy = factorizor<t_factorization_block_size, t_search_local_block_context,
+        dictionary_index, factor_selection_strategy, factor_coder_type>;
     using block_map_type = t_block_map;
     using size_type = uint64_t;
 
@@ -61,9 +61,9 @@ public:
     {
         auto dict_size_mb = dict.size() / (1024 * 1024);
         return dictionary_creation_strategy::type() + "-" + std::to_string(dict_size_mb) + "_"
-               + dictionary_pruning_strategy::type() + "_"
-               + factor_selection_strategy::type() + "_"
-               + factor_coder_type::type();
+            + dictionary_pruning_strategy::type() + "_"
+            + factor_selection_strategy::type() + "_"
+            + factor_coder_type::type();
     }
 
     rlz_store_static() = delete;
@@ -123,8 +123,8 @@ public:
     }
 
     inline coder_size_info decode_factors(size_t offset,
-                               block_factor_data& bfd,
-                               size_t num_factors) const
+        block_factor_data& bfd,
+        size_t num_factors) const
     {
         m_factor_stream.seek(offset);
         return m_factor_coder.decode_block(m_factor_stream, bfd, num_factors);
@@ -148,18 +148,21 @@ public:
                     out_itr++;
                 }
                 literals_used += factor_len;
-            } else {
+            }
+            else {
                 /* copy from dict */
                 const auto& factor_offset = bfd.offsets[offsets_used];
-                if(t_search_local_block_context) {
-                    if(factor_offset < block_size) { // local factor instead of global factor
+                if (t_search_local_block_context) {
+                    if (factor_offset < block_size) { // local factor instead of global factor
                         auto beg = text.begin() + factor_offset;
                         std::copy(beg, beg + factor_len, out_itr);
-                    } else {
+                    }
+                    else {
                         auto begin = m_dict.begin() + factor_offset - block_size;
                         std::copy(begin, begin + factor_len, out_itr);
                     }
-                } else {
+                }
+                else {
                     auto begin = m_dict.begin() + factor_offset;
                     std::copy(begin, begin + factor_len, out_itr);
                 }
@@ -181,19 +184,20 @@ public:
         return block_content;
     }
 
-    std::pair<coder_size_info,std::vector<factor_data>>
+    std::pair<coder_size_info, std::vector<factor_data> >
     block_factors(const size_t block_id) const
     {
         auto num_factors = m_blockmap.block_factors(block_id);
-        factor_iterator<decltype(*this)> fitr(*this,block_id,0);
+        factor_iterator<decltype(*this)> fitr(*this, block_id, 0);
         std::vector<factor_data> fdata(num_factors);
         coder_size_info csi;
-        for(size_t i=0;i<num_factors;i++) {
+        for (size_t i = 0; i < num_factors; i++) {
             factor_data fd = *fitr;
             fdata[i] = fd;
             ++fitr;
-            if(i==0) csi = fitr.cur_block_size_info;
+            if (i == 0)
+                csi = fitr.cur_block_size_info;
         }
-        return make_pair(csi,fdata);
+        return make_pair(csi, fdata);
     }
 };
