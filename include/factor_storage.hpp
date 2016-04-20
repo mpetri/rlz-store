@@ -142,7 +142,10 @@ struct factor_storage {
     uint64_t block_size;
     uint64_t total_encoded_factors = 0;
     uint64_t total_encoded_blocks = 0;
+    uint64_t blocks_encoded_since_last_stats_output = 0;
+    uint64_t factors_encoded_since_last_stats_output = 0;
     hrclock::time_point encoding_start;
+    hrclock::time_point last_stat_output;
     block_factor_data tmp_block_factor_data;
     sdsl::int_vector_mapper<1> factored_text;
     sdsl::int_vector_mapper<0> block_offsets;
@@ -160,6 +163,7 @@ struct factor_storage {
         tmp_block_factor_data.resize(block_size);
         // save the start of the encoding process
         encoding_start = hrclock::now();
+        last_stat_output = hrclock::now();
     }
     template <class t_coder, class t_itr>
     void add_to_block_factor(t_coder& coder, t_itr text_itr, uint32_t offset, uint32_t len)
@@ -176,22 +180,28 @@ struct factor_storage {
         block_offsets.push_back(factor_stream.tellp());
         block_factors.push_back(tmp_block_factor_data.num_factors);
         total_encoded_factors += tmp_block_factor_data.num_factors;
+        factors_encoded_since_last_stats_output  += tmp_block_factor_data.num_factors;
         total_encoded_blocks++;
+        blocks_encoded_since_last_stats_output++;
         coder.encode_block(factor_stream, tmp_block_factor_data);
     }
-    void output_stats(size_t total_blocks) const
+    void output_stats(size_t total_blocks) 
     {
         auto cur_time = hrclock::now();
-        auto time_spent = cur_time - encoding_start;
+        auto time_spent = cur_time - last_stat_output;
+        last_stat_output = cur_time;
         auto time_in_sec = std::chrono::duration_cast<std::chrono::milliseconds>(time_spent).count() / 1000.0f;
-        auto bytes_written = total_encoded_blocks * block_size;
+        auto bytes_written = blocks_encoded_since_last_stats_output * block_size;
         auto mb_written = bytes_written / (1024 * 1024);
         LOG(INFO) << "   (" << toffset << ") "
-                  << "FACTORS = " << total_encoded_factors << " "
+                  << "FACTORS = " << factors_encoded_since_last_stats_output << " "
                   << "BLOCKS = " << total_encoded_blocks << " "
-                  << "F/B = " << (double)total_encoded_factors / (double)total_encoded_blocks << " "
-                  << "SPEED = " << mb_written / time_in_sec << " MB/s"
+                  << "F/B = " << (double)factors_encoded_since_last_stats_output / (double)blocks_encoded_since_last_stats_output << " "
+                  << "Total F/B = " << (double)total_encoded_factors / (double)total_encoded_blocks << " "
+                  << "SPEED = " << mb_written / time_in_sec << " MiB/s"
                   << " (" << 100 * (double)total_encoded_blocks / (double)total_blocks << "%)";
+        factors_encoded_since_last_stats_output = 0;
+        blocks_encoded_since_last_stats_output = 0;
     }
 
     factorization_info

@@ -27,7 +27,7 @@ int main(int argc, const char* argv[])
         auto rlz_store = typename rlz_type_zzz_greedy_sp<factorization_blocksize, false>::builder{}
                              .set_rebuild(args.rebuild)
                              .set_threads(args.threads)
-                             .set_dict_size(args.dict_size_in_bytes)
+                             .set_dict_size(8*1024*1024)
                              .build_or_load(col);
 
         verify_index(col, rlz_store);

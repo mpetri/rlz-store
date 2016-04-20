@@ -46,19 +46,3 @@ struct factor_select_last {
     }
 };
 
-struct factor_select_minimum {
-    static std::string type()
-    {
-        return "factor_select_minimum"; //find the offset with the smallest numerical value
-    }
-
-    template <class t_index>
-    static uint32_t pick_offset(const t_index& idx, size_t sp, size_t ep, size_t factor_len)
-    {
-        auto min = idx.find_minimum(sp, ep);
-        if (idx.is_reverse()) {
-            return idx.sa.size() - (min + factor_len) - 1;
-        }
-        return min;
-    }
-};

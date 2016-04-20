@@ -5,6 +5,7 @@
 #include "factor_coder.hpp"
 #include "bit_streams.hpp"
 #include "factor_storage.hpp"
+#include "timings.hpp"
 
 #include <sdsl/suffix_arrays.hpp>
 #include <sdsl/int_vector_mapped_buffer.hpp>
@@ -42,37 +43,48 @@ struct factorizor {
     }
 
     template <class t_factor_store, class t_itr>
-    static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end)
+    static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end,std::unordered_map<uint64_t,utils::qgram_postings>& qgc)
     {
         // utils::rlz_timer<std::chrono::milliseconds> fbt("factorize_block");
         uint64_t encoding_block_size = std::distance(itr,end);
         auto factor_itr = idx.factorize<decltype(itr),t_search_local_block_context>(itr, end);
         fs.start_new_block();
         size_t syms_encoded = 0;
-        double local = 0;
-        double global = 0;
+        // double local = 0;
+        // double global = 0;
         double factors = 0;
         while (!factor_itr.finished()) {
             if (factor_itr.len == 0) {
                 fs.add_to_block_factor(coder, itr + syms_encoded, 0, 1);
                 syms_encoded++;
             } else {
-                auto offset = t_factor_selector::template pick_offset<>(idx, factor_itr,t_search_local_block_context,encoding_block_size);
-                if(offset < encoding_block_size) {
-                    local++;
-                    // LOG(INFO) << "L <" << offset << "," << factor_itr.len << ">";
-                } else {
-                    global++;
-                    // LOG(INFO) << "G <" << offset << "," << factor_itr.len << ">";
+                uint64_t offset = 0;
+                {
+                    auto t = lm_bench::bench(timer_type::PickOffset);
+                    offset = t_factor_selector::template pick_offset<>(idx, factor_itr,t_search_local_block_context,encoding_block_size);
                 }
+                // if(offset < encoding_block_size) {
+                //     local++;
+                //     // LOG(INFO) << "L <" << offset << "," << factor_itr.len << ">";
+                // } else {
+                //     global++;
+                //     // LOG(INFO) << "G <" << offset << "," << factor_itr.len << ">";
+                // }
                 fs.add_to_block_factor(coder, itr + syms_encoded, offset, factor_itr.len);
                 syms_encoded += factor_itr.len;
             }
             factors++;
-            ++factor_itr;
+            {
+                auto t = lm_bench::bench(timer_type::FindFactor);
+                ++factor_itr;
+            }
         }
-        //LOG(INFO) << "local = " << local << " global = " << global << " local / (local+global) = " << 100.0*local/factors;
-        fs.encode_current_block(coder);
+        // LOG(INFO) << "local = " << local << " global = " << global << " local / (local+global) = " << 100.0*local/factors
+        //           << " max qgram len = " << factor_itr.max_qgram_len();
+        {
+            auto t = lm_bench::bench(timer_type::EncodeBlock);
+            fs.encode_current_block(coder);
+        }
     }
 
     template <class t_factor_store, class t_itr>
@@ -82,6 +94,8 @@ struct factorizor {
         const sdsl::int_vector_mapped_buffer<8> text(col.file_map[KEY_TEXT]);
         auto itr = text.begin() + _itr;
         auto end = text.begin() + _end;
+        
+        std::unordered_map<uint64_t,utils::qgram_postings> qgc;
 
         /* (1) create output files */
         t_factor_store fs(col, t_block_size, offset);
@@ -100,17 +114,19 @@ struct factorizor {
         for (size_t i = 1; i <= num_blocks; i++) {
             auto block_end = itr + block_size;
             // LOG(INFO) << "block " << i;
-            factorize_block(fs, coder, idx, itr, block_end);
+            factorize_block(fs, coder, idx, itr, block_end,qgc);
             itr = block_end;
             block_end += block_size;
             if (i % blocks_per_10mib == 0) {
                 fs.output_stats(num_blocks);
+                lm_bench::print();
+                lm_bench::reset();
             }
         }
 
         /* (5) is there a non-full block? */
         if (left != 0) {
-            factorize_block(fs, coder, idx, itr, end);
+            factorize_block(fs, coder, idx, itr, end,qgc);
         }
 
         return fs.result();

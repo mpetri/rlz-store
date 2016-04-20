@@ -240,4 +240,19 @@ struct rlz_timer {
     }
 };
 
+    
+constexpr uint32_t max_pos_len = 512;
+
+struct qgram_postings {
+    uint32_t pos[max_pos_len];
+    uint32_t last = 0;
+    uint32_t items = 0;
+    qgram_postings(size_t p) {
+        pos[0] = p;
+        last = 1;
+        items = 1;
+    }
+};
+    
+
 } // end of util namespace

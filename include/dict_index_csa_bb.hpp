@@ -3,6 +3,7 @@
 #include <sdsl/int_vector.hpp>
 #include <string>
 #include <sdsl/rmq_support.hpp>
+#include "utils.hpp"
 
 template <class t_csa, class t_itr, bool t_local_search>
 struct factor_itr_csa {
@@ -19,10 +20,9 @@ struct factor_itr_csa {
     uint8_t sym;
     bool done;
     bool local;
-    bool debug;
+    std::unordered_map<uint64_t,utils::qgram_postings>& qgram_cache;
 
-    // std::unordered_map<uint32_t,std::vector<uint32_t>> qgrams;
-    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end, bool dbg = false)
+    factor_itr_csa(const t_csa& _csa, t_itr begin, t_itr _end,std::unordered_map<uint64_t,utils::qgram_postings>& qgc)
         : sa(_csa)
         , factor_start(begin)
         , itr(begin)
@@ -35,15 +35,46 @@ struct factor_itr_csa {
         , sym(0)
         , done(false)
         , local(false)
-        , debug(dbg)
+        , qgram_cache(qgc)
     {
+        qgram_cache.clear();
         find_next_factor();
-        //qgrams.reserve(64000);
     }
     factor_itr_csa& operator++()
     {
         find_next_factor();
         return *this;
+    }
+    
+    inline uint64_t form_qgram(t_itr itr) {
+        uint64_t qgram = 0;
+        uint8_t* q8g = (uint8_t*) &qgram;
+        q8g[0] = *itr++;
+        q8g[1] = *itr++;
+        q8g[2] = *itr++;
+        q8g[3] = *itr++;
+        q8g[4] = *itr++;
+        q8g[5] = *itr++;
+        q8g[6] = *itr++;
+        q8g[7] = *itr;
+        return qgram;
+    } 
+    
+    inline void update_qgram(uint64_t& qgram,t_itr itr) {
+        uint64_t sym = *itr;
+        qgram = (qgram << 8) | sym;
+    }
+    
+    inline void add_to_qgram_list(uint64_t qgram,size_t offset) {
+        auto itr = qgram_cache.find(qgram);
+        if(itr == qgram_cache.end()) {
+            qgram_cache.emplace(qgram,utils::qgram_postings(offset));
+        } else {
+            auto& qgram_list = itr->second;
+            qgram_list.last = qgram_list.last & (utils::max_pos_len-1);
+            qgram_list.pos[qgram_list.last++] = offset;
+            qgram_list.items++;
+        }
     }
 
     inline void find_longer_local_factor()
@@ -53,92 +84,82 @@ struct factor_itr_csa {
         if (!t_local_search)
             return;
         // (2) is the global factor already quite long? are we in the first part of the block?
-        // if( std::distance(start,itr) > 1024 && len >= 20) return;
+        if(len >= 20 || (uint32_t) std::distance(factor_start,end) <= sizeof(uint64_t) ) return;
 
         // // (3) search for a better factor locally
-        // {
-        //     utils::rlz_timer<std::chrono::nanoseconds> fbt("search q-gram");
-        //     uint32_t qgram = 0; uint8_t* qg8 = (uint8_t*) &qgram;
-        //     qg8[0] = *factor_start; qg8[1] = *(factor_start+1); qg8[2] = *(factor_start+2);  qg8[3] = *(factor_start+3);
-        //     auto qitr = qgrams.find(qgram);
-        //     if( qitr != qgrams.end()) { // found the qgram at the start of the current factor?
-        //         const auto& qpos = qitr->second;
-        //         bool found = false;
-        //         size_t max_match_len = 0;
-        //         local_offset = 0;
-        //         for(const auto& p : qpos) { // check all pos of qgram for better matches
-        //             auto tmp = start + p;
-        //             auto pitr = factor_start;
-        //             size_t match_len = 0;
-        //             while(tmp != factor_start && pitr != end && *tmp == *pitr) {
-        //                 match_len++;
-        //                 ++tmp;
-        //                 ++pitr;
-        //             }
-        //             if(match_len > max_match_len) {
-        //                 local_offset = p;
-        //                 max_match_len = match_len;
-        //                 found = true;
-        //             }
-        //         }
-        //         if(found && max_match_len > len) {
-        //             local = true;
-        //             len = max_match_len;
-        //             itr = factor_start + len;
-        //         }
-        //     }
-        // }
-        // // (4) update the local q-gram index
-        // {
-        //     utils::rlz_timer<std::chrono::nanoseconds> fbt("update q-gram");
-        //     uint32_t qgram = 0; uint8_t* qg8 = (uint8_t*) &qgram;
-        //     auto tmp = factor_start;
-        //     size_t syms_seen = 0;
-        //     while(tmp != itr) {
-        //         qg8[syms_seen] = *tmp;
-        //         syms_seen++;
-        //         if(syms_seen == 4) {
-        //             auto offset = std::distance(start,tmp) - 3;
-        //             qgrams[qgram].push_back(offset);
-        //             qg8[0] = qg8[1];
-        //             qg8[1] = qg8[2];
-        //             qg8[2] = qg8[3];
-        //             syms_seen = 3;
-        //         }
-        //         ++tmp;
-        //     }
-        // }
+        {
+            // utils::rlz_timer<std::chrono::milliseconds> fbt("search q-gram");
+            uint64_t qgram = form_qgram(factor_start);
+            auto qitr = qgram_cache.find(qgram);
+            if( qitr != qgram_cache.end()) { // found the qgram at the start of the current factor?
+                const auto& qgram_list = qitr->second;
+                bool found = false;
+                size_t max_match_len = 0;
+                local_offset = 0;
+                uint32_t n = std::min(utils::max_pos_len,qgram_list.items);
+                for(size_t i=0;i<n;i++) {
+                    uint32_t p = qgram_list.pos[i];
+                    auto tmp = start + p + sizeof(uint64_t); // we now the qgram matches!
+                    auto pitr = factor_start + sizeof(uint64_t);
+                    size_t match_len = sizeof(uint64_t);
+                    while(tmp != factor_start && pitr != end && *tmp == *pitr) {
+                        match_len++;
+                        ++tmp;
+                        ++pitr;
+                    }
+                    if(match_len > max_match_len) {
+                        local_offset = p;
+                        max_match_len = match_len;
+                        found = true;
+                    }
+                }
+                if(found && max_match_len > len) {
+                    local = true;
+                    len = max_match_len;
+                    itr = factor_start + len;
+                }
+            }
+        }
+        // (4) update the local q-gram index
+        {
+            if(len >= sizeof(uint64_t)) {
+                // utils::rlz_timer<std::chrono::microseconds> fbt("update q-gram");
+                auto tmp = factor_start;
+                uint64_t qgram = form_qgram(tmp);
+                // LOG(INFO) << "INIT QGRAM = " << qgram;
+                auto offset = std::distance(start,tmp);
+                // LOG(INFO) << "INIT offset = " << offset;
+                add_to_qgram_list(qgram,offset);
+                offset += sizeof(qgram);
+                tmp += sizeof(qgram);
+                // LOG(INFO) << "tmp = " << std::distance(start,tmp);
+                // LOG(INFO) << "itr = " << std::distance(start,itr);
+                while(tmp != itr) {
+                    update_qgram(qgram,tmp);
+                    // LOG(INFO) << "update QGRAM = " << qgram;
+                    add_to_qgram_list(qgram,offset);
+                    offset++;
+                    ++tmp;
+                }
+            }
+        }
+    }
+    
+    size_t max_qgram_len() {
+        size_t max_len = 0;
+        for(const auto& qg : qgram_cache) {
+            size_t len = qg.second.items;
+            max_len = std::max(len,max_len);
+        }
+        return max_len;
     }
 
     inline void find_next_factor()
     {
         sp = 0;
         ep = sa.size() - 1;
-        if (debug)
-            LOG(INFO) << "START FIND NEXT FACTOR [0," << ep << "]";
         while (itr != end) {
             sym = *itr;
-            if (debug)
-                LOG(INFO) << "FIND NEXT FACTOR [" << sp << "," << ep << "] |<sp,ep>| = " << ep - sp + 1;
-            if (debug)
-                LOG(INFO) << "NEXT SYM (" << (int)sym << ")";
-            if (debug) {
-                std::string cur_factor = "";
-                auto tmp = factor_start;
-                while (tmp != itr) {
-                    auto tsym = *tmp;
-                    if (isprint(tsym))
-                        cur_factor += tsym;
-                    else
-                        cur_factor += "?";
-                    ++tmp;
-                }
-                if (isprint(sym))
-                    cur_factor += sym;
-                else
-                    cur_factor += "?";
-                LOG(INFO) << "CURRENT FACTOR = '" << cur_factor << "'";
-            }
             auto mapped_sym = sa.char2comp[sym];
             bool sym_exists_in_dict = mapped_sym != 0;
             uint64_t res_sp, res_ep;
@@ -163,8 +184,6 @@ struct factor_itr_csa {
                 }
                 find_longer_local_factor();
                 factor_start = itr;
-                if (debug)
-                    LOG(INFO) << "END FIND NEXT FACTOR!";
                 return;
             }
             else { // found substring
@@ -268,10 +287,12 @@ struct factor_itr_csa_restricted {
     }
 };
 
+
 template <class t_csa = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 4, 4096> >
 struct dict_index_csa {
     typedef typename sdsl::int_vector<>::size_type size_type;
     t_csa sa;
+    sdsl::rmq_succinct_sct<false> rmq;
 
     std::string type() const
     {
@@ -307,6 +328,12 @@ struct dict_index_csa {
             LOG(INFO) << "\tConstruct index";
             sdsl::construct(sa, reverse_dict_file, cfg, 1);
 
+            LOG(INFO) << "\tLoad uncompressed SA";
+            sdsl::int_vector<> SA;
+            load_from_cache(SA, sdsl::conf::KEY_SA, cfg);
+            LOG(INFO) << "\tConstruct RMQ";
+            rmq = sdsl::rmq_succinct_sct<false>(&SA);
+
             std::ofstream ofs(file_name);
             serialize(ofs);
         }
@@ -318,6 +345,7 @@ struct dict_index_csa {
         structure_tree_node* child = structure_tree::add_child(v, name, sdsl::util::class_name(*this));
         size_type written_bytes = 0;
         written_bytes += sa.serialize(out, child, "csa");
+        written_bytes += rmq.serialize(out, child, "rmq");
         sdsl::structure_tree::add_size(child, written_bytes);
         return written_bytes;
     }
@@ -325,12 +353,13 @@ struct dict_index_csa {
     inline void load(std::istream& in)
     {
         sa.load(in);
+        rmq.load(in);
     }
 
     template <class t_itr, bool t_search_local_block_context>
-    factor_itr_csa<t_csa, t_itr, t_search_local_block_context> factorize(t_itr itr, t_itr end, bool debug = false) const
+    factor_itr_csa<t_csa, t_itr, t_search_local_block_context> factorize(t_itr itr, t_itr end,std::unordered_map<uint64_t,utils::qgram_postings>& qgc) const
     {
-        return factor_itr_csa<t_csa, t_itr, t_search_local_block_context>(sa, itr, end, debug);
+        return factor_itr_csa<t_csa, t_itr, t_search_local_block_context>(sa, itr, end, qgc);
     }
 
     template <class t_itr>
@@ -342,5 +371,14 @@ struct dict_index_csa {
     bool is_reverse() const
     {
         return true;
+    }
+
+    uint64_t find_minimum(uint64_t sp, uint64_t ep) const
+    {
+        if (sp != ep) {
+            auto min = rmq(sp, ep);
+            return sa[min];
+        }
+        return sa[sp];
     }
 };
