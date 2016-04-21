@@ -76,4 +76,7 @@ add_executable(create-collection.x src/create-collection.cpp)
 target_link_libraries(create-collection.x sdsl pthread zlib boost_system boost_iostreams boost_filesystem boost_regex lz4 bzip2)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
-target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lzma lz4 bzip2)
+target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2)
+
+add_executable(create-indexes-giant.x src/experiments/create-indexes-giant.cpp)
+target_link_libraries(create-indexes-giant.x sdsl divsufsort divsufsort64 pthread zlib gtest_main lz4 bzip2)

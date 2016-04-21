@@ -56,7 +56,7 @@ struct lm_bench {
 private:
     static bench_data& data()
     {
-        static bench_data bd;
+        static thread_local bench_data bd;
         return bd;
     }
 
@@ -71,12 +71,12 @@ public:
         auto& d = data();
         d = bench_data();
     }
-    static void print()
+    static void print(size_t offset)
     {
         auto& d = data();
-        LOG(INFO) << "TIMINGS";
+        LOG(INFO) << "(" << offset << ") TIMINGS";
         for (size_t i = 0; i < num_timer_types; i++) {
-            LOG(INFO) << std::setw(19) << timer_type_to_str(i)
+            LOG(INFO)  << "(" << offset << ") " << std::setw(19) << timer_type_to_str(i)
                       << " Calls=" << std::setw(11) << d.num_calls[i]
                       << " Total=" << std::setw(11) << std::setprecision(6)
                       << duration_cast<milliseconds>(d.total_time[i]).count() / 1000.0f << " sec"

@@ -164,6 +164,21 @@ parse_dir(const std::string& dir)
     return matches;
 }
 
+void
+print_progress(double percent)
+{
+    uint32_t bar_width = 70;
+    std::cout << "[";
+    uint32_t pos = percent *bar_width;
+    for(uint32_t i=0;i<bar_width;i++) {
+        if(i<pos) std::cout << "=";
+        else if(i==pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << uint32_t(percent*100) << " %\r";
+    std::cout.flush();
+}
+
 int main(int argc, const char* argv[])
 {
     setup_logger(argc, argv);
@@ -185,6 +200,9 @@ int main(int argc, const char* argv[])
             auto end = input.end();
             auto replaced_zeros = 0;
             auto replaced_ones = 0;
+            size_t processed = 0;
+            size_t total = std::distance(itr,end);
+            size_t one_percent = total * 0.01;
             while (itr != end) {
                 auto sym = *itr;
                 if (sym == 0) {
@@ -197,7 +215,12 @@ int main(int argc, const char* argv[])
                 }
                 out.push_back(sym);
                 ++itr;
+                ++processed;
+                if(processed % one_percent == 0) {
+                    print_progress(double(processed)/double(total));
+                }
             }
+            std::cout << "\n";
             LOG(INFO) << "Replaced zeros = " << replaced_zeros;
             LOG(INFO) << "Replaced ones = " << replaced_ones;
         }

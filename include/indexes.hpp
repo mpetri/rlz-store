@@ -23,7 +23,7 @@ using default_factor_encoder = factor_coder_blocked<3, coder::zlib<9>, coder::zl
 using default_block_map = block_map_uncompressed;
 
 /* dict type = csa */
-using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 4, 4096>;
+using csa_type = sdsl::csa_wt<sdsl::wt_huff<sdsl::bit_vector_il<64> >, 2, 8192>;
 using default_dict_index_type = dict_index_csa<csa_type>;
 
 using rlz_type_standard = rlz_store_static<default_dict_creation_strategy,

@@ -3,7 +3,6 @@
 #include "sdsl/int_vector.hpp"
 #include "bit_streams.hpp"
 #include "zlib.h"
-#include "lzma.h"
 #include "lz4hc.h"
 #include "lz4.h"
 #include "bzlib.h"
