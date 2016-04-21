@@ -43,7 +43,7 @@ struct factorizor {
     }
 
     template <class t_factor_store, class t_itr>
-    static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end,std::unordered_map<uint64_t,utils::qgram_postings>& qgc)
+    static void factorize_block(t_factor_store& fs, t_coder& coder, const t_index& idx, t_itr itr, t_itr end,std::unordered_map<uint64_t,utils::qgram_postings>& )
     {
         uint64_t encoding_block_size = std::distance(itr,end);
         auto factor_itr = idx.factorize<decltype(itr),t_search_local_block_context>(itr, end);

@@ -5,12 +5,15 @@
 
 #include "logging.hpp"
 
-#include "count_min_sketch.hpp"
 #include "chunk_freq_estimator.hpp"
 
 #include <unordered_set>
 
 using namespace std::chrono;
+enum ACCESS_TYPE : int {
+    SEQ,
+    RAND
+};
 
 template <uint32_t t_block_size = 1024,
     uint32_t t_estimator_block_size = 16,
@@ -23,10 +26,10 @@ public:
     {
         return "dict_local_coverage_norms-" + std::to_string(t_method) + "-" + std::to_string(t_block_size) + "-" + std::to_string(t_estimator_block_size);
     }
-    static uint32_t adjusted_down_size(collection& col, uint64_t size_in_bytes)
+    static uint32_t adjusted_down_size(collection& col, uint64_t )
     {
         sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
-        auto thres = (text.size() / size_in_bytes) / 2;
+        // auto thres = (text.size() / size_in_bytes) / 2;
         // return (thres >= t_down_size? thres : t_down_size);
         return 512;
     }
@@ -40,9 +43,8 @@ public:
         auto size_in_mb = size_in_bytes / (1024 * 1024);
         return col.path + "/index/" + type() + "-" + std::to_string(size_in_mb) + "-" + std::to_string(t_norm::num) + "-" + std::to_string(t_norm::den) + +"-" + std::to_string(adjusted_down_size(col, size_in_bytes)) + ".sdsl";
     }
-    static std::string container_file_name(collection& col, uint64_t size_in_bytes)
+    static std::string container_file_name(collection& col, uint64_t )
     {
-        auto size_in_mb = size_in_bytes / (1024 * 1024);
         return col.path + "/index/" + container_type() + ".sdsl";
     }
 

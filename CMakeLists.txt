@@ -54,6 +54,7 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/easyloggingpp/src/
                      ${CMAKE_HOME_DIRECTORY}/external/lz4/lib
                      ${CMAKE_HOME_DIRECTORY}/external/zlib/
+                     ${CMAKE_BINARY_DIR}/external/zlib/
                      ${CMAKE_HOME_DIRECTORY}/external/bzip2-1.0.6/
                      ${CMAKE_HOME_DIRECTORY}/external/mongoose/
                      ${STXXL_INCLUDE_DIRS}
