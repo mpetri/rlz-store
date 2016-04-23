@@ -94,7 +94,7 @@ public:
             // try to load the estimates instead of recomputing
             // uint32_t down_size = 256;
             auto rs_name = container_file_name(col, size_in_bytes) + "-RSample-" + std::to_string(down_size);
-            fixed_hasher<t_estimator_block_size> rk;
+
 
             uint64_t rs_size = text.size() / down_size;
             std::vector<uint64_t> rs; //filter out frequency less than 64
@@ -102,7 +102,6 @@ public:
                 auto start = hrclock::now();
                 LOG(INFO) << "\tBuilding Reservoir sample with downsize: " << down_size;
                 //make a reservoir sampler and keep it in RAM
-                uint64_t count = 0;
                 uint64_t skip = 0;
                 std::random_device rd;
                 std::mt19937 gen(rd());
@@ -112,34 +111,33 @@ public:
                 double w = std::exp(std::log(dis(gen)) / rs_size);
                 double log1w = std::log(1 - w);
                 double s = std::floor(std::log(dis(gen)) / log1w);
-
-                for (size_t i = 0; i < text.size(); i++) {
+                
+                fixed_hasher_lazy<t_estimator_block_size> lrk;
+                
+                size_t i = 0;
+                for (; i < t_estimator_block_size - 1;i++)
+                    lrk.update(sym);
+                for (; i < text.size(); i++) {
                     auto sym = text[i];
-                    auto hash = rk.update(sym);
-
-                    if (i < t_estimator_block_size - 1)
-                        continue;
-                    else {
-                        if (count < rs_size)
-                            rs.push_back(hash);
-                        else {
-                            skip++;
-                            if (s + 1 <= text.size() - t_estimator_block_size) {
-                                if (skip == s + 1) {
-                                    rs[1 + std::floor(rs_size * dis(gen))] = hash;
-                                    w *= std::exp(std::log(dis(gen)) / rs_size);
-                                    s = std::floor(std::log(dis(gen)) / log1w);
-                                    skip = 0;
-                                }
-                            }
-                            else
-                                break;
-                        }
-                        count++;
+                    auto hash = lrk.update_and_hash(sym);
+                    rs.push_back(hash);
+                    if(rs.size() == rs_size) break;
+                }
+                for (; i < text.size(); i++) {
+                    auto sym = text[i];
+                    lrk.update(sym);
+                    skip++;
+                    if (skip == s + 1) {
+                        auto hash = lrk.compute_current_hash();
+                        rs[1 + std::floor(rs_size * dis(gen))] = hash;
+                        w *= std::exp(std::log(dis(gen)) / rs_size);
+                        s = std::floor(std::log(dis(gen)) / log1w);
+                        skip = 0;
                     }
                 }
                 auto stop = hrclock::now();
-                LOG(INFO) << "\tReservoir sampling time = " << duration_cast<milliseconds>(stop - start).count() / 1000.0f << " sec";
+                LOG(INFO) << "\tReservoir sampling time = " 
+                << duration_cast<milliseconds>(stop - start).count() / 1000.0f << " sec";
                 LOG(INFO) << "\tStore reservoir sample to file " << rs_name;
                 // sdsl::store_to_file(rs,rs_name);
 
@@ -207,15 +205,19 @@ public:
             double norm = (double)t_norm::num / t_norm::den;
             LOG(INFO) << "\t"
                       << "Computing norm = " << norm;
+                      
+            fixed_hasher<t_estimator_block_size> rk;
+            std::unordered_set<uint64_t> best_local_mers;
+            std::unordered_set<uint64_t> local_mers;
+            local_mers.max_load_factor(0.1);
             for (const auto& i : step_indices) { //steps
                 double sum_weights_max = std::numeric_limits<double>::min();
                 uint64_t step_pos = i * sample_step_adjusted;
                 uint64_t best_block_no = step_pos;
-                std::unordered_set<uint64_t> best_local_mers;
+                best_local_mers.clear();
 
                 for (size_t j = 0; j < sample_step_adjusted; j = j + t_block_size) { //blocks
-                    std::unordered_set<uint64_t> local_mers;
-                    local_mers.max_load_factor(0.1);
+                    local_mers.clear();
                     double sum_weights_current = 0;
 
                     //computational expensive place
