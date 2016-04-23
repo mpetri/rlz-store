@@ -2,17 +2,6 @@
 #include "collection.hpp"
 #include "sdsl/int_vector_mapper.hpp"
 
-#include <boost/iostreams/device/file.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/regex.hpp>
-#include <boost/range/iterator_range.hpp>
-
-namespace io = boost::iostreams;
-namespace fs = boost::filesystem;
-
 #include "logging.hpp"
 INITIALIZE_EASYLOGGINGPP
 
@@ -83,88 +72,6 @@ parse_args(int argc, const char* argv[])
 }
 
 void
-    parse_gz_file(sdsl::int_vector_mapper<8>& out, std::string file_name, data_format format)
-{
-    LOG(INFO) << "read file " << file_name;
-    io::filtering_istream in;
-    in.push(io::gzip_decompressor());
-    in.push(io::file_source(file_name));
-    std::noskipws(in);
-    std::vector<uint8_t> buf;
-    std::copy(std::istream_iterator<char>(in), std::istream_iterator<char>(), std::back_inserter(buf));
-
-    uint64_t docs_found = 0;
-    uint64_t written_bytes = 0;
-    auto itr = buf.begin();
-    auto end = buf.end();
-    if (format == data_format::warc) {
-        const std::string respone_start("WARC-Type: response");
-        const std::string respone_end("WARC/1.0");
-        while (itr != end) {
-            itr = std::search(itr, end, respone_start.begin(), respone_start.end());
-            if (itr != end) {
-                /* found response */
-                std::advance(itr, respone_start.size() + 1);
-                auto resp_end = std::search(itr, end, respone_end.begin(), respone_end.end());
-                while (itr != resp_end) {
-                    if (*itr == 0)
-                        out.push_back(0xFE);
-                    else
-                        out.push_back(*itr);
-                    ++itr;
-                    written_bytes++;
-                }
-                docs_found++;
-            }
-        }
-    }
-    if (format == data_format::trec) {
-        const std::string doc_start("<DOC>");
-        const std::string doc_end("</DOC>");
-        while (itr != end) {
-            itr = std::search(itr, end, doc_start.begin(), doc_start.end());
-            if (itr != end) {
-                /* found response */
-                std::advance(itr, doc_start.size() + 1);
-                auto resp_end = std::search(itr, end, doc_end.begin(), doc_end.end());
-                while (itr != resp_end) {
-                    if (*itr == 0)
-                        out.push_back(0xFE);
-                    else
-                        out.push_back(*itr);
-                    ++itr;
-                    written_bytes++;
-                }
-                docs_found++;
-            }
-        }
-    }
-    LOG(INFO) << "bytes written = " << written_bytes;
-    LOG(INFO) << "documents found = " << docs_found;
-}
-
-std::vector<std::string>
-parse_dir(const std::string& dir)
-{
-    std::vector<std::string> matches;
-    const boost::regex my_filter(".*\\.gz$");
-
-    fs::path gp(dir);
-    if (fs::is_directory(gp)) {
-        for (auto& entry : boost::make_iterator_range(fs::recursive_directory_iterator(gp), {})) {
-            if (fs::is_regular_file(entry.status())) {
-                if (!boost::regex_match(entry.path().string(), my_filter))
-                    continue;
-                matches.push_back(entry.path().string());
-            }
-        }
-    }
-    std::sort(matches.begin(), matches.end());
-    LOG(INFO) << "Found " << matches.size() << " files";
-    return matches;
-}
-
-void
 print_progress(double percent)
 {
     uint32_t bar_width = 70;
@@ -189,13 +96,14 @@ int main(int argc, const char* argv[])
     std::string output_file = args.collection_dir + "/" + KEY_PREFIX + KEY_TEXT;
 
     {
-        auto out = sdsl::write_out_buffer<8>::create(output_file);
+        //auto out = sdsl::write_out_buffer<8>::create(output_file);
+        sdsl::int_vector_buffer<8> out(output_file,std::ios::out,128*1024*1024);
         if (args.format == data_format::raw) {
             if (!utils::file_exists(args.input_file)) {
                 LOG(FATAL) << "Input file " << args.input_file << " does not exist.";
             }
             LOG(INFO) << "Processing " << args.input_file;
-            sdsl::read_only_mapper<8> input(args.input_file, true);
+            sdsl::int_vector_buffer<8> input(args.input_file,std::ios::in,128*1024*1024,8,true);
             auto itr = input.begin();
             auto end = input.end();
             auto replaced_zeros = 0;
@@ -225,20 +133,6 @@ int main(int argc, const char* argv[])
             LOG(INFO) << "Replaced ones = " << replaced_ones;
         }
         else {
-            LOG(INFO) << "Parse " << args.input_dir << " to retrieve file names ";
-            if (!utils::directory_exists(args.input_dir)) {
-                LOG(FATAL) << "Input directory " << args.input_file << " does not exist.";
-            }
-            /* (1) read file list */
-            auto input_files = parse_dir(args.input_dir);
-            /* (2) process files */
-            for (size_t i = 0; i < input_files.size(); i++) {
-                parse_gz_file(out, input_files[i], args.format);
-                if (i + 1 >= args.max_num_files) {
-                    LOG(INFO) << "Only processing " << i + 1 << " files. STOP";
-                    break;
-                }
-            }
         }
         LOG(INFO) << "Copied " << out.size() << " bytes.";
     }

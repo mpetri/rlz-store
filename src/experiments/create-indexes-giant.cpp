@@ -15,14 +15,20 @@ void compute_archive_ratio(collection& col, t_idx& idx,std::string index_name)
 {
     size_t bits_encoding = idx.factor_text.size();
     size_t bits_blockmap = idx.block_map.size_in_bytes() * 8;
-    sdsl::bit_vector encoded_dict_bv;
+    size_t bits_compressed_dict = 0;
     {
-        bit_ostream<sdsl::bit_vector> out(encoded_dict_bv);
-        coder::zlib<9> coder;
-        coder.encode(out, idx.dict.data(), idx.dict.size());
+        const uint8_t* dict = (const uint8_t*) idx.dict.data();
+        size_t dict_size = idx.dict.size();
+        std::vector<uint8_t> dict_buf(dict_size*2);
+        uint8_t* out_buf = dict_buf.data();
+        uint64_t out_len = dict_buf.size();
+        int cok = compress2(out_buf,&out_len,dict,dict_size,9);
+        if(cok != Z_OK) {
+            LOG(FATAL) << "error compressing dictionary.";
+        }
+        bits_compressed_dict = out_len * 8;
     }
-    size_t bits_compressed_dict = encoded_dict_bv.size();
-    size_t encoding_bits_total = bits_encoding + bits_compressed_dict + bits_encoding;
+    size_t encoding_bits_total = bits_encoding + bits_compressed_dict + bits_blockmap;
     size_t text_size_bits = idx.size() * 8;
     
     double archive_ratio = 100.0 * double(encoding_bits_total) / double(text_size_bits);
