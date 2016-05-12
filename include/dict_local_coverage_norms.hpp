@@ -116,7 +116,7 @@ public:
                 
                 size_t i = 0;
                 for (; i < t_estimator_block_size - 1;i++)
-                    lrk.update(sym);
+                    lrk.update(text[i]);
                 for (; i < text.size(); i++) {
                     auto sym = text[i];
                     auto hash = lrk.update_and_hash(sym);

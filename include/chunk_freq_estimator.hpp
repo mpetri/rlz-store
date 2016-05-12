@@ -63,8 +63,7 @@ inline uint64_t fasthash64<8>(const void* buf,uint64_t seed)
 {
     const uint64_t m = 0x880355f21e6d1965ULL;
     const uint64_t* pos = (const uint64_t*)buf;
-    const unsigned char* pos2;
-    uint64_t h = seed ^ (len * m);
+    uint64_t h = seed ^ (8 * m);
     uint64_t v = pos[0];
     h ^= mix(v);
     h *= m;
@@ -76,8 +75,7 @@ inline uint64_t fasthash64<16>(const void* buf,uint64_t seed)
 {
     const uint64_t m = 0x880355f21e6d1965ULL;
     const uint64_t* pos = (const uint64_t*)buf;
-    const unsigned char* pos2;
-    uint64_t h = seed ^ (len * m);
+    uint64_t h = seed ^ (16 * m);
     uint64_t v = pos[0];
     h ^= mix(v);
     h *= m;
