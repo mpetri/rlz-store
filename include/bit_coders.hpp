@@ -410,4 +410,210 @@ public:
         is.skip(in_size * 8); // skip over the read content
     }
 };
+
+
+
+struct elias_fano {
+public:
+    static std::string type()
+    {
+        return "ef";
+    }
+
+    template <class T>
+    inline uint64_t determine_size(T* , size_t n, size_t u) const
+    {
+        uint8_t logm = sdsl::bits::hi(n)+1;
+        uint8_t logu = sdsl::bits::hi(u)+1;
+        uint8_t width_low = 0;
+        if (logu < logm) {
+            width_low = 1;
+        } else {
+            if (logm == logu) logm--;
+            width_low = logu - logm;
+        }
+        return n*width_low + 2*n;
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, T* in_buf, size_t n, size_t u) const
+    {
+        uint8_t logm = sdsl::bits::hi(n)+1;
+        uint8_t logu = sdsl::bits::hi(u)+1;
+        uint8_t width_low = 0;
+        if (logu < logm) {
+            width_low = 1;
+        } else {
+            if (logm == logu) logm--;
+            width_low = logu - logm;
+        }
+
+        // write low
+        os.expand_if_needed(n*width_low);
+        for (size_t i = 0; i < n; i++) {
+            os.put_int_no_size_check(in_buf[i], width_low);
+        }
+        // write high
+        size_t num_zeros = (u >> width_low);
+        os.expand_if_needed(num_zeros+n+1);
+        size_t last_high=0;
+        for (size_t i = 0; i < n; i++) {
+            auto position = in_buf[i];
+            size_t cur_high = position >> width_low;
+            os.put_unary_no_size_check(cur_high-last_high);
+            last_high = cur_high;
+        }
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n, size_t u) const
+    {
+        uint8_t logm = sdsl::bits::hi(n)+1;
+        uint8_t logu = sdsl::bits::hi(u)+1;
+        uint8_t width_low = 0;
+
+        // read low 
+        if (logu < logm) {
+            width_low = 1;
+        } else {
+            if (logm == logu) logm--;
+            width_low = logu - logm;
+        }
+        for (size_t i = 0; i < n; i++) {
+            auto low = is.get_int(width_low);
+            out_buf[i] = low;
+        }
+        // read high
+        size_t last_high=0;
+        for (size_t i = 0; i < n; i++) {
+            auto cur_high = is.get_unary();
+            auto high = last_high + cur_high;
+            last_high = high;
+            out_buf[i] = (high << width_low) + out_buf[i];
+        }
+    }
+};
+
+
+struct interpolative {
+private:
+    template <class t_bit_ostream>
+    inline void write_center_mid(t_bit_ostream& os, uint64_t val,uint64_t u) const {
+        if(u==1) return;
+        auto b = sdsl::bits::hi(u-1) + 1ULL;
+        auto d = 2ULL*u - (1ULL << b);
+        val = val + (u-d/2);
+        if(val>u) val -= u;
+        uint64_t m = (1ULL << b) - u;
+        if(val<=m) {
+            os.put_int_no_size_check(val-1,b-1);
+        } else {
+            val += m;
+            os.put_int_no_size_check((val-1)>>1,b-1);
+            os.put_int_no_size_check((val-1)&1,1);
+        }
+    }
+    template <class t_bit_istream>
+    inline uint64_t read_center_mid(t_bit_istream& is,uint64_t u) const {
+        auto b = u == 1 ? 0 : sdsl::bits::hi(u-1) + 1ULL;
+        auto d = 2ULL*u - (1ULL << b);
+        uint64_t val = 1;
+        if(u != 1) {
+            uint64_t m = (1ULL << b) - u;
+            val = is.get_int(b-1)+1;
+            if (val>m) {
+                val = (2ULL*val + is.get_int(1)) - m - 1;
+            }
+        }
+        val = val + d/2;
+        if (val>u) val -= u;
+        return val;
+    }
+    
+    template <class t_bit_ostream, class T>
+    inline void encode_interpolative(t_bit_ostream& os, T* in_buf, size_t n, size_t low,size_t high) const {
+        if (n==0) return;
+        size_t h = (n+1) >> 1;
+        size_t n1 = h-1;
+        size_t n2 = n-h;
+        uint64_t v = in_buf[h-1]+1; // we don't encode 0
+        write_center_mid(os,v - low-n1+1,high - n2 - low - n1 + 1);
+        encode_interpolative(os,in_buf,n1,low,v-1);
+        encode_interpolative(os,in_buf+h,n2,v+1,high);
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode_interpolative(t_bit_istream& is, T* out_buf, size_t n, size_t low,size_t high) const {
+        if (n==0) return;
+        size_t h = (n+1) >> 1;
+        size_t n1 = h-1;
+        size_t n2 = n-h;
+        uint64_t v = low + n1 - 1 + read_center_mid(is,high - n2 - low - n1 + 1);
+        out_buf[h-1] = v-1; // we don't encode 0
+        if(n1) decode_interpolative(is,out_buf,n1,low,v-1);
+        if(n2) decode_interpolative(is,out_buf+h,n2,v+1,high);
+    }
+public:
+    static std::string type()
+    {
+        return "ip";
+    }
+
+    template <class T>
+    inline uint64_t determine_size(T* in_buf, size_t n, size_t u) const
+    {
+        bit_nullstream bns;
+        encode(bns,in_buf,n,u);
+        return bns.tellp();
+    }
+
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, T* in_buf, size_t n, size_t u) const
+    {
+        os.expand_if_needed(n*(sdsl::bits::hi(u+1)+1));
+        size_t low = 1;
+        size_t high = u+1;
+        encode_interpolative(os,in_buf,n,low,high);
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n, size_t u) const
+    {
+        size_t low = 1;
+        size_t high = u+1;
+        decode_interpolative(is,out_buf,n,low,high);
+    }
+};
+
+struct minbin {
+private:
+public:
+    static std::string type()
+    {
+        return "minbin";
+    }
+
+    template <class T>
+    inline uint64_t determine_size(T* in_buf, size_t n, size_t u) const
+    {
+        bit_nullstream bns;
+        encode(bns,in_buf,n,u);
+        return bns.tellp();
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, T* in_buf, size_t n, size_t max) const
+    {
+        os.expand_if_needed(n*(sdsl::bits::hi(max+1)+1));
+        for(size_t i=0;i<n;i++) os.put_minbin_int(in_buf[i],max);
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n, size_t max) const
+    {
+        for(size_t i=0;i<n;i++) out_buf[i] = is.get_minbin_int(max);
+    }
+};
+
 }

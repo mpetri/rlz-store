@@ -275,9 +275,10 @@ public:
             {
                 sdsl::read_only_mapper<8> text(col.file_map[KEY_TEXT]);
                 for (const auto& pb : picked_blocks) {
-                    auto beg = text.begin() + pb;
-                    auto end = beg + t_block_size;
-                    std::copy(beg, end, std::back_inserter(dict));
+				    auto beg = text.begin() + pb;
+				    auto end = beg + t_block_size -1;
+				    std::copy(beg,end,std::back_inserter(dict));
+                    dict.push_back(1);
                 }
             }
 

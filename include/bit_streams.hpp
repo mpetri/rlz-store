@@ -1,9 +1,9 @@
 #pragma once
 
 #include "sdsl/int_vector.hpp"
+#include "logging.hpp"
 
-template <class t_bv>
-struct bit_ostream {
+struct bit_nullstream {
 public:
     const uint64_t min_bv_size = 1000000;
     using pos_type = sdsl::bit_vector::size_type;
@@ -11,20 +11,11 @@ public:
     using offset_type = std::streamoff;
     using value_type = sdsl::bit_vector::value_type;
     // constructor
-    explicit bit_ostream(t_bv& bv, size_t start_offset = 0)
-        : m_bv(bv)
+    explicit bit_nullstream(uint64_t start_offset = 0)
+        : cur_offset(start_offset)
     {
-        if (m_bv.size() < min_bv_size)
-            m_bv.resize(min_bv_size);
-        data_ptr = m_bv.data() + (start_offset >> 6);
-        in_word_offset = start_offset & 63;
-        cur_size = m_bv.size();
+        cur_size = min_bv_size;
     }
-    ~bit_ostream()
-    {
-        flush();
-    }
-
 public:
     // write individual bits
     inline void put(value_type c)
@@ -54,6 +45,12 @@ public:
     {
         expand_if_needed(len);
         put_int_no_size_check(x, len);
+    }
+    inline void put_minbin_int(const uint64_t x, const uint64_t max)
+    {
+        auto len = sdsl::bits::hi(max)+1;
+        expand_if_needed(len);
+        put_minbin_int_no_size_check(x, max);
     }
     template <typename t_coder>
     inline void encode_check_size(const uint64_t x)
@@ -97,6 +94,210 @@ public:
             put_int_no_size_check(*tmp++, len);
         }
     }
+    // current pos in the bv
+    pos_type inline tellp() const
+    {
+        return cur_offset;
+    }
+    //resize bv to correct size
+    void inline flush()
+    {
+        resize(tellp());
+    }
+    void inline expand_if_needed(size_type n)
+    {
+        auto needed_bits = tellp() + n;
+        if (needed_bits >= cur_size) {
+            auto size = std::max(cur_size * 2, needed_bits);
+            resize(64 + size); // always have one extra 64bit word
+        }
+    }
+
+    inline void align64()
+    {
+        auto mod = cur_offset % 64;
+        if (mod != 0) {
+            cur_offset += (64-mod);
+        }
+    }
+
+    inline void align8()
+    {
+        auto mod = cur_offset % 8;
+        if (mod != 0) {
+            cur_offset += (8-mod);
+        }
+    }
+
+    inline void skip(uint64_t len)
+    {
+        cur_offset += len;
+    }
+    void seek(size_type of)
+    {
+        cur_offset = of;
+    }
+
+    void inline resize(size_type n)
+    {
+        cur_size = n;
+    }
+
+    void inline put_int_no_size_check(const uint64_t , const uint8_t len = 64)
+    {
+        cur_offset += len;
+    }
+    void inline put_minbin_int_no_size_check(uint64_t x, const uint64_t max)
+    {
+        auto b = sdsl::bits::hi(max)+1;
+        auto d = (1ULL<<b) - max;
+        if(x>=d) cur_offset += b;
+        else cur_offset += (b-1);
+    }
+    void inline put_unary_no_size_check(uint64_t x)
+    {
+        cur_offset += x+1;
+    }
+    uint64_t* data()
+    {
+        return nullptr;
+    }
+    uint64_t* cur_data()
+    {
+        return nullptr;
+    }
+    uint8_t* cur_data8()
+    {
+        return nullptr;
+    }
+    uint8_t bit_at(size_t) const {
+        return 0;
+    }
+private:
+    uint64_t cur_offset = 0;
+    size_type cur_size = 0;
+};
+
+template <class t_bv>
+struct bit_ostream {
+public:
+    const uint64_t min_bv_size = 1000000;
+    using pos_type = sdsl::bit_vector::size_type;
+    using size_type = sdsl::bit_vector::size_type;
+    using offset_type = std::streamoff;
+    using value_type = sdsl::bit_vector::value_type;
+    // constructor
+    explicit bit_ostream(t_bv& bv, size_t start_offset = 0)
+        : m_bv(bv)
+    {
+        if (m_bv.size() < min_bv_size)
+            m_bv.resize(min_bv_size);
+        data_ptr = bv.data() + (start_offset >> 6);
+        in_word_offset = start_offset & 63;
+        cur_size = m_bv.size();
+    }
+    ~bit_ostream()
+    {
+        flush();
+    }
+
+public:
+    // write individual bits
+    inline void put(value_type c)
+    {
+        put_int(c & 1, 1);
+    }
+    // write chunks of bits
+    inline void write(const uint64_t* s, size_type count, uint8_t in_word_offset = 0)
+    {
+        expand_if_needed(count);
+        while (count > 64) {
+            auto x = sdsl::bits::read_int_and_move(s, in_word_offset, 64);
+            put_int_no_size_check(x, 64);
+            count -= 64;
+        }
+        auto x = sdsl::bits::read_int_and_move(s, in_word_offset, (uint8_t)count);
+        put_int_no_size_check(x, (uint8_t)count);
+    }
+    // write individual unary encoded integer
+    inline void put_unary(const uint64_t x)
+    {
+        expand_if_needed(x + 1);
+        put_unary_no_size_check(x);
+    }
+    // write bitpacked integer
+    inline void put_int(const uint64_t x, const uint8_t len = 64)
+    {
+        expand_if_needed(len);
+        put_int_no_size_check(x, len);
+    }
+    // write bitpacked integer
+    inline void put_minbin_int(const uint64_t x, const uint64_t max)
+    {
+        auto len = sdsl::bits::hi(max)+1;
+        expand_if_needed(len);
+        put_minbin_int_no_size_check(x, max);
+    }
+    template <typename t_coder>
+    inline void encode_check_size(const uint64_t x)
+    {
+        t_coder::encode_check_size(*this, x);
+    }
+    template <typename t_coder>
+    inline void encode(const uint64_t x)
+    {
+        t_coder::encode(*this, x);
+    }
+    template <class t_coder, class t_itr>
+    inline void encode(t_itr begin, std::streamsize count)
+    {
+        t_coder e;
+        e.encode(*this, begin, begin + count);
+    }
+    template <class t_coder, class t_itr>
+    inline void encode(t_itr begin, t_itr end)
+    {
+        t_coder e;
+        e.encode(*this, begin, end);
+    }
+    // write chunks unary integers
+    template <class t_itr>
+    void inline write_unary(const t_itr& itr, size_type count)
+    {
+        expand_if_needed(std::accumulate(itr, itr + count, 0) + count);
+        auto tmp = itr;
+        for (size_type i = 0; i < count; i++) {
+            put_unary_no_size_check(*tmp++);
+        }
+    }
+    // write chunks bitpacked integers
+    template <class t_itr>
+    void inline write_int(const t_itr& itr, size_type count, const uint8_t len = 64)
+    {
+        expand_if_needed(count * len);
+        auto tmp = itr;
+        for (size_type i = 0; i < count; i++) {
+            put_int_no_size_check(*tmp++, len);
+        }
+    }
+    // current pos in the bv
+    pos_type inline tellp() const
+    {
+        return ((data_ptr - m_bv.data()) << 6) + in_word_offset;
+    }
+    //resize bv to correct size
+    void inline flush()
+    {
+        resize(tellp());
+    }
+    void inline expand_if_needed(size_type n)
+    {
+        auto needed_bits = tellp() + n;
+        if (needed_bits >= cur_size) {
+            auto size = std::max(cur_size * 2, needed_bits);
+            resize(64 + size); // always have one extra 64bit word
+        }
+    }
 
     // append data stored in a bitvector
     void inline append_aligned64(const sdsl::bit_vector& bv,size_t n = 0)
@@ -125,25 +326,6 @@ public:
         put_int_no_size_check(*bv_data_ptr,left);
     }
 
-    // current pos in the bv
-    pos_type inline tellp() const
-    {
-        return ((data_ptr - m_bv.data()) << 6) + in_word_offset;
-    }
-    //resize bv to correct size
-    void inline flush()
-    {
-        resize(tellp());
-    }
-    void inline expand_if_needed(size_type n)
-    {
-        auto needed_bits = tellp() + n;
-        if (needed_bits >= cur_size) {
-            auto size = std::max(cur_size * 2, needed_bits);
-            resize(64 + size); // always have one extra 64bit word
-        }
-    }
-
     inline void align64()
     {
         if (in_word_offset != 0) {
@@ -156,7 +338,7 @@ public:
     {
         auto mod = in_word_offset % 8;
         if (mod != 0) {
-            in_word_offset += mod;
+            in_word_offset += (8-mod);
             if (in_word_offset >= 64) {
                 data_ptr++;
                 in_word_offset = 0;
@@ -191,6 +373,19 @@ public:
     {
         sdsl::bits::write_int_and_move(data_ptr, x, in_word_offset, len);
     }
+    void inline put_minbin_int_no_size_check(uint64_t x, const uint64_t max)
+    {
+        auto b = sdsl::bits::hi(max)+1;
+        auto d = (1ULL<<b) - max;
+        if(x>=d) {
+            x += d;
+            sdsl::bits::write_int_and_move(data_ptr, x>>1, in_word_offset, b-1);
+            sdsl::bits::write_int_and_move(data_ptr, x&1, in_word_offset, 1);
+        } else {
+            sdsl::bits::write_int_and_move(data_ptr, x, in_word_offset, b-1);
+        }
+    }
+    
     void inline put_unary_no_size_check(uint64_t x)
     {
         while (x >= 64) {
@@ -216,7 +411,9 @@ public:
     {
         return m_bv;
     }
-
+    uint8_t bit_at(size_t pos) const {
+        return m_bv[pos];
+    }
 private:
     t_bv& m_bv;
     uint64_t* data_ptr = nullptr;
@@ -279,6 +476,17 @@ public:
         return sdsl::bits::read_int_and_move(data_ptr, in_word_offset, len);
     }
 
+    inline value_type get_minbin_int(const uint64_t max) const
+    {
+        auto b = sdsl::bits::hi(max)+1;
+        auto d = (1ULL<<b) - max;
+        value_type val = sdsl::bits::read_int_and_move(data_ptr,in_word_offset,b-1);
+        if (val>=d) {
+            val = (2ULL*val + sdsl::bits::read_int_and_move(data_ptr,in_word_offset,1)) - d;
+        }
+        return val;
+    }
+
     template <class t_coder>
     inline value_type decode() const
     {
@@ -304,11 +512,12 @@ public:
     {
         data_ptr += (len / 64);
         len -= 64 * (len / 64);
-        if ((in_word_offset += len) & 0xC0) { // if offset >= 65
-            in_word_offset &= 0x3F;
+        if ((in_word_offset+=len)&0xC0) { // if offset >= 65
+            in_word_offset&=0x3F;
             ++data_ptr;
         }
     }
+    
 
     inline void align64() const
     {
@@ -322,7 +531,7 @@ public:
     {
         auto mod = in_word_offset % 8;
         if (mod != 0) {
-            in_word_offset += (8 - mod);
+            in_word_offset += (8-mod);
             if (in_word_offset >= 64) {
                 data_ptr++;
                 in_word_offset = 0;

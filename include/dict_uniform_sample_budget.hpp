@@ -22,6 +22,7 @@ public:
     static void create(collection& col, bool rebuild, size_t size_in_bytes)
     {
         const uint32_t block_size = t_block_size_bytes;
+        const uint8_t sep_symbol = 0x01;
         uint64_t budget_bytes = size_in_bytes;
         uint64_t budget_mb = budget_bytes / (1024 * 1024);
         // check if we store it already and load it
@@ -29,7 +30,8 @@ public:
         col.file_map[KEY_DICT] = fname;
         if (!utils::file_exists(fname) || rebuild) { // construct
             auto start_total = hrclock::now();
-            LOG(INFO) << "\tCreate dictionary with budget " << budget_mb << " MiB";
+            LOG(INFO) << "\tCreate dictionary with budget "<< budget_bytes 
+                      <<" (" << budget_mb << " MiB)";
             // memory map the text and iterate over it
             std::vector<uint8_t> dict;
             {
@@ -40,14 +42,18 @@ public:
                 size_t sample_step = n / num_samples;
                 LOG(INFO) << "\tSample steps = " << sample_step;
                 for (size_t i = 0; i < n; i += sample_step) {
-                    for (size_t j = 0; j < block_size; j++) {
-                        if (i + j >= n)
+                    for (size_t j = 0; j < (block_size-1); j++) {
+                        if (i + j >= (n-1))
                             break;
+                        if(dict.size()+3 >= budget_bytes) break;
                         dict.push_back(text[i + j]);
                     }
+                    dict.push_back(sep_symbol); // add sep symbol between selected segments
+                    if(dict.size()+2 >= budget_bytes) break;
                 }
                 dict.push_back(0); // zero terminate for SA construction
             }
+            LOG(INFO) << "\tdict size in bytes = " << dict.size();
             /* store to disk */
             LOG(INFO) << "\t"
                       << "Writing dictionary.";
@@ -55,24 +61,12 @@ public:
             std::copy(dict.begin(), dict.end(), std::back_inserter(wdict));
             auto end_total = hrclock::now();
             LOG(INFO) << "\t" << type() + " Total time = " << duration_cast<milliseconds>(end_total - start_total).count() / 1000.0f << " sec";
-        }
-        else {
+        } else {
             LOG(INFO) << "\t"
                       << "Dictionary exists at '" << fname << "'";
         }
         // compute a hash of the dict so we don't reconstruct things
         // later when we don't have to.
         col.compute_dict_hash();
-    }
-
-    static uint64_t compute_closest_dict_offset(size_t text_offset, size_t dict_size_bytes, size_t text_size, size_t prime_size)
-    {
-        double text_percent = text_offset / text_size;
-        double num_samples = dict_size_bytes / t_block_size_bytes;
-        uint64_t dict_block_id = text_percent * num_samples;
-        uint64_t dict_offset = dict_block_id * t_block_size_bytes;
-        if (dict_offset > (dict_size_bytes - prime_size))
-            return (dict_size_bytes - prime_size);
-        return dict_offset;
     }
 };

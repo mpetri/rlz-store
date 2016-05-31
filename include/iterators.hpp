@@ -77,6 +77,12 @@ public:
     {
         return m_block_offset != b.m_block_offset || m_factor_offset != b.m_factor_offset;
     }
+    
+    bool last_factor_in_block() const
+    {
+        return m_factor_offset + 1 == m_factors_in_cur_block;
+    }
+    
     factor_iterator& operator++()
     {
         if (m_factor_offset + 1 == m_factors_in_cur_block) {

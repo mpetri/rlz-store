@@ -11,7 +11,7 @@
 INITIALIZE_EASYLOGGINGPP
 
 template<class t_idx>
-void compute_archive_ratio(collection& col, t_idx& idx,std::string index_name)
+void compute_archive_ratio(collection& , t_idx& idx,std::string index_name)
 {
     size_t bits_encoding = idx.factor_text.size();
     size_t bits_blockmap = idx.block_map.size_in_bytes() * 8;
