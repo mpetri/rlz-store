@@ -3,13 +3,13 @@
 	url = https://chromium.googlesource.com/external/googletest
 [submodule "external/easyloggingpp"]
 	path = external/easyloggingpp
-	url = https://github.com/easylogging/easyloggingpp.git
+	url = https://github.com/mpetri/easyloggingpp.git
 [submodule "external/FastPFor"]
 	path = external/FastPFor
 	url = https://github.com/lemire/FastPFor.git
 [submodule "external/sdsl-lite"]
 	path = external/sdsl-lite
-	url = git@github.com:mpetri/sdsl-lite.git
+	url = https://github.com/mpetri/sdsl-lite.git
 [submodule "external/lz4"]
 	path = external/lz4
 	url = https://github.com/Cyan4973/lz4.git
