@@ -42,8 +42,18 @@ else()
 endif()
 
 add_subdirectory(external/sdsl-lite)
-add_subdirectory(external/zlib)
+
 add_subdirectory(external/bzip2-1.0.6)
+
+add_subdirectory(external/zlib)
+# disable zlib examples
+if(TARGET example)
+    set_target_properties(example minigzip PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+endif()
+if(TARGET example64)
+    set_target_properties(example64 minigzip64 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+endif()
+
 
 include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/include
@@ -64,14 +74,11 @@ set(LZ4_DIR  ${CMAKE_HOME_DIRECTORY}/external/lz4/lib/)
 set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4hc.h ${LZ4_DIR}lz4frame.c ${LZ4_DIR}lz4frame.h ${LZ4_DIR}xxhash.c)
 add_library(lz4 ${LZ4_SRCS_LIB})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
 
 add_executable(lzs-create.x src/lzs-create.cpp)
 target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
-
 
 add_executable(create-collection.x src/create-collection.cpp)
 target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2)
@@ -79,5 +86,3 @@ target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2)
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2)
 
-add_executable(create-indexes-giant.x src/experiments/create-indexes-giant.cpp)
-target_link_libraries(create-indexes-giant.x sdsl divsufsort divsufsort64 pthread zlib gtest_main lz4 bzip2)
