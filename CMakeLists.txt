@@ -82,13 +82,13 @@ file(GLOB BROTLI_SRCS_DEC_LIB ${BROTLI_DIR}/dec/*.c)
 add_library(brotli ${BROTLI_SRCS_ENC_LIB} ${BROTLI_SRCS_DEC_LIB})
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
-target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
+target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli)
 
 add_executable(lzs-create.x src/lzs-create.cpp)
-target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
+target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli)
 
 add_executable(create-collection.x src/create-collection.cpp)
-target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2)
+target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2 brotli)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2 brotli)

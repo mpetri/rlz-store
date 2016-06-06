@@ -24,6 +24,13 @@ int main(int argc, const char* argv[])
     /* create rlz index */
     const uint32_t factorization_blocksize = 64 * 1024;
     {
+        auto lz_store = typename lz_store_static<coder::brotlih<6>, factorization_blocksize>::builder{}
+                            .set_rebuild(args.rebuild)
+                            .set_threads(args.threads)
+                            .build_or_load(col);
+        verify_index(col, lz_store);
+    }
+    {
         auto lz_store = typename lz_store_static<coder::zlib<9>, factorization_blocksize>::builder{}
                             .set_rebuild(args.rebuild)
                             .set_threads(args.threads)
