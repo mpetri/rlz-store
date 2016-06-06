@@ -6,6 +6,9 @@
 #include "lz4hc.h"
 #include "lz4.h"
 #include "bzlib.h"
+// brotli
+#include "decode.h"
+#include "encode.h"
 
 #include "logging.hpp"
 
@@ -410,4 +413,92 @@ public:
         is.skip(in_size * 8); // skip over the read content
     }
 };
+
+
+
+template <uint8_t t_level = 6>
+struct brotlih {
+private:
+    brotli::BrotliParams brotli_params;
+public:
+    brotlih() {
+        brotli_params.quality = t_level;
+        BrotliErrorString((BrotliErrorCode)0); // to get rid of the unused warning
+    }
+    ~brotlih() {}
+
+public:
+    static std::string type()
+    {
+        return "brotli-" + std::to_string(t_level);
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
+    {
+        uint64_t bits_required = 32 + n * 128; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+
+        /* space for writing the encoding size */
+        uint32_t* out_size = (uint32_t*)os.cur_data8();
+        os.skip(32);
+
+        /* encode */
+        const uint8_t* in_u8 = (uint8_t*) in_buf;
+        uint8_t* out_buf = os.cur_data8();
+        uint64_t in_size = n * sizeof(T);
+
+        uint64_t out_buf_bytes = bits_required >> 3;
+
+        auto ret =  brotli::BrotliCompressBuffer(brotli_params,
+                         in_size,
+                         in_u8,
+                         &out_buf_bytes,
+                         out_buf);
+
+
+        if (ret != 1) {
+            LOG(FATAL) << "brotli-encode: error occured!";
+        }
+        // write the len. assume it fits in 32bits
+        uint32_t written_bytes = out_buf_bytes;
+        *out_size = (uint32_t)written_bytes;
+        os.skip(written_bytes * 8); // skip over the written content
+    }
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
+    {
+        is.align8(); // align to bytes if needed
+
+        /* read the encoding size */
+        uint32_t* pin_size = (uint32_t*)is.cur_data8();
+        uint32_t in_size = *pin_size;
+        is.skip(32);
+
+        /* decode */
+        auto in_buf = is.cur_data8();
+        uint64_t out_size = n * sizeof(T);
+        const uint8_t* encoded_buffer = (const uint8_t*) in_buf;
+        uint8_t* decoded_buffer = (uint8_t*)out_buf;
+
+        uint64_t dec_out_size = out_size;
+        auto ret = BrotliDecompressBuffer(in_size,
+                                    encoded_buffer,
+                                    &dec_out_size,
+                                    decoded_buffer);
+
+        if (ret != BROTLI_RESULT_SUCCESS) {
+            LOG(FATAL) << "brotli-decode: error occured. " << (int) ret;
+        }
+
+        if (out_size != dec_out_size) {
+            LOG(FATAL) << "brotli-decode: incorrect out size: " << dec_out_size << " should be " << out_size;
+        }
+
+        is.skip(in_size * 8); // skip over the read content
+    }
+};
+
+
 }

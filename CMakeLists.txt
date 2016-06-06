@@ -64,6 +64,8 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/easyloggingpp/src/
                      ${CMAKE_HOME_DIRECTORY}/external/lz4/lib
                      ${CMAKE_HOME_DIRECTORY}/external/zlib/
+                     ${CMAKE_HOME_DIRECTORY}/external/brotli/enc/
+                     ${CMAKE_HOME_DIRECTORY}/external/brotli/dec/
                      ${CMAKE_BINARY_DIR}/external/zlib/
                      ${CMAKE_HOME_DIRECTORY}/external/bzip2-1.0.6/
                      ${CMAKE_HOME_DIRECTORY}/external/mongoose/
@@ -73,6 +75,11 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
 set(LZ4_DIR  ${CMAKE_HOME_DIRECTORY}/external/lz4/lib/)
 set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4hc.h ${LZ4_DIR}lz4frame.c ${LZ4_DIR}lz4frame.h ${LZ4_DIR}xxhash.c)
 add_library(lz4 ${LZ4_SRCS_LIB})
+
+set(BROTLI_DIR  ${CMAKE_HOME_DIRECTORY}/external/brotli/)
+file(GLOB BROTLI_SRCS_ENC_LIB ${BROTLI_DIR}/enc/*.cc)
+file(GLOB BROTLI_SRCS_DEC_LIB ${BROTLI_DIR}/dec/*.c)
+add_library(brotli ${BROTLI_SRCS_ENC_LIB} ${BROTLI_SRCS_DEC_LIB})
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2)
@@ -84,5 +91,5 @@ add_executable(create-collection.x src/create-collection.cpp)
 target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
-target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2)
+target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2 brotli)
 

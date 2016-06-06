@@ -16,3 +16,6 @@
 [submodule "external/zlib"]
 	path = external/zlib
 	url = https://github.com/madler/zlib
+[submodule "external/brotli"]
+	path = external/brotli
+	url = https://github.com/google/brotli.git
