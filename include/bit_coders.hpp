@@ -6,6 +6,7 @@
 #include "lz4hc.h"
 #include "lz4.h"
 #include "bzlib.h"
+#include "lzma.h"
 // brotli
 #include "decode.h"
 #include "encode.h"
@@ -496,6 +497,124 @@ public:
             LOG(FATAL) << "brotli-decode: incorrect out size: " << dec_out_size << " should be " << out_size;
         }
 
+        is.skip(in_size * 8); // skip over the read content
+    }
+};
+
+
+template <uint8_t t_level = 3>
+struct lzma {
+public:
+    static const uint32_t lzma_mem_limit = 128 * 1024 * 1024;
+    static const uint32_t lzma_max_mem_limit = 1024 * 1024 * 1024;
+
+private:
+    mutable lzma_stream strm_enc;
+    mutable lzma_stream strm_dec;
+public:
+    lzma()
+    {
+        strm_enc = LZMA_STREAM_INIT;
+        strm_dec = LZMA_STREAM_INIT;
+    }
+    ~lzma()
+    {
+        lzma_end(&strm_enc);
+        lzma_end(&strm_dec);
+    }
+
+public:
+    static std::string type()
+    {
+        return "lzma-" + std::to_string(t_level);
+    }
+
+    template <class t_bit_ostream, class T>
+    inline void encode(t_bit_ostream& os, const T* in_buf, size_t n) const
+    {
+        uint64_t bits_required = 2048 + n * 256; // upper bound
+        os.expand_if_needed(bits_required);
+        os.align8(); // align to bytes if needed
+
+        /* space for writing the encoding size */
+        uint32_t* out_size = (uint32_t*)os.cur_data8();
+        os.skip(32);
+
+        /* init compressor */
+        uint32_t osize = bits_required >> 3;
+        uint8_t* out_buf = os.cur_data8();
+        uint64_t in_size = n * sizeof(T);
+        strm_enc.next_in = (uint8_t*)in_buf;
+        strm_enc.avail_in = in_size;
+        strm_enc.total_out = 0;
+        strm_enc.total_in = 0;
+
+        /* compress */
+        int res;
+        if ((res = lzma_easy_encoder(&strm_enc, t_level, LZMA_CHECK_NONE)) != LZMA_OK) {
+            LOG(FATAL) << "lzma-encode: error init LMZA encoder < n!";
+        }
+
+        auto total_written_bytes = 0ULL;
+        while(res != LZMA_STREAM_END) {
+            strm_enc.next_out = out_buf;
+            strm_enc.avail_out = osize;
+            if ((res = lzma_code(&strm_enc, LZMA_FINISH)) != LZMA_OK && res != LZMA_STREAM_END ) {
+                LOG(FATAL) << "lzma-encode: error code LZMA_FINISH < n!: " << res;
+            }
+            auto written_bytes = osize - strm_enc.avail_out;
+            total_written_bytes += written_bytes;
+            osize -= written_bytes;
+            out_buf += written_bytes;
+        }
+
+        *out_size = (uint32_t)total_written_bytes;
+        os.skip(total_written_bytes * 8); // skip over the written content
+    }
+
+    template <class t_bit_istream, class T>
+    inline void decode(const t_bit_istream& is, T* out_buf, size_t n) const
+    {
+        is.align8(); // align to bytes if needed
+
+        /* read the encoding size */
+        uint32_t* pin_size = (uint32_t*)is.cur_data8();
+        uint32_t in_size = *pin_size;
+        is.skip(32);
+
+        /* setup decoder */
+        auto in_buf = is.cur_data8();
+        uint64_t out_size = n * sizeof(T);
+        int res;
+        if ((res = lzma_auto_decoder(&strm_dec, lzma_mem_limit, 0)) != LZMA_OK) {
+            LOG(FATAL) << "lzma-decode: error init LMZA decoder:" << res;
+        }
+        
+        strm_dec.next_in = in_buf;
+        strm_dec.avail_in = in_size;
+        auto total_decoded = 0ULL;
+        while(res != LZMA_STREAM_END) {
+            strm_dec.next_out = (uint8_t*)out_buf;
+            strm_dec.avail_out = out_size;
+            /* decode */
+            res = lzma_code (&strm_dec, LZMA_RUN);
+            auto decoded = out_size - strm_dec.avail_out;
+            total_decoded += decoded;
+            out_buf += decoded;
+            out_size -= decoded;
+            if(res != LZMA_OK && res != LZMA_STREAM_END) {
+                lzma_end(&strm_dec);
+                LOG(FATAL) << "lzma-decode: error decoding LZMA_RUN: " << res;
+            }
+            if(res == LZMA_STREAM_END) break;
+        }
+        
+        if(total_decoded != n * sizeof(T)) {
+            LOG(ERROR) << "lzma-decode: decoded bytes = " << total_decoded << " should be = " << n * sizeof(T);
+        }
+
+        /* finish decoding */
+        // lzma_end(&strm);
         is.skip(in_size * 8); // skip over the read content
     }
 };

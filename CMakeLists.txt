@@ -54,6 +54,16 @@ if(TARGET example64)
     set_target_properties(example64 minigzip64 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 endif()
 
+# liblzma
+include(ExternalProject)
+ExternalProject_Add(
+  liblzma
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/liblzma/
+  CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/external/liblzma/configure --prefix=${CMAKE_BINARY_DIR}/external/liblzma --disable-xz --disable-scripts --disable-xzdec --disable-lzmadec --disable-lzmainfo --disable-lzma-links
+  PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/liblzma/
+  BUILD_COMMAND make install
+  BUILD_IN_SOURCE 1
+)
 
 include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/include
@@ -67,10 +77,13 @@ include_directories("${PROJECT_SOURCE_DIR}/external/googletest/include"
                      ${CMAKE_HOME_DIRECTORY}/external/brotli/enc/
                      ${CMAKE_HOME_DIRECTORY}/external/brotli/dec/
                      ${CMAKE_BINARY_DIR}/external/zlib/
+                     ${CMAKE_BINARY_DIR}/external/liblzma/include/
                      ${CMAKE_HOME_DIRECTORY}/external/bzip2-1.0.6/
                      ${CMAKE_HOME_DIRECTORY}/external/mongoose/
                      ${STXXL_INCLUDE_DIRS}
                     )
+
+link_directories(${CMAKE_BINARY_DIR}/external/liblzma/lib/)
 
 set(LZ4_DIR  ${CMAKE_HOME_DIRECTORY}/external/lz4/lib/)
 set(LZ4_SRCS_LIB ${LZ4_DIR}lz4.c ${LZ4_DIR}lz4hc.c ${LZ4_DIR}lz4.h ${LZ4_DIR}lz4hc.h ${LZ4_DIR}lz4frame.c ${LZ4_DIR}lz4frame.h ${LZ4_DIR}xxhash.c)
@@ -82,14 +95,18 @@ file(GLOB BROTLI_SRCS_DEC_LIB ${BROTLI_DIR}/dec/*.c)
 add_library(brotli ${BROTLI_SRCS_ENC_LIB} ${BROTLI_SRCS_DEC_LIB})
 
 add_executable(rlzs-create.x src/rlzs-create.cpp)
-target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli)
+target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli lzma)
 
 add_executable(lzs-create.x src/lzs-create.cpp)
-target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli)
+target_link_libraries(lzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli lzma)
 
 add_executable(create-collection.x src/create-collection.cpp)
-target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2 brotli)
+target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2 brotli lzma)
 
 add_executable(unit-tests.x src/unit-tests.cpp)
-target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2 brotli)
+target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2 brotli lzma)
 
+
+# WSDM EXPERIMENTS
+add_executable(create-indexes-wsdm-colcmp.x src/experiments/create-indexes-wsdm-colcmp.cpp)
+target_link_libraries(create-indexes-wsdm-colcmp.x divsufsort divsufsort64 sdsl pthread zlib lz4 bzip2 brotli lzma)
