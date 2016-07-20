@@ -24,7 +24,10 @@ double compute_archive_ratio(t_idx& idx)
         uint64_t out_len = dict_buf.size();
         int cok = compress2(out_buf,&out_len,dict,dict_size,9);
         if(cok != Z_OK) {
-            LOG(FATAL) << "error compressing dictionary.";
+            if(cok == Z_MEM_ERROR) LOG(FATAL) << "error compressing dictionary: Z_MEM_ERROR";
+            if(cok == Z_BUF_ERROR) LOG(FATAL) << "error compressing dictionary: Z_BUF_ERROR";
+            if(cok == Z_STREAM_ERROR) LOG(FATAL) << "error compressing dictionary: Z_STREAM_ERROR";
+            LOG(FATAL) << "error compressing ditionary: UNKNOWN ERROR ("<<cok<<")";
         }
         bits_compressed_dict = out_len * 8;
     }
@@ -52,7 +55,7 @@ void create_indexes(collection& col, utils::cmdargs_t& args,std::string col_name
 {    
     const uint32_t factorization_blocksize = 64 * 1024;
     {
-        auto rlz_store = rlz_store_static<dict_local_coverage_norms<1024,16,512,std::ratio<1,2>>,
+        auto rlz_store = rlz_store_static<dict_local_coverage_norms<1024,16,512,std::ratio<1,2>,RAND>,
                     dict_prune_none,
                     dict_index_sa,
                     factorization_blocksize,
@@ -67,7 +70,7 @@ void create_indexes(collection& col, utils::cmdargs_t& args,std::string col_name
                     
         uint32_t dict_size_mib = dict_size_in_bytes / (1024*1024);
             
-        verify_index(col, rlz_store);
+        //verify_index(col, rlz_store);
         double archive_ratio = compute_archive_ratio(rlz_store);
 
         LOG(INFO) << col_name << ";RLZ-WWW-" << dict_size_mib << ";" << archive_ratio;
@@ -78,7 +81,7 @@ void create_indexes(collection& col, utils::cmdargs_t& args,std::string col_name
                             .set_rebuild(args.rebuild)
                             .set_threads(args.threads)
                             .build_or_load(col);
-        verify_index(col, lz_store);
+        //verify_index(col, lz_store);
         double archive_ratio = compute_archive_ratio_lz(lz_store);
         LOG(INFO) << col_name << ";ZLIB-9;" << archive_ratio;
     }
@@ -91,147 +94,15 @@ int main(int argc, const char* argv[])
     /* parse command line */
     LOG(INFO) << "Parsing command line arguments";
     auto args = utils::parse_args(argc, argv);
-    std::string base_path = args.collection_dir + "/";
+    std::string base_path = args.collection_dir;
+    std::string col_name = sdsl::util::basename(base_path);
+    std::string col_dir = base_path;
 
     /* parse the collection */
-    {
-        std::string col_name = "GOV2-64G-0";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-1";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-2";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-3";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-4";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-5";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "GOV2-64G-6";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-
-
-
-
-
-
-
-
-    {
-        std::string col_name = "HGOV2-64G-0";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-1";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-2";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-3";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-4";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-5";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "HGOV2-64G-6";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-
-
-
-
-    {
-        std::string col_name = "UGOV2-64G-0";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-1";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-2";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-3";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-4";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-5";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
-    {
-        std::string col_name = "UGOV2-64G-6";
-        std::string col_dir = base_path + "/" + col_name;
-        collection col(col_dir);
-        create_indexes<8 * 1024 * 1024>(col, args,col_name);
-    }
+    LOG(INFO) << "col name = " << col_name;
+    LOG(INFO) << "col dir = " << col_dir;
+    collection col(col_dir);
+    create_indexes<16 * 1024 * 1024>(col, args,col_name);
 
     return EXIT_SUCCESS;
 }
