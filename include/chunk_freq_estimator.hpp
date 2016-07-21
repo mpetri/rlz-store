@@ -98,6 +98,11 @@ struct fixed_hasher {
         return fasthash64<t_block_size>(buf.data() + cur_pos_in_buf - buf_start_pos,seed);
     }
 
+    inline uint64_t compute_hash(const uint8_t* ptr) {
+
+        return fasthash64<t_block_size>(ptr,seed);
+    }
+
     inline uint64_t update(uint8_t sym)
     {
         if (cur_pos_in_buf == buf.size()) {
@@ -108,6 +113,10 @@ struct fixed_hasher {
         auto hash = compute_current_hash();
         cur_pos_in_buf++;
         return hash;
+    }
+
+    inline uint64_t update_and_hash(uint8_t sym) {
+        return update(sym);
     }
 
     static std::string type()

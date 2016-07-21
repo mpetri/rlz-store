@@ -93,47 +93,41 @@ public:
             // (1) create frequency estimates
             // try to load the estimates instead of recomputing
             // uint32_t down_size = 256;
-            auto rs_name = container_file_name(col, size_in_bytes) + "-RSample-" + std::to_string(down_size);
+            int seed = 2;
+            auto rs_name = container_file_name(col, size_in_bytes) + "-RSample-" + std::to_string(down_size) +
+                "-seed=" + std::to_string(seed);
 
 
             uint64_t rs_size = text.size() / down_size;
             std::vector<uint64_t> rs; //filter out frequency less than 64
+            std::mt19937 gen(seed);
             if (!utils::file_exists(rs_name) || rebuild) {
                 auto start = hrclock::now();
                 LOG(INFO) << "\tBuilding Reservoir sample with downsize: " << down_size;
-                //make a reservoir sampler and keep it in RAM
-                uint64_t skip = 0;
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_real_distribution<double> dis(0, 1);
+                std::uniform_real_distribution<double> dis(0.0f, 1.0f);
 
-                //double r = dis(gen);
                 double w = std::exp(std::log(dis(gen)) / rs_size);
-                double log1w = std::log(1 - w);
-                double s = std::floor(std::log(dis(gen)) / log1w);
+                double s = std::floor(std::log(dis(gen)) / std::log(1-w));
                 
-                fixed_hasher_lazy<t_estimator_block_size> lrk;
+                fixed_hasher<t_estimator_block_size> lrk;
                 
-                size_t i = 0;
-                for (; i < t_estimator_block_size - 1;i++)
-                    lrk.update(text[i]);
+                const uint8_t* ptr = (const uint8_t*) text.data();
+                size_t i=0;
                 for (; i < text.size(); i++) {
-                    auto sym = text[i];
-                    auto hash = lrk.update_and_hash(sym);
+                    auto hash = lrk.compute_hash(ptr);
+                    ptr++;
                     rs.push_back(hash);
                     if(rs.size() == rs_size) break;
                 }
-                for (; i < text.size(); i++) {
-                    auto sym = text[i];
-                    lrk.update(sym);
-                    skip++;
-                    if (skip == s + 1) {
-                        auto hash = lrk.compute_current_hash();
-                        rs[1 + std::floor(rs_size * dis(gen))] = hash;
-                        w *= std::exp(std::log(dis(gen)) / rs_size);
-                        s = std::floor(std::log(dis(gen)) / log1w);
-                        skip = 0;
-                    }
+                size_t last = text.size() - t_estimator_block_size;
+                for (; i <= last; i++) {
+                    auto hash = lrk.compute_hash(ptr);
+                    rs[1 + std::floor(rs_size * dis(gen))] = hash;
+                    w *= std::exp( std::log(dis(gen)) / rs_size );
+                    double rnd = std::log(dis(gen));
+                    s = std::floor( rnd / std::log(1-w) );
+                    i += (size_t) (s+1);
+                    ptr += (size_t) (s+1);
                 }
                 auto stop = hrclock::now();
                 LOG(INFO) << "\tReservoir sampling time = " 
@@ -187,7 +181,7 @@ public:
             }
             // //try randomly ordered max cov
             if (t_method == RAND)
-                std::random_shuffle(step_indices.begin(), step_indices.end());
+                std::shuffle(step_indices.begin(), step_indices.end(),gen);
 
             auto stop = hrclock::now();
             LOG(INFO) << "\t1st pass runtime = " << duration_cast<milliseconds>(stop - start).count() / 1000.0f << " sec";
@@ -221,13 +215,11 @@ public:
                     double sum_weights_current = 0;
 
                     //computational expensive place
+                    const uint8_t* start = (const uint8_t*) text.data();
+                    const uint8_t* ptr = start + step_pos + j;
                     for (size_t k = 0; k < t_block_size; k++) { //bytes?k=k+2?
-                        auto sym = text[step_pos + j + k];
-                        auto hash = rk.update(sym);
-
-                        if (k < t_estimator_block_size - 1)
-                            continue;
-
+                        auto hash = rk.compute_hash(ptr);
+                        ptr++;
                         if (local_mers.find(hash) == local_mers.end() && step_mers.find(hash) == step_mers.end()) //continues rolling
                         { //expensive checking
                             if (mers_counts.find(hash) != mers_counts.end()) {

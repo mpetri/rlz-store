@@ -175,7 +175,7 @@ public:
         auto lz_file_name = encoding_file_name(col);
         auto bo_file_name = blockoffsets_file_name(col);
         if (rebuild || !utils::file_exists(lz_file_name)) {
-            LOG(INFO) << "Encoding text (" << base_type::type() << ")";
+            LOG(INFO) << "Encoding text (" << base_type::type() << ") threads = " << num_threads;
             auto start_enc = hrclock::now();
             const sdsl::int_vector_mapper<8, std::ios_base::in> text(col.file_map[KEY_TEXT]);
             auto encoded_text = sdsl::write_out_buffer<1>::create(lz_file_name);
@@ -199,12 +199,14 @@ public:
                         break;
                 }
                 // join the threads
+                size_t j=1;
                 for (auto& fbe : fis) {
                     const auto& be = fbe.get();
                     size_t size_offset = encoded_stream.tellp();    
                     for (const auto& o : be.offsets) {
                         block_offsets.push_back(size_offset + o);
                     }
+                    LOG(INFO) << "\t writing block " << j++;
                     encoded_stream.append(be.data);
                 }
                 LOG(INFO) << "\t encoded blocks: " << init_blocks - num_blocks << "/" << init_blocks;
