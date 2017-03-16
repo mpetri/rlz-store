@@ -168,7 +168,7 @@ parse_args(int argc, const char* argv[])
     args.threads = 1;
     args.dict_size_in_bytes = 0;
     args.pruned_dict_size_in_bytes = 0;
-    while ((op = getopt(argc, (char* const*)argv, "c:s:t")) != -1) {
+    while ((op = getopt(argc, (char* const*)argv, "c:s:t:")) != -1) {
         switch (op) {
         case 'c':
             args.collection_dir = optarg;
