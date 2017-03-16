@@ -19,7 +19,7 @@ template <uint32_t t_block_size = 1024,
     uint32_t t_estimator_block_size = 16,
     uint32_t t_down_size = 512,
     class t_norm = std::ratio<1, 2>,
-    ACCESS_TYPE t_method = SEQ>
+    ACCESS_TYPE t_method = RAND>
 class dict_local_coverage_norms {
 public:
     static std::string type()

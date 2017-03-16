@@ -25,7 +25,7 @@ int main(int argc, const char* argv[])
     /* create rlz index */
     const uint32_t factorization_blocksize = 64 * 1024;
     {
-        auto rlz_store = rlz_store_static<dict_uniform_sample_budget<default_dict_sample_block_size>,
+        auto rlz_store = rlz_store_static<dict_local_coverage_norms<>,
                              dict_prune_none,
                              dict_index_csa<>,
                              factorization_blocksize,

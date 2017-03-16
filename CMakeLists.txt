@@ -94,6 +94,9 @@ file(GLOB BROTLI_SRCS_ENC_LIB ${BROTLI_DIR}/enc/*.cc)
 file(GLOB BROTLI_SRCS_DEC_LIB ${BROTLI_DIR}/dec/*.c)
 add_library(brotli ${BROTLI_SRCS_ENC_LIB} ${BROTLI_SRCS_DEC_LIB})
 
+add_executable(rlzs-create-www.x src/rlzs-create-www.cpp)
+target_link_libraries(rlzs-create-www.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli lzma)
+
 add_executable(rlzs-create.x src/rlzs-create.cpp)
 target_link_libraries(rlzs-create.x sdsl pthread divsufsort divsufsort64 zlib lz4 bzip2 brotli lzma)
 
@@ -106,7 +109,3 @@ target_link_libraries(create-collection.x sdsl pthread zlib lz4 bzip2 brotli lzm
 add_executable(unit-tests.x src/unit-tests.cpp)
 target_link_libraries(unit-tests.x sdsl pthread zlib gtest_main lz4 bzip2 brotli lzma)
 
-
-# WSDM EXPERIMENTS
-add_executable(create-indexes-wsdm-colcmp.x src/experiments/create-indexes-wsdm-colcmp.cpp)
-target_link_libraries(create-indexes-wsdm-colcmp.x divsufsort divsufsort64 sdsl pthread zlib lz4 bzip2 brotli lzma)
