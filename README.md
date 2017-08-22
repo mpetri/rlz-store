@@ -2,7 +2,7 @@
 # Install Instructions
 
 0. install libboost and liblzma-dev on linux
-1. `git clone git@github.com:/unimelbIR/rlz-store.git`
+1. `git clone git@github.com:/mpetri/rlz-store.git`
 2. `cd rlz-store`
 3. `git submodule update --init --recursive`
 3. `mkdir build`
