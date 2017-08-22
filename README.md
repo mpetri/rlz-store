@@ -9,19 +9,13 @@
 4. `cmake ..`
 5. `make`
 
-# Creating an index with 8MB dict ant 15 threads
-
-1. `cd build`
-2. `make`
-3. `./rlz-create.x -c ../collections/<name of col> -s 8 -t 15
-
 # Creating a collection and index
 
-Create a collection from a file 
+Create a collection from a file `english.200MB`
 
 `./create-collection.x -c ../collections/english200 -i english.200MB
 
 Create the index
 
-`./rlz-create.x -c ../collections/english200 -s 8 -t 15
+`./rlz-create.x -c ../collections/english200 -s 8 -t 15`
 
