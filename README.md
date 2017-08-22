@@ -14,7 +14,7 @@
 
 Create a collection from a file `english.200MB`
 
-`./create-collection.x -c ../collections/english200 -i english.200MB
+`./create-collection.x -c ../collections/english200 -i english.200MB`
 
 Create the index using a `8` MiB dictionary and `5` threads
 
